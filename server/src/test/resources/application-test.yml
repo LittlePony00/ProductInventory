@@ -1,0 +1,14 @@
+spring:
+  datasource:
+    url: jdbc:h2:mem:testdb
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    database-platform: org.hibernate.dialect.H2Dialect
+
+jwt:
+  secret: test-secret-key-for-jwt-that-is-at-least-256-bits-long-for-hmac-sha256
+  access-token-expiration-ms: 3600000

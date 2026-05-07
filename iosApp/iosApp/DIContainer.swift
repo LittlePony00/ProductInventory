@@ -1,0 +1,21 @@
+import Shared
+
+final class DIContainer {
+    static let shared = DIContainer()
+    private let koinHelper = KoinHelper()
+
+    private init() {}
+
+    static func initKoin() {
+        KoinHelperKt.doInitKoin()
+    }
+
+    func loginViewModel() -> LoginViewModel { koinHelper.loginViewModel() }
+    func registerViewModel() -> RegisterViewModel { koinHelper.registerViewModel() }
+    func householdListViewModel() -> HouseholdListViewModel { koinHelper.householdListViewModel() }
+    func productListViewModel() -> ProductListViewModel { koinHelper.productListViewModel() }
+    func addProductViewModel() -> AddProductViewModel { koinHelper.addProductViewModel() }
+    func profileViewModel() -> ProfileViewModel { koinHelper.profileViewModel() }
+    func notificationListViewModel() -> NotificationListViewModel { koinHelper.notificationListViewModel() }
+    func recipeListViewModel() -> RecipeListViewModel { koinHelper.recipeListViewModel() }
+}
