@@ -14,7 +14,19 @@ interface ProductRepository {
         category: ProductCategory,
         quantity: Double,
         quantityUnit: QuantityUnit,
-        expirationDate: LocalDate?
+        expirationDate: LocalDate?,
+        brand: String? = null,
+        barcode: String? = null,
+        packageAmount: Double? = null,
+        packageUnit: QuantityUnit? = null,
+        ingredientsText: String? = null,
+        calories: Double? = null,
+        protein: Double? = null,
+        fat: Double? = null,
+        carbs: Double? = null,
+        purchaseDate: LocalDate? = null,
+        remainingAmount: Double? = null,
+        lowStockThreshold: Double? = null
     ): Product
 
     suspend fun updateProduct(
@@ -24,7 +36,19 @@ interface ProductRepository {
         category: ProductCategory?,
         quantity: Double?,
         quantityUnit: QuantityUnit?,
-        expirationDate: LocalDate?
+        expirationDate: LocalDate?,
+        brand: String? = null,
+        barcode: String? = null,
+        packageAmount: Double? = null,
+        packageUnit: QuantityUnit? = null,
+        ingredientsText: String? = null,
+        calories: Double? = null,
+        protein: Double? = null,
+        fat: Double? = null,
+        carbs: Double? = null,
+        purchaseDate: LocalDate? = null,
+        remainingAmount: Double? = null,
+        lowStockThreshold: Double? = null
     ): Product
 
     suspend fun deleteProduct(householdId: String, productId: String)

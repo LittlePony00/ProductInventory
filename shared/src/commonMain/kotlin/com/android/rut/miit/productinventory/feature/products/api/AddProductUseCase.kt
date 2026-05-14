@@ -12,8 +12,39 @@ class AddProductUseCase(private val repository: ProductRepository) {
         category: ProductCategory,
         quantity: Double,
         quantityUnit: QuantityUnit,
-        expirationDate: LocalDate?
+        expirationDate: LocalDate?,
+        brand: String? = null,
+        barcode: String? = null,
+        packageAmount: Double? = null,
+        packageUnit: QuantityUnit? = null,
+        ingredientsText: String? = null,
+        calories: Double? = null,
+        protein: Double? = null,
+        fat: Double? = null,
+        carbs: Double? = null,
+        purchaseDate: LocalDate? = null,
+        remainingAmount: Double? = null,
+        lowStockThreshold: Double? = null
     ): Product {
-        return repository.addProduct(householdId, name, category, quantity, quantityUnit, expirationDate)
+        return repository.addProduct(
+            householdId = householdId,
+            name = name,
+            category = category,
+            quantity = quantity,
+            quantityUnit = quantityUnit,
+            expirationDate = expirationDate,
+            brand = brand,
+            barcode = barcode,
+            packageAmount = packageAmount,
+            packageUnit = packageUnit,
+            ingredientsText = ingredientsText,
+            calories = calories,
+            protein = protein,
+            fat = fat,
+            carbs = carbs,
+            purchaseDate = purchaseDate,
+            remainingAmount = remainingAmount,
+            lowStockThreshold = lowStockThreshold
+        )
     }
 }

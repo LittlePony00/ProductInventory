@@ -11,9 +11,21 @@ interface IProductService {
         userId: UUID,
         householdId: UUID,
         name: String,
+        brand: String?,
+        barcode: String?,
         category: ProductCategory,
         quantity: Double,
         quantityUnit: QuantityUnit,
+        packageAmount: Double?,
+        packageUnit: QuantityUnit?,
+        ingredientsText: String?,
+        calories: Double?,
+        protein: Double?,
+        fat: Double?,
+        carbs: Double?,
+        purchaseDate: LocalDate?,
+        remainingAmount: Double?,
+        lowStockThreshold: Double?,
         expirationDate: LocalDate?
     ): Product
 
@@ -21,9 +33,21 @@ interface IProductService {
         userId: UUID,
         productId: UUID,
         name: String?,
+        brand: String?,
+        barcode: String?,
         category: ProductCategory?,
         quantity: Double?,
         quantityUnit: QuantityUnit?,
+        packageAmount: Double?,
+        packageUnit: QuantityUnit?,
+        ingredientsText: String?,
+        calories: Double?,
+        protein: Double?,
+        fat: Double?,
+        carbs: Double?,
+        purchaseDate: LocalDate?,
+        remainingAmount: Double?,
+        lowStockThreshold: Double?,
         expirationDate: LocalDate?
     ): Product
 
