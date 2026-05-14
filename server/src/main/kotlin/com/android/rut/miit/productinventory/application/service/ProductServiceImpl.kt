@@ -5,6 +5,7 @@ import com.android.rut.miit.productinventory.domain.exception.EntityNotFoundExce
 import com.android.rut.miit.productinventory.domain.model.*
 import com.android.rut.miit.productinventory.domain.port.inbound.IProductService
 import com.android.rut.miit.productinventory.domain.port.outbound.IMembershipRepository
+import com.android.rut.miit.productinventory.domain.port.outbound.IHouseholdEventPublisher
 import com.android.rut.miit.productinventory.domain.port.outbound.INotificationRepository
 import com.android.rut.miit.productinventory.domain.port.outbound.INotificationSender
 import com.android.rut.miit.productinventory.domain.port.outbound.IProductRepository
@@ -18,7 +19,8 @@ class ProductServiceImpl(
     private val productRepository: IProductRepository,
     private val membershipRepository: IMembershipRepository,
     private val notificationRepository: INotificationRepository,
-    private val notificationSender: INotificationSender
+    private val notificationSender: INotificationSender,
+    private val householdEventPublisher: IHouseholdEventPublisher
 ) : IProductService {
 
     @Transactional
@@ -67,6 +69,8 @@ class ProductServiceImpl(
             )
         )
 
+        publishProductEvent(HouseholdEventType.PRODUCT_CREATED, userId, product)
+        publishStateEvents(userId, product)
         notifyOtherMembers(userId, householdId, "New product", "${product.name} was added")
 
         return product
@@ -125,7 +129,25 @@ class ProductServiceImpl(
             expirationDate = expirationDate?.let { ExpirationDate(it) } ?: existing.expirationDate
         )
 
-        return productRepository.save(updated)
+        val saved = productRepository.save(updated)
+
+        publishProductEvent(HouseholdEventType.PRODUCT_UPDATED, userId, saved)
+        if (saved.category != existing.category) {
+            householdEventPublisher.publish(
+                HouseholdEvent(
+                    type = HouseholdEventType.CATEGORY_CHANGED,
+                    householdId = saved.householdId,
+                    actorUserId = userId,
+                    productId = saved.id,
+                    productName = saved.name,
+                    previousCategory = existing.category,
+                    currentCategory = saved.category
+                )
+            )
+        }
+        publishStateTransitionEvents(userId, existing, saved)
+
+        return saved
     }
 
     @Transactional
@@ -135,6 +157,7 @@ class ProductServiceImpl(
 
         requireMembership(userId, product.householdId)
         productRepository.deleteById(productId)
+        publishProductEvent(HouseholdEventType.PRODUCT_DELETED, userId, product)
     }
 
     @Transactional(readOnly = true)
@@ -172,6 +195,43 @@ class ProductServiceImpl(
             notificationSender.sendPush(membership.userId, title, message)
         }
     }
+
+    private fun publishProductEvent(type: HouseholdEventType, actorId: UUID, product: Product) {
+        householdEventPublisher.publish(
+            HouseholdEvent(
+                type = type,
+                householdId = product.householdId,
+                actorUserId = actorId,
+                productId = product.id,
+                productName = product.name,
+                currentCategory = product.category
+            )
+        )
+    }
+
+    private fun publishStateEvents(actorId: UUID, product: Product) {
+        if (product.isInventoryLow()) {
+            publishProductEvent(HouseholdEventType.INVENTORY_LOW, actorId, product)
+        }
+        if (product.isExpiringSoon()) {
+            publishProductEvent(HouseholdEventType.EXPIRING_SOON, actorId, product)
+        }
+    }
+
+    private fun publishStateTransitionEvents(actorId: UUID, previous: Product, current: Product) {
+        if (!previous.isInventoryLow() && current.isInventoryLow()) {
+            publishProductEvent(HouseholdEventType.INVENTORY_LOW, actorId, current)
+        }
+        if (!previous.isExpiringSoon() && current.isExpiringSoon()) {
+            publishProductEvent(HouseholdEventType.EXPIRING_SOON, actorId, current)
+        }
+    }
+
+    private fun Product.isInventoryLow(): Boolean =
+        lowStockThreshold?.let { remainingAmount <= it } ?: false
+
+    private fun Product.isExpiringSoon(): Boolean =
+        expirationDate?.status == ExpirationStatus.EXPIRING_SOON
 }
 
 private fun String.trimToNull(): String? = trim().takeIf { it.isNotEmpty() }

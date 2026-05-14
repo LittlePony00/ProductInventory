@@ -16,7 +16,8 @@ class HouseholdServiceImpl(
     private val membershipRepository: IMembershipRepository,
     private val inviteCodeRepository: IInviteCodeRepository,
     private val notificationRepository: INotificationRepository,
-    private val notificationSender: INotificationSender
+    private val notificationSender: INotificationSender,
+    private val householdEventPublisher: IHouseholdEventPublisher
 ) : IHouseholdService {
 
     @Transactional
@@ -98,6 +99,14 @@ class HouseholdServiceImpl(
             ?: throw EntityNotFoundException("Household", inviteCode.householdId)
 
         notifyOtherMembers(userId, inviteCode.householdId, "New member", "A new member joined ${household.name}")
+        householdEventPublisher.publish(
+            HouseholdEvent(
+                type = HouseholdEventType.MEMBER_JOINED,
+                householdId = inviteCode.householdId,
+                actorUserId = userId,
+                memberUserId = userId
+            )
+        )
 
         return household
     }

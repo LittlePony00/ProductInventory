@@ -1,5 +1,8 @@
 package com.android.rut.miit.productinventory.application.service
 
+import com.android.rut.miit.productinventory.domain.model.HouseholdEvent
+import com.android.rut.miit.productinventory.domain.model.HouseholdEventType
+import com.android.rut.miit.productinventory.domain.model.ExpirationDate
 import com.android.rut.miit.productinventory.domain.model.Membership
 import com.android.rut.miit.productinventory.domain.model.MembershipRole
 import com.android.rut.miit.productinventory.domain.model.Notification
@@ -7,6 +10,7 @@ import com.android.rut.miit.productinventory.domain.model.Product
 import com.android.rut.miit.productinventory.domain.model.ProductCategory
 import com.android.rut.miit.productinventory.domain.model.Quantity
 import com.android.rut.miit.productinventory.domain.model.QuantityUnit
+import com.android.rut.miit.productinventory.domain.port.outbound.IHouseholdEventPublisher
 import com.android.rut.miit.productinventory.domain.port.outbound.IMembershipRepository
 import com.android.rut.miit.productinventory.domain.port.outbound.INotificationRepository
 import com.android.rut.miit.productinventory.domain.port.outbound.INotificationSender
@@ -36,7 +40,8 @@ class ProductServiceImplTest {
             productRepository = productRepository,
             membershipRepository = membershipRepository,
             notificationRepository = notificationRepository,
-            notificationSender = notificationSender
+            notificationSender = notificationSender,
+            householdEventPublisher = RecordingHouseholdEventPublisher()
         )
         val purchaseDate = LocalDate.of(2026, 5, 14)
 
@@ -110,7 +115,8 @@ class ProductServiceImplTest {
                 memberships = listOf(Membership(userId = actorId, householdId = householdId, role = MembershipRole.OWNER))
             ),
             notificationRepository = RecordingNotificationRepository(),
-            notificationSender = RecordingNotificationSender()
+            notificationSender = RecordingNotificationSender(),
+            householdEventPublisher = RecordingHouseholdEventPublisher()
         )
 
         val updated = service.updateProduct(
@@ -162,7 +168,8 @@ class ProductServiceImplTest {
                 memberships = listOf(Membership(userId = actorId, householdId = householdId, role = MembershipRole.OWNER))
             ),
             notificationRepository = RecordingNotificationRepository(),
-            notificationSender = RecordingNotificationSender()
+            notificationSender = RecordingNotificationSender(),
+            householdEventPublisher = RecordingHouseholdEventPublisher()
         )
 
         val product = service.addProduct(
@@ -189,6 +196,234 @@ class ProductServiceImplTest {
 
         assertEquals(1_000.0, product.packageQuantity?.value)
         assertEquals(QuantityUnit.PIECES, product.packageQuantity?.unit)
+    }
+
+    @Test
+    fun `add product publishes created low inventory and expiring soon events`() {
+        val actorId = UUID.randomUUID()
+        val householdId = UUID.randomUUID()
+        val eventPublisher = RecordingHouseholdEventPublisher()
+        val service = ProductServiceImpl(
+            productRepository = InMemoryProductRepository(),
+            membershipRepository = FakeMembershipRepository(
+                memberships = listOf(Membership(userId = actorId, householdId = householdId, role = MembershipRole.OWNER))
+            ),
+            notificationRepository = RecordingNotificationRepository(),
+            notificationSender = RecordingNotificationSender(),
+            householdEventPublisher = eventPublisher
+        )
+
+        val product = service.addProduct(
+            userId = actorId,
+            householdId = householdId,
+            name = "Yogurt",
+            brand = null,
+            barcode = null,
+            category = ProductCategory.DAIRY,
+            quantity = 1.0,
+            quantityUnit = QuantityUnit.PIECES,
+            packageAmount = null,
+            packageUnit = null,
+            ingredientsText = null,
+            calories = null,
+            protein = null,
+            fat = null,
+            carbs = null,
+            purchaseDate = null,
+            remainingAmount = 0.25,
+            lowStockThreshold = 0.5,
+            expirationDate = LocalDate.now().plusDays(1)
+        )
+
+        assertEquals(
+            listOf(
+                HouseholdEventType.PRODUCT_CREATED,
+                HouseholdEventType.INVENTORY_LOW,
+                HouseholdEventType.EXPIRING_SOON
+            ),
+            eventPublisher.events.map { it.type }
+        )
+        eventPublisher.events.forEach { event ->
+            assertEquals(householdId, event.householdId)
+            assertEquals(actorId, event.actorUserId)
+            assertEquals(product.id, event.productId)
+            assertEquals("Yogurt", event.productName)
+        }
+    }
+
+    @Test
+    fun `update product publishes updated and category changed events`() {
+        val actorId = UUID.randomUUID()
+        val householdId = UUID.randomUUID()
+        val existing = Product(
+            id = UUID.randomUUID(),
+            name = "Rice",
+            category = ProductCategory.CEREALS,
+            quantity = Quantity(1.0, QuantityUnit.PIECES),
+            householdId = householdId,
+            addedByUserId = actorId
+        )
+        val eventPublisher = RecordingHouseholdEventPublisher()
+        val service = ProductServiceImpl(
+            productRepository = InMemoryProductRepository(initialProducts = listOf(existing)),
+            membershipRepository = FakeMembershipRepository(
+                memberships = listOf(Membership(userId = actorId, householdId = householdId, role = MembershipRole.OWNER))
+            ),
+            notificationRepository = RecordingNotificationRepository(),
+            notificationSender = RecordingNotificationSender(),
+            householdEventPublisher = eventPublisher
+        )
+
+        service.updateProduct(
+            userId = actorId,
+            productId = existing.id,
+            name = null,
+            brand = null,
+            barcode = null,
+            category = ProductCategory.OTHER,
+            quantity = null,
+            quantityUnit = null,
+            packageAmount = null,
+            packageUnit = null,
+            ingredientsText = null,
+            calories = null,
+            protein = null,
+            fat = null,
+            carbs = null,
+            purchaseDate = null,
+            remainingAmount = null,
+            lowStockThreshold = null,
+            expirationDate = null
+        )
+
+        assertEquals(
+            listOf(HouseholdEventType.PRODUCT_UPDATED, HouseholdEventType.CATEGORY_CHANGED),
+            eventPublisher.events.map { it.type }
+        )
+        val categoryChanged = eventPublisher.events.last()
+        assertEquals(ProductCategory.CEREALS, categoryChanged.previousCategory)
+        assertEquals(ProductCategory.OTHER, categoryChanged.currentCategory)
+    }
+
+    @Test
+    fun `update product publishes low inventory and expiring soon only when entering those states`() {
+        val actorId = UUID.randomUUID()
+        val householdId = UUID.randomUUID()
+        val existing = Product(
+            id = UUID.randomUUID(),
+            name = "Milk",
+            category = ProductCategory.DAIRY,
+            quantity = Quantity(2.0, QuantityUnit.PIECES),
+            remainingAmount = 2.0,
+            lowStockThreshold = 0.5,
+            expirationDate = ExpirationDate(LocalDate.now().plusDays(7)),
+            householdId = householdId,
+            addedByUserId = actorId
+        )
+        val eventPublisher = RecordingHouseholdEventPublisher()
+        val service = ProductServiceImpl(
+            productRepository = InMemoryProductRepository(initialProducts = listOf(existing)),
+            membershipRepository = FakeMembershipRepository(
+                memberships = listOf(Membership(userId = actorId, householdId = householdId, role = MembershipRole.OWNER))
+            ),
+            notificationRepository = RecordingNotificationRepository(),
+            notificationSender = RecordingNotificationSender(),
+            householdEventPublisher = eventPublisher
+        )
+
+        service.updateProduct(
+            userId = actorId,
+            productId = existing.id,
+            name = null,
+            brand = null,
+            barcode = null,
+            category = null,
+            quantity = null,
+            quantityUnit = null,
+            packageAmount = null,
+            packageUnit = null,
+            ingredientsText = null,
+            calories = null,
+            protein = null,
+            fat = null,
+            carbs = null,
+            purchaseDate = null,
+            remainingAmount = 0.25,
+            lowStockThreshold = null,
+            expirationDate = LocalDate.now().plusDays(1)
+        )
+
+        assertEquals(
+            listOf(
+                HouseholdEventType.PRODUCT_UPDATED,
+                HouseholdEventType.INVENTORY_LOW,
+                HouseholdEventType.EXPIRING_SOON
+            ),
+            eventPublisher.events.map { it.type }
+        )
+
+        service.updateProduct(
+            userId = actorId,
+            productId = existing.id,
+            name = "Milk updated",
+            brand = null,
+            barcode = null,
+            category = null,
+            quantity = null,
+            quantityUnit = null,
+            packageAmount = null,
+            packageUnit = null,
+            ingredientsText = null,
+            calories = null,
+            protein = null,
+            fat = null,
+            carbs = null,
+            purchaseDate = null,
+            remainingAmount = null,
+            lowStockThreshold = null,
+            expirationDate = null
+        )
+
+        assertEquals(
+            listOf(
+                HouseholdEventType.PRODUCT_UPDATED,
+                HouseholdEventType.INVENTORY_LOW,
+                HouseholdEventType.EXPIRING_SOON,
+                HouseholdEventType.PRODUCT_UPDATED
+            ),
+            eventPublisher.events.map { it.type }
+        )
+    }
+
+    @Test
+    fun `delete product publishes deleted event`() {
+        val actorId = UUID.randomUUID()
+        val householdId = UUID.randomUUID()
+        val existing = Product(
+            id = UUID.randomUUID(),
+            name = "Rice",
+            category = ProductCategory.CEREALS,
+            quantity = Quantity(1.0, QuantityUnit.PIECES),
+            householdId = householdId,
+            addedByUserId = actorId
+        )
+        val eventPublisher = RecordingHouseholdEventPublisher()
+        val service = ProductServiceImpl(
+            productRepository = InMemoryProductRepository(initialProducts = listOf(existing)),
+            membershipRepository = FakeMembershipRepository(
+                memberships = listOf(Membership(userId = actorId, householdId = householdId, role = MembershipRole.OWNER))
+            ),
+            notificationRepository = RecordingNotificationRepository(),
+            notificationSender = RecordingNotificationSender(),
+            householdEventPublisher = eventPublisher
+        )
+
+        service.deleteProduct(actorId, existing.id)
+
+        val event = eventPublisher.events.single()
+        assertEquals(HouseholdEventType.PRODUCT_DELETED, event.type)
+        assertEquals(existing.id, event.productId)
+        assertEquals(householdId, event.householdId)
     }
 
     private class InMemoryProductRepository(
@@ -259,6 +494,14 @@ class ProductServiceImplTest {
 
         override fun sendPush(userId: UUID, title: String, message: String) {
             sentPushes += Push(userId, title, message)
+        }
+    }
+
+    private class RecordingHouseholdEventPublisher : IHouseholdEventPublisher {
+        val events = mutableListOf<HouseholdEvent>()
+
+        override fun publish(event: HouseholdEvent) {
+            events += event
         }
     }
 
