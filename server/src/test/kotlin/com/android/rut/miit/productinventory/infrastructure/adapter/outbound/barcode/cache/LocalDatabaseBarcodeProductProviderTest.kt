@@ -34,10 +34,16 @@ class LocalDatabaseBarcodeProductProviderTest {
 
         val draft = provider.findDraft("4601234567890")
 
+        assertEquals("4601234567890", draft?.barcode)
         assertEquals("Milk", draft?.name)
         assertEquals("Brand", draft?.brand)
+        assertEquals("milk", draft?.ingredients)
+        assertEquals(1000.0, draft?.packageQuantity?.value)
         assertEquals(QuantityUnit.MILLILITERS, draft?.packageQuantity?.unit)
         assertEquals(60.0, draft?.nutrition?.caloriesKcal)
+        assertEquals(3.2, draft?.nutrition?.proteinGrams)
+        assertEquals(3.5, draft?.nutrition?.fatGrams)
+        assertEquals(4.7, draft?.nutrition?.carbohydratesGrams)
         assertEquals(ProductCategory.DAIRY, draft?.category)
         assertEquals(BarcodeProductSource.LOCAL_DATABASE, draft?.source)
     }
