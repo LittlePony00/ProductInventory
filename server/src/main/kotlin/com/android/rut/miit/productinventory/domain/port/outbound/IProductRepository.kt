@@ -6,6 +6,7 @@ import java.util.UUID
 
 interface IProductRepository {
     fun findById(id: UUID): Product?
+    fun findFirstByBarcode(barcode: String): Product?
     fun findByHouseholdId(householdId: UUID): List<Product>
     fun findExpiringBefore(householdId: UUID, date: LocalDate): List<Product>
     fun save(product: Product): Product
