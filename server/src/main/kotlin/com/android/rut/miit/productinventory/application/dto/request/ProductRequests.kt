@@ -11,6 +11,14 @@ data class CreateProductRequest(
     @field:NotBlank(message = "Product name is required")
     val name: String,
 
+    val barcode: String? = null,
+    val brand: String? = null,
+    val ingredients: String? = null,
+    val caloriesKcal: Double? = null,
+    val proteinGrams: Double? = null,
+    val fatGrams: Double? = null,
+    val carbohydratesGrams: Double? = null,
+
     @field:NotNull(message = "Category is required")
     val category: ProductCategory,
 
@@ -25,6 +33,13 @@ data class CreateProductRequest(
 
 data class UpdateProductRequest(
     val name: String? = null,
+    val barcode: String? = null,
+    val brand: String? = null,
+    val ingredients: String? = null,
+    val caloriesKcal: Double? = null,
+    val proteinGrams: Double? = null,
+    val fatGrams: Double? = null,
+    val carbohydratesGrams: Double? = null,
     val category: ProductCategory? = null,
     val quantity: Double? = null,
     val quantityUnit: QuantityUnit? = null,

@@ -10,6 +10,13 @@ import java.util.UUID
 data class ProductResponse(
     val id: UUID,
     val name: String,
+    val barcode: String?,
+    val brand: String?,
+    val ingredients: String?,
+    val caloriesKcal: Double?,
+    val proteinGrams: Double?,
+    val fatGrams: Double?,
+    val carbohydratesGrams: Double?,
     val category: ProductCategory,
     val quantity: Double,
     val quantityUnit: QuantityUnit,

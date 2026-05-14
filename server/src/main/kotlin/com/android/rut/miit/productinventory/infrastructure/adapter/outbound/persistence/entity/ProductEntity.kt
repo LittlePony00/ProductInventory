@@ -14,6 +14,27 @@ class ProductEntity(
     @Column(nullable = false)
     var name: String = "",
 
+    @Column
+    var barcode: String? = null,
+
+    @Column
+    var brand: String? = null,
+
+    @Column(columnDefinition = "TEXT")
+    var ingredients: String? = null,
+
+    @Column(name = "calories_kcal")
+    var caloriesKcal: Double? = null,
+
+    @Column(name = "protein_grams")
+    var proteinGrams: Double? = null,
+
+    @Column(name = "fat_grams")
+    var fatGrams: Double? = null,
+
+    @Column(name = "carbohydrates_grams")
+    var carbohydratesGrams: Double? = null,
+
     @Column(nullable = false)
     var category: String = "OTHER",
 

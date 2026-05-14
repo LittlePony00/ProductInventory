@@ -15,6 +15,9 @@ class ProductRepositoryAdapter(
     override fun findById(id: UUID): Product? =
         jpaRepository.findById(id).orElse(null)?.toDomain()
 
+    override fun findFirstByBarcode(barcode: String): Product? =
+        jpaRepository.findFirstByBarcode(barcode)?.toDomain()
+
     override fun findByHouseholdId(householdId: UUID): List<Product> =
         jpaRepository.findByHouseholdId(householdId).map { it.toDomain() }
 

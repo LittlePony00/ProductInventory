@@ -49,6 +49,11 @@ class GlobalExceptionHandler {
             .body(ErrorResponse(message = message, code = "VALIDATION_ERROR"))
     }
 
+    @ExceptionHandler(IllegalArgumentException::class)
+    fun handleIllegalArgument(ex: IllegalArgumentException): ResponseEntity<ErrorResponse> =
+        ResponseEntity.status(HttpStatus.BAD_REQUEST)
+            .body(ErrorResponse(message = ex.message ?: "Invalid request", code = "BAD_REQUEST"))
+
     @ExceptionHandler(Exception::class)
     fun handleGeneric(ex: Exception): ResponseEntity<ErrorResponse> =
         ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
