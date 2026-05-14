@@ -11,22 +11,44 @@ interface IProductService {
         userId: UUID,
         householdId: UUID,
         name: String,
+        brand: String?,
+        barcode: String?,
         category: ProductCategory,
         quantity: Double,
         quantityUnit: QuantityUnit,
-        expirationDate: LocalDate?,
-        barcode: String? = null
+        packageAmount: Double?,
+        packageUnit: QuantityUnit?,
+        ingredientsText: String?,
+        calories: Double?,
+        protein: Double?,
+        fat: Double?,
+        carbs: Double?,
+        purchaseDate: LocalDate?,
+        remainingAmount: Double?,
+        lowStockThreshold: Double?,
+        expirationDate: LocalDate?
     ): Product
 
     fun updateProduct(
         userId: UUID,
         productId: UUID,
         name: String?,
+        brand: String?,
+        barcode: String?,
         category: ProductCategory?,
         quantity: Double?,
         quantityUnit: QuantityUnit?,
-        expirationDate: LocalDate?,
-        barcode: String? = null
+        packageAmount: Double?,
+        packageUnit: QuantityUnit?,
+        ingredientsText: String?,
+        calories: Double?,
+        protein: Double?,
+        fat: Double?,
+        carbs: Double?,
+        purchaseDate: LocalDate?,
+        remainingAmount: Double?,
+        lowStockThreshold: Double?,
+        expirationDate: LocalDate?
     ): Product
 
     fun deleteProduct(userId: UUID, productId: UUID)

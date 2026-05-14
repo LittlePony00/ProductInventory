@@ -10,15 +10,26 @@ import java.util.UUID
 data class ProductResponse(
     val id: UUID,
     val name: String,
+    val brand: String?,
+    val barcode: String?,
     val category: ProductCategory,
     val quantity: Double,
     val quantityUnit: QuantityUnit,
+    val packageAmount: Double?,
+    val packageUnit: QuantityUnit?,
+    val ingredientsText: String?,
+    val calories: Double?,
+    val protein: Double?,
+    val fat: Double?,
+    val carbs: Double?,
+    val purchaseDate: LocalDate?,
+    val remainingAmount: Double,
+    val lowStockThreshold: Double?,
     val expirationDate: LocalDate?,
     val expirationStatus: ExpirationStatus,
     val householdId: UUID,
     val addedByUserId: UUID,
-    val createdAt: Instant,
-    val barcode: String?
+    val createdAt: Instant
 )
 
 data class BarcodeProductResponse(

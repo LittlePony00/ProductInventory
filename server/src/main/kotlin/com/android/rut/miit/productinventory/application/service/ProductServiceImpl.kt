@@ -26,23 +26,44 @@ class ProductServiceImpl(
         userId: UUID,
         householdId: UUID,
         name: String,
+        brand: String?,
+        barcode: String?,
         category: ProductCategory,
         quantity: Double,
         quantityUnit: QuantityUnit,
-        expirationDate: LocalDate?,
-        barcode: String?
+        packageAmount: Double?,
+        packageUnit: QuantityUnit?,
+        ingredientsText: String?,
+        calories: Double?,
+        protein: Double?,
+        fat: Double?,
+        carbs: Double?,
+        purchaseDate: LocalDate?,
+        remainingAmount: Double?,
+        lowStockThreshold: Double?,
+        expirationDate: LocalDate?
     ): Product {
         requireMembership(userId, householdId)
 
         val product = productRepository.save(
             Product(
                 name = name.trim(),
+                brand = brand?.trimToNull(),
+                barcode = barcode?.trimToNull(),
                 category = category,
                 quantity = Quantity(value = quantity, unit = quantityUnit),
+                packageQuantity = packageAmount?.let { Quantity(value = it, unit = packageUnit ?: quantityUnit) },
+                ingredientsText = ingredientsText?.trimToNull(),
+                calories = calories,
+                protein = protein,
+                fat = fat,
+                carbs = carbs,
+                purchaseDate = purchaseDate,
+                remainingAmount = remainingAmount ?: quantity,
+                lowStockThreshold = lowStockThreshold,
                 expirationDate = expirationDate?.let { ExpirationDate(it) },
                 householdId = householdId,
-                addedByUserId = userId,
-                barcode = barcode
+                addedByUserId = userId
             )
         )
 
@@ -56,26 +77,52 @@ class ProductServiceImpl(
         userId: UUID,
         productId: UUID,
         name: String?,
+        brand: String?,
+        barcode: String?,
         category: ProductCategory?,
         quantity: Double?,
         quantityUnit: QuantityUnit?,
-        expirationDate: LocalDate?,
-        barcode: String?
+        packageAmount: Double?,
+        packageUnit: QuantityUnit?,
+        ingredientsText: String?,
+        calories: Double?,
+        protein: Double?,
+        fat: Double?,
+        carbs: Double?,
+        purchaseDate: LocalDate?,
+        remainingAmount: Double?,
+        lowStockThreshold: Double?,
+        expirationDate: LocalDate?
     ): Product {
         val existing = productRepository.findById(productId)
             ?: throw EntityNotFoundException("Product", productId)
 
         requireMembership(userId, existing.householdId)
 
+        val updatedQuantityUnit = quantityUnit ?: existing.quantity.unit
         val updated = existing.copy(
             name = name?.trim() ?: existing.name,
+            brand = brand?.trimToNull() ?: existing.brand,
+            barcode = barcode?.trimToNull() ?: existing.barcode,
             category = category ?: existing.category,
             quantity = Quantity(
                 value = quantity ?: existing.quantity.value,
-                unit = quantityUnit ?: existing.quantity.unit
+                unit = updatedQuantityUnit
             ),
-            expirationDate = expirationDate?.let { ExpirationDate(it) } ?: existing.expirationDate,
-            barcode = barcode ?: existing.barcode
+            packageQuantity = when {
+                packageAmount != null -> Quantity(value = packageAmount, unit = packageUnit ?: updatedQuantityUnit)
+                packageUnit != null && existing.packageQuantity != null -> existing.packageQuantity.copy(unit = packageUnit)
+                else -> existing.packageQuantity
+            },
+            ingredientsText = ingredientsText?.trimToNull() ?: existing.ingredientsText,
+            calories = calories ?: existing.calories,
+            protein = protein ?: existing.protein,
+            fat = fat ?: existing.fat,
+            carbs = carbs ?: existing.carbs,
+            purchaseDate = purchaseDate ?: existing.purchaseDate,
+            remainingAmount = remainingAmount ?: existing.remainingAmount,
+            lowStockThreshold = lowStockThreshold ?: existing.lowStockThreshold,
+            expirationDate = expirationDate?.let { ExpirationDate(it) } ?: existing.expirationDate
         )
 
         return productRepository.save(updated)
@@ -126,3 +173,5 @@ class ProductServiceImpl(
         }
     }
 }
+
+private fun String.trimToNull(): String? = trim().takeIf { it.isNotEmpty() }

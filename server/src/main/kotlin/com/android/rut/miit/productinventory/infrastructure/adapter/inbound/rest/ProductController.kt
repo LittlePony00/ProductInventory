@@ -26,11 +26,22 @@ class ProductController(
             userId = currentUserId(),
             householdId = householdId,
             name = request.name,
+            brand = request.brand,
+            barcode = request.barcode,
             category = request.category,
             quantity = request.quantity,
             quantityUnit = request.quantityUnit,
-            expirationDate = request.expirationDate,
-            barcode = request.barcode
+            packageAmount = request.packageAmount,
+            packageUnit = request.packageUnit,
+            ingredientsText = request.ingredientsText,
+            calories = request.calories,
+            protein = request.protein,
+            fat = request.fat,
+            carbs = request.carbs,
+            purchaseDate = request.purchaseDate,
+            remainingAmount = request.remainingAmount,
+            lowStockThreshold = request.lowStockThreshold,
+            expirationDate = request.expirationDate
         ).toResponse()
     }
 
@@ -57,11 +68,22 @@ class ProductController(
             userId = currentUserId(),
             productId = productId,
             name = request.name,
+            brand = request.brand,
+            barcode = request.barcode,
             category = request.category,
             quantity = request.quantity,
             quantityUnit = request.quantityUnit,
-            expirationDate = request.expirationDate,
-            barcode = request.barcode
+            packageAmount = request.packageAmount,
+            packageUnit = request.packageUnit,
+            ingredientsText = request.ingredientsText,
+            calories = request.calories,
+            protein = request.protein,
+            fat = request.fat,
+            carbs = request.carbs,
+            purchaseDate = request.purchaseDate,
+            remainingAmount = request.remainingAmount,
+            lowStockThreshold = request.lowStockThreshold,
+            expirationDate = request.expirationDate
         ).toResponse()
     }
 

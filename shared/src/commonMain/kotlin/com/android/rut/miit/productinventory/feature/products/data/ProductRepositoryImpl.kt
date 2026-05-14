@@ -36,13 +36,37 @@ class ProductRepositoryImpl(
         category: ProductCategory,
         quantity: Double,
         quantityUnit: QuantityUnit,
-        expirationDate: LocalDate?
+        expirationDate: LocalDate?,
+        brand: String?,
+        barcode: String?,
+        packageAmount: Double?,
+        packageUnit: QuantityUnit?,
+        ingredientsText: String?,
+        calories: Double?,
+        protein: Double?,
+        fat: Double?,
+        carbs: Double?,
+        purchaseDate: LocalDate?,
+        remainingAmount: Double?,
+        lowStockThreshold: Double?
     ): Product {
         val request = CreateProductRequestDto(
             name = name,
+            brand = brand,
+            barcode = barcode,
             category = category.name,
             quantity = quantity,
             quantityUnit = quantityUnit.name,
+            packageAmount = packageAmount,
+            packageUnit = packageUnit?.name,
+            ingredientsText = ingredientsText,
+            calories = calories,
+            protein = protein,
+            fat = fat,
+            carbs = carbs,
+            purchaseDate = purchaseDate?.toString(),
+            remainingAmount = remainingAmount,
+            lowStockThreshold = lowStockThreshold,
             expirationDate = expirationDate?.toString()
         )
         val product = remoteDataSource.addProduct(householdId, request).toDomain()
@@ -57,13 +81,37 @@ class ProductRepositoryImpl(
         category: ProductCategory?,
         quantity: Double?,
         quantityUnit: QuantityUnit?,
-        expirationDate: LocalDate?
+        expirationDate: LocalDate?,
+        brand: String?,
+        barcode: String?,
+        packageAmount: Double?,
+        packageUnit: QuantityUnit?,
+        ingredientsText: String?,
+        calories: Double?,
+        protein: Double?,
+        fat: Double?,
+        carbs: Double?,
+        purchaseDate: LocalDate?,
+        remainingAmount: Double?,
+        lowStockThreshold: Double?
     ): Product {
         val request = UpdateProductRequestDto(
             name = name,
+            brand = brand,
+            barcode = barcode,
             category = category?.name,
             quantity = quantity,
             quantityUnit = quantityUnit?.name,
+            packageAmount = packageAmount,
+            packageUnit = packageUnit?.name,
+            ingredientsText = ingredientsText,
+            calories = calories,
+            protein = protein,
+            fat = fat,
+            carbs = carbs,
+            purchaseDate = purchaseDate?.toString(),
+            remainingAmount = remainingAmount,
+            lowStockThreshold = lowStockThreshold,
             expirationDate = expirationDate?.toString()
         )
         val product = remoteDataSource.updateProduct(householdId, productId, request).toDomain()

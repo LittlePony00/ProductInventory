@@ -35,26 +35,49 @@ fun Household.toEntity() = HouseholdEntity(
 fun ProductEntity.toDomain() = Product(
     id = id,
     name = name,
+    brand = brand,
+    barcode = barcode,
     category = ProductCategory.valueOf(category),
     quantity = Quantity(value = quantity, unit = QuantityUnit.valueOf(quantityUnit)),
+    packageQuantity = packageAmount?.let {
+        Quantity(value = it, unit = QuantityUnit.valueOf(packageUnit ?: quantityUnit))
+    },
+    ingredientsText = ingredientsText,
+    calories = calories,
+    protein = protein,
+    fat = fat,
+    carbs = carbs,
+    purchaseDate = purchaseDate,
+    remainingAmount = remainingAmount ?: quantity,
+    lowStockThreshold = lowStockThreshold,
     expirationDate = expirationDate?.let { ExpirationDate(it) },
     householdId = householdId,
     addedByUserId = addedByUserId,
-    createdAt = createdAt,
-    barcode = barcode
+    createdAt = createdAt
 )
 
 fun Product.toEntity() = ProductEntity(
     id = id,
     name = name,
+    brand = brand,
+    barcode = barcode,
     category = category.name,
     quantity = quantity.value,
     quantityUnit = quantity.unit.name,
+    packageAmount = packageQuantity?.value,
+    packageUnit = packageQuantity?.unit?.name,
+    ingredientsText = ingredientsText,
+    calories = calories,
+    protein = protein,
+    fat = fat,
+    carbs = carbs,
+    purchaseDate = purchaseDate,
+    remainingAmount = remainingAmount,
+    lowStockThreshold = lowStockThreshold,
     expirationDate = expirationDate?.date,
     householdId = householdId,
     addedByUserId = addedByUserId,
-    createdAt = createdAt,
-    barcode = barcode
+    createdAt = createdAt
 )
 
 fun BarcodeProductEntity.toDomain() = BarcodeProduct(
