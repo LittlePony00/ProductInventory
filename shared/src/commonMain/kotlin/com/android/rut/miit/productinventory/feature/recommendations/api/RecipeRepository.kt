@@ -4,4 +4,5 @@ import com.android.rut.miit.productinventory.feature.recommendations.api.models.
 
 interface RecipeRepository {
     suspend fun getRecipes(householdId: String): List<Recipe>
+    suspend fun getRecipeSuggestions(householdId: String): List<Recipe>
 }
