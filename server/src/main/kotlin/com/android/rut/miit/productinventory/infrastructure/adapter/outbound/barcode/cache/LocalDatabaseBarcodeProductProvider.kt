@@ -5,6 +5,7 @@ import com.android.rut.miit.productinventory.domain.model.barcode.BarcodeProduct
 import com.android.rut.miit.productinventory.domain.model.barcode.BarcodeProductSource
 import com.android.rut.miit.productinventory.domain.model.barcode.NutritionFacts
 import com.android.rut.miit.productinventory.domain.port.outbound.IProductRepository
+import com.android.rut.miit.productinventory.domain.port.outbound.barcode.BarcodeLookupContext
 import com.android.rut.miit.productinventory.domain.port.outbound.barcode.BarcodeProductProviderOrder
 import com.android.rut.miit.productinventory.domain.port.outbound.barcode.IBarcodeProductProvider
 import org.springframework.core.annotation.Order
@@ -17,10 +18,10 @@ class LocalDatabaseBarcodeProductProvider(
 ) : IBarcodeProductProvider {
     override val order: BarcodeProductProviderOrder = BarcodeProductProviderOrder.LOCAL_DATABASE
 
-    override fun findDraft(barcode: String): BarcodeProductDraft? =
-        productRepository.findFirstByBarcode(barcode)?.let { product ->
+    override fun findDraft(context: BarcodeLookupContext): BarcodeProductDraft? =
+        productRepository.findByBarcodeAndHouseholdId(context.barcode, context.householdId)?.let { product ->
             BarcodeProductDraft(
-                barcode = barcode,
+                barcode = context.barcode,
                 name = product.name,
                 brand = product.brand,
                 packageQuantity = product.packageQuantity ?: Quantity(product.quantity.value, product.quantity.unit),

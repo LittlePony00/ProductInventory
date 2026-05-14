@@ -8,6 +8,8 @@ spring:
     hibernate:
       ddl-auto: create-drop
     database-platform: org.hibernate.dialect.H2Dialect
+  flyway:
+    enabled: false
 
 jwt:
   secret: test-secret-key-for-jwt-that-is-at-least-256-bits-long-for-hmac-sha256

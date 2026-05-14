@@ -434,8 +434,8 @@ class ProductServiceImplTest {
 
         override fun findById(id: UUID): Product? = products[id]
 
-        override fun findFirstByBarcode(barcode: String): Product? =
-            products.values.firstOrNull { it.barcode == barcode }
+        override fun findByBarcodeAndHouseholdId(barcode: String, householdId: UUID): Product? =
+            products.values.firstOrNull { it.barcode == barcode && it.householdId == householdId }
 
         override fun findByHouseholdId(householdId: UUID): List<Product> =
             products.values.filter { it.householdId == householdId }

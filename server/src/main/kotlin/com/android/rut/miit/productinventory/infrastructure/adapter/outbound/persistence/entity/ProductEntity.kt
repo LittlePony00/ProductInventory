@@ -48,7 +48,7 @@ class ProductEntity(
     @Column(name = "purchase_date")
     var purchaseDate: LocalDate? = null,
 
-    @Column(name = "remaining_amount")
+    @Column(name = "remaining_amount", nullable = false)
     var remainingAmount: Double? = null,
 
     @Column(name = "low_stock_threshold")

@@ -1,6 +1,8 @@
 package com.android.rut.miit.productinventory.infrastructure.adapter.outbound.barcode.gs1
 
 import com.android.rut.miit.productinventory.domain.model.barcode.BarcodeProductSource
+import com.android.rut.miit.productinventory.domain.port.outbound.barcode.BarcodeLookupContext
+import java.util.UUID
 import org.junit.jupiter.api.Test
 import org.springframework.http.HttpMethod
 import org.springframework.http.MediaType
@@ -25,7 +27,7 @@ class Gs1BarcodeProductProviderTest {
             .andExpect(method(HttpMethod.GET))
             .andRespond(withSuccess("""{"name":"Milk","brand":"Brand"}""", MediaType.APPLICATION_JSON))
 
-        val draft = provider.findDraft("4601234567890")
+        val draft = provider.findDraft(context("4601234567890"))
 
         assertEquals("Milk", draft?.name)
         assertEquals("Brand", draft?.brand)
@@ -37,7 +39,7 @@ class Gs1BarcodeProductProviderTest {
     fun `returns null when gs1 base url is not configured`() {
         val provider = Gs1BarcodeProductProvider(RestClient.builder(), "")
 
-        assertNull(provider.findDraft("4601234567890"))
+        assertNull(provider.findDraft(context("4601234567890")))
     }
 
     @Test
@@ -50,7 +52,14 @@ class Gs1BarcodeProductProviderTest {
             .andExpect(method(HttpMethod.GET))
             .andRespond(withServerError())
 
-        assertNull(provider.findDraft("4601234567890"))
+        assertNull(provider.findDraft(context("4601234567890")))
         server.verify()
     }
+
+    private fun context(barcode: String): BarcodeLookupContext =
+        BarcodeLookupContext(
+            userId = UUID.randomUUID(),
+            householdId = UUID.randomUUID(),
+            barcode = barcode
+        )
 }

@@ -6,6 +6,7 @@ import com.android.rut.miit.productinventory.domain.model.QuantityUnit
 import com.android.rut.miit.productinventory.domain.model.barcode.BarcodeProductDraft
 import com.android.rut.miit.productinventory.domain.model.barcode.BarcodeProductSource
 import com.android.rut.miit.productinventory.domain.model.barcode.NutritionFacts
+import com.android.rut.miit.productinventory.domain.port.outbound.barcode.BarcodeLookupContext
 import com.android.rut.miit.productinventory.domain.port.outbound.barcode.BarcodeProductProviderOrder
 import com.android.rut.miit.productinventory.domain.port.outbound.barcode.IBarcodeProductProvider
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties
@@ -29,13 +30,13 @@ class OpenFoodFactsBarcodeProductProvider(
         .defaultHeader("User-Agent", "ProductInventory/1.0 backend")
         .build()
 
-    override fun findDraft(barcode: String): BarcodeProductDraft? =
+    override fun findDraft(context: BarcodeLookupContext): BarcodeProductDraft? =
         try {
             restClient.get()
-                .uri("/api/v2/product/{barcode}.json", barcode)
+                .uri("/api/v2/product/{barcode}.json", context.barcode)
                 .retrieve()
                 .body(OpenFoodFactsResponse::class.java)
-                ?.toDraft(barcode)
+                ?.toDraft(context.barcode)
         } catch (_: RestClientException) {
             null
         }

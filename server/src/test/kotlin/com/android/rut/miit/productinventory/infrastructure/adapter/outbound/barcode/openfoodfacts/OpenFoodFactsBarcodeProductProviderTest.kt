@@ -3,6 +3,8 @@ package com.android.rut.miit.productinventory.infrastructure.adapter.outbound.ba
 import com.android.rut.miit.productinventory.domain.model.ProductCategory
 import com.android.rut.miit.productinventory.domain.model.QuantityUnit
 import com.android.rut.miit.productinventory.domain.model.barcode.BarcodeProductSource
+import com.android.rut.miit.productinventory.domain.port.outbound.barcode.BarcodeLookupContext
+import java.util.UUID
 import org.junit.jupiter.api.Test
 import org.springframework.http.HttpMethod
 import org.springframework.http.MediaType
@@ -49,7 +51,7 @@ class OpenFoodFactsBarcodeProductProviderTest {
                 )
             )
 
-        val draft = client.findDraft("4601234567890")
+        val draft = client.findDraft(context("4601234567890"))
 
         assertEquals("Milk", draft?.name)
         assertEquals("Brand A", draft?.brand)
@@ -71,7 +73,7 @@ class OpenFoodFactsBarcodeProductProviderTest {
             .andExpect(method(HttpMethod.GET))
             .andRespond(withSuccess("""{"status": 0}""", MediaType.APPLICATION_JSON))
 
-        assertNull(client.findDraft("unknown"))
+        assertNull(client.findDraft(context("unknown")))
         server.verify()
     }
 
@@ -85,7 +87,14 @@ class OpenFoodFactsBarcodeProductProviderTest {
             .andExpect(method(HttpMethod.GET))
             .andRespond(withServerError())
 
-        assertNull(client.findDraft("4601234567890"))
+        assertNull(client.findDraft(context("4601234567890")))
         server.verify()
     }
+
+    private fun context(barcode: String): BarcodeLookupContext =
+        BarcodeLookupContext(
+            userId = UUID.randomUUID(),
+            householdId = UUID.randomUUID(),
+            barcode = barcode
+        )
 }
