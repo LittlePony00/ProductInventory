@@ -21,6 +21,7 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.android.rut.miit.productinventory.R
+import com.android.rut.miit.productinventory.feature.barcode.api.models.BarcodeProductDraft
 import com.android.rut.miit.productinventory.feature.barcode.presentation.*
 import com.google.mlkit.vision.barcode.BarcodeScannerOptions
 import com.google.mlkit.vision.barcode.BarcodeScanning
@@ -35,6 +36,7 @@ fun BarcodeScannerScreen(
     householdId: String,
     onBack: () -> Unit,
     onManualEntry: (String) -> Unit,
+    onDraftEntry: (BarcodeProductDraft) -> Unit,
     viewModel: BarcodeScanViewModel = koinViewModel()
 ) {
     val state by viewModel.viewState.collectAsStateWithLifecycle()
@@ -48,7 +50,7 @@ fun BarcodeScannerScreen(
                 is BarcodeScanAction.NavigateBack -> onBack()
                 is BarcodeScanAction.ProductAdded -> onBack()
                 is BarcodeScanAction.NavigateToManualEntry -> onManualEntry(action.barcode)
-                is BarcodeScanAction.NavigateToDraftEntry -> onManualEntry(action.draft.barcode)
+                is BarcodeScanAction.NavigateToDraftEntry -> onDraftEntry(action.draft)
             }
         }
     }
@@ -153,13 +155,13 @@ fun BarcodeScannerScreen(
                             Button(onClick = {
                                 viewModel.onEvent(BarcodeScanEvent.OnUseDraftClick(s.draft.barcode))
                             }) {
-                                Text(stringResource(R.string.save))
+                                Text(stringResource(R.string.barcode_confirm_entry))
                             }
                             Spacer(Modifier.height(8.dp))
                             OutlinedButton(onClick = {
                                 viewModel.onEvent(BarcodeScanEvent.OnDraftManualEntryClick(s.draft))
                             }) {
-                                Text(stringResource(R.string.barcode_manual_entry))
+                                Text(stringResource(R.string.barcode_edit_entry))
                             }
                             Spacer(Modifier.height(8.dp))
                             OutlinedButton(onClick = { viewModel.onEvent(BarcodeScanEvent.OnRetry) }) {

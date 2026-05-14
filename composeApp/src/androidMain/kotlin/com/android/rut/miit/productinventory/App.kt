@@ -8,6 +8,7 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.toRoute
 import com.android.rut.miit.productinventory.navigation.Route
 import com.android.rut.miit.productinventory.ui.screen.auth.LoginScreen
+import com.android.rut.miit.productinventory.feature.barcode.api.models.BarcodeProductDraft
 import com.android.rut.miit.productinventory.ui.screen.auth.RegisterScreen
 import com.android.rut.miit.productinventory.ui.screen.household.HouseholdListScreen
 import com.android.rut.miit.productinventory.ui.screen.notifications.NotificationListScreen
@@ -68,6 +69,17 @@ fun App() {
                 val route = entry.toRoute<Route.AddProduct>()
                 AddProductScreen(
                     householdId = route.householdId,
+                    barcode = route.barcode,
+                    initialName = route.name,
+                    initialBrand = route.brand,
+                    initialCategory = route.category,
+                    initialPackageAmount = route.packageAmount,
+                    initialPackageUnit = route.packageUnit,
+                    initialIngredientsText = route.ingredientsText,
+                    initialCalories = route.calories,
+                    initialProtein = route.protein,
+                    initialFat = route.fat,
+                    initialCarbs = route.carbs,
                     onProductAdded = { navController.popBackStack() },
                     onBack = { navController.popBackStack() }
                 )
@@ -104,10 +116,29 @@ fun App() {
                     householdId = route.householdId,
                     onBack = { navController.popBackStack() },
                     onManualEntry = { barcode ->
-                        navController.navigate(Route.AddProduct(route.householdId))
-                    }
+                        navController.navigate(Route.AddProduct(route.householdId, barcode = barcode))
+                    },
+                    onDraftEntry = { draft ->
+                        navController.navigate(draft.toAddProductRoute(route.householdId))
+                    },
                 )
             }
         }
     }
 }
+
+private fun BarcodeProductDraft.toAddProductRoute(householdId: String): Route.AddProduct =
+    Route.AddProduct(
+        householdId = householdId,
+        barcode = barcode,
+        name = name,
+        brand = brand,
+        category = category?.name,
+        packageAmount = packageQuantity?.toString(),
+        packageUnit = packageQuantityUnit?.name,
+        ingredientsText = ingredients,
+        calories = caloriesKcal?.toString(),
+        protein = proteinGrams?.toString(),
+        fat = fatGrams?.toString(),
+        carbs = carbohydratesGrams?.toString()
+    )

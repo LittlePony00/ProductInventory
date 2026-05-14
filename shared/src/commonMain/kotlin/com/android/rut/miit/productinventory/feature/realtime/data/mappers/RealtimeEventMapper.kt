@@ -9,12 +9,14 @@ fun RealtimeEventDto.toDomain(): HouseholdRealtimeEvent =
         "PRODUCT_CREATED" -> HouseholdRealtimeEvent.ProductCreated(
             householdId = householdId,
             occurredAt = occurredAt,
-            product = requireNotNull(product) { "PRODUCT_CREATED event requires product" }.toDomain()
+            product = product?.toDomain()
+                ?: return resync("PRODUCT_CREATED event requires inventory resync")
         )
         "PRODUCT_UPDATED" -> HouseholdRealtimeEvent.ProductUpdated(
             householdId = householdId,
             occurredAt = occurredAt,
-            product = requireNotNull(product) { "PRODUCT_UPDATED event requires product" }.toDomain()
+            product = product?.toDomain()
+                ?: return resync("PRODUCT_UPDATED event requires inventory resync")
         )
         "PRODUCT_DELETED" -> HouseholdRealtimeEvent.ProductDeleted(
             householdId = householdId,
@@ -32,3 +34,10 @@ fun RealtimeEventDto.toDomain(): HouseholdRealtimeEvent =
             reason = "Unsupported realtime event type: $type"
         )
     }
+
+private fun RealtimeEventDto.resync(reason: String): HouseholdRealtimeEvent.ResyncRequired =
+    HouseholdRealtimeEvent.ResyncRequired(
+        householdId = householdId,
+        occurredAt = occurredAt,
+        reason = reason
+    )

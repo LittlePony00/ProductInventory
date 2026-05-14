@@ -43,13 +43,35 @@
     <string name="products_title">Продукты</string>
     <string name="products_empty">Нет продуктов</string>
     <string name="products_empty_hint">Нажмите кнопку Добавить</string>
+    <string name="products_no_filter_results">Нет продуктов по выбранным фильтрам</string>
     <string name="products_expiration">Годен до: %s</string>
+    <string name="products_inventory_level">Остаток: %1$.2f / %2$.2f %3$s</string>
+    <string name="products_low_stock_badge">Низкий запас</string>
+    <string name="products_realtime_active">Live</string>
     <string name="product_add_title">Добавить продукт</string>
     <string name="product_name_label">Название продукта</string>
+    <string name="product_brand_label">Бренд</string>
+    <string name="product_barcode_label">Штрихкод</string>
+    <string name="product_barcode_prefilled_hint">Предзаполнено после сканирования</string>
     <string name="product_category_label">Категория</string>
     <string name="product_quantity_label">Количество</string>
     <string name="product_unit_label">Ед. изм.</string>
+    <string name="product_inventory_section">Запасы</string>
+    <string name="product_remaining_label">Остаток</string>
+    <string name="product_low_stock_threshold_label">Порог низкого запаса</string>
     <string name="product_expiration_label">Срок годности (ГГГГ-ММ-ДД)</string>
+    <string name="product_ai_suggestions_section">AI-подсказки</string>
+    <string name="product_package_amount_label">Объем упаковки</string>
+    <string name="product_package_unit_label">Ед. упаковки</string>
+    <string name="product_ingredients_label">Состав</string>
+    <string name="product_calories_label">Ккал</string>
+    <string name="product_protein_label">Белки</string>
+    <string name="product_fat_label">Жиры</string>
+    <string name="product_carbs_label">Углеводы</string>
+    <string name="filter_all">Все</string>
+    <string name="filter_low_stock">Низкий запас</string>
+    <string name="filter_expiring_soon">Скоро истекает</string>
+    <string name="filter_expired">Просрочено</string>
 
     <!-- Product categories -->
     <string name="category_dairy">Молочные</string>
@@ -91,6 +113,8 @@
     <string name="barcode_scanning">Наведите камеру на штрихкод</string>
     <string name="barcode_not_found">Продукт не найден</string>
     <string name="barcode_manual_entry">Введите данные вручную</string>
+    <string name="barcode_confirm_entry">Подтвердить</string>
+    <string name="barcode_edit_entry">Редактировать</string>
     <string name="barcode_product_found">Продукт найден</string>
     <string name="barcode_add_to_household">Добавить в домохозяйство</string>
     <string name="camera_permission_required">Для сканирования необходим доступ к камере</string>

@@ -5,6 +5,7 @@ import kotlinx.serialization.Serializable
 
 @Serializable
 data class RealtimeEventDto(
+    val id: String? = null,
     val type: String,
     val householdId: String,
     val occurredAt: String,

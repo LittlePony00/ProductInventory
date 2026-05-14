@@ -1,8 +1,10 @@
 package com.android.rut.miit.productinventory.ui.screen.products
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -13,6 +15,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.android.rut.miit.productinventory.R
 import com.android.rut.miit.productinventory.feature.products.api.models.ExpirationStatus
 import com.android.rut.miit.productinventory.feature.products.api.models.Product
+import com.android.rut.miit.productinventory.feature.products.api.models.ProductCategory
 import com.android.rut.miit.productinventory.feature.products.api.models.QuantityUnit
 import com.android.rut.miit.productinventory.feature.products.presentation.list.*
 import org.koin.compose.viewmodel.koinViewModel
@@ -106,17 +109,43 @@ fun ProductListScreen(
                         }
                     }
                 } else {
-                    LazyColumn(
-                        modifier = Modifier.fillMaxSize().padding(padding),
-                        contentPadding = PaddingValues(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        items(currentState.products, key = { it.id }) { product ->
-                            ProductCard(
-                                product = product,
-                                onClick = { viewModel.onEvent(ProductListEvent.OnProductClick(product.id)) },
-                                onDelete = { viewModel.onEvent(ProductListEvent.OnDeleteProduct(product.id)) }
-                            )
+                    Column(modifier = Modifier.fillMaxSize().padding(padding)) {
+                        ProductFilters(
+                            filters = currentState.filters,
+                            isRealtimeActive = currentState.isRealtimeActive,
+                            onCategorySelected = {
+                                viewModel.onEvent(ProductListEvent.OnCategoryFilterChanged(it))
+                            },
+                            onInventoryFilterSelected = {
+                                viewModel.onEvent(ProductListEvent.OnInventoryFilterChanged(it))
+                            },
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        if (currentState.visibleProducts.isEmpty()) {
+                            Box(
+                                modifier = Modifier.fillMaxSize(),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = stringResource(R.string.products_no_filter_results),
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        } else {
+                            LazyColumn(
+                                modifier = Modifier.fillMaxSize(),
+                                contentPadding = PaddingValues(16.dp),
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                items(currentState.visibleProducts, key = { it.id }) { product ->
+                                    ProductCard(
+                                        product = product,
+                                        onClick = { viewModel.onEvent(ProductListEvent.OnProductClick(product.id)) },
+                                        onDelete = { viewModel.onEvent(ProductListEvent.OnDeleteProduct(product.id)) }
+                                    )
+                                }
+                            }
                         }
                     }
                 }
@@ -144,6 +173,59 @@ fun ProductListScreen(
 }
 
 @Composable
+private fun ProductFilters(
+    filters: ProductListFilters,
+    isRealtimeActive: Boolean,
+    onCategorySelected: (ProductCategory?) -> Unit,
+    onInventoryFilterSelected: (InventoryFilter) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Row(
+            modifier = Modifier.horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            FilterChip(
+                selected = filters.category == null,
+                onClick = { onCategorySelected(null) },
+                label = { Text(stringResource(R.string.filter_all)) }
+            )
+            ProductCategory.entries.forEach { category ->
+                FilterChip(
+                    selected = filters.category == category,
+                    onClick = { onCategorySelected(category) },
+                    label = { Text(categoryDisplayName(category)) }
+                )
+            }
+        }
+
+        Row(
+            modifier = Modifier.horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            InventoryFilter.entries.forEach { filter ->
+                FilterChip(
+                    selected = filters.inventory == filter,
+                    onClick = { onInventoryFilterSelected(filter) },
+                    label = { Text(inventoryFilterName(filter)) }
+                )
+            }
+            if (isRealtimeActive) {
+                AssistChip(
+                    onClick = {},
+                    enabled = false,
+                    label = { Text(stringResource(R.string.products_realtime_active)) }
+                )
+            }
+        }
+    }
+}
+
+@Composable
 private fun ProductCard(
     product: Product,
     onClick: () -> Unit,
@@ -164,10 +246,32 @@ private fun ProductCard(
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = "${product.quantity} ${unitShortName(product.quantityUnit)}",
+                    text = categoryDisplayName(product.category),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = stringResource(
+                        R.string.products_inventory_level,
+                        product.remainingAmount,
+                        product.quantity,
+                        unitShortName(product.quantityUnit)
+                    ),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+                if (product.isLowStock) {
+                    Spacer(modifier = Modifier.height(6.dp))
+                    AssistChip(
+                        onClick = {},
+                        enabled = false,
+                        label = { Text(stringResource(R.string.products_low_stock_badge)) },
+                        colors = AssistChipDefaults.assistChipColors(
+                            disabledLabelColor = MaterialTheme.colorScheme.error
+                        )
+                    )
+                }
                 product.expirationDate?.let { date ->
                     Spacer(modifier = Modifier.height(4.dp))
                     val statusColor = when (product.expirationStatus) {
@@ -192,6 +296,24 @@ private fun ProductCard(
             }
         }
     }
+}
+
+@Composable
+private fun categoryDisplayName(category: ProductCategory): String = when (category) {
+    ProductCategory.DAIRY -> stringResource(R.string.category_dairy)
+    ProductCategory.MEAT_FISH -> stringResource(R.string.category_meat_fish)
+    ProductCategory.VEGETABLES_FRUITS -> stringResource(R.string.category_vegetables_fruits)
+    ProductCategory.CEREALS -> stringResource(R.string.category_cereals)
+    ProductCategory.BEVERAGES -> stringResource(R.string.category_beverages)
+    ProductCategory.OTHER -> stringResource(R.string.category_other)
+}
+
+@Composable
+private fun inventoryFilterName(filter: InventoryFilter): String = when (filter) {
+    InventoryFilter.ALL -> stringResource(R.string.filter_all)
+    InventoryFilter.LOW_STOCK -> stringResource(R.string.filter_low_stock)
+    InventoryFilter.EXPIRING_SOON -> stringResource(R.string.filter_expiring_soon)
+    InventoryFilter.EXPIRED -> stringResource(R.string.filter_expired)
 }
 
 @Composable

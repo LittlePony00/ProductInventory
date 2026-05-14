@@ -26,6 +26,19 @@ class RealtimeEventMapperTest {
     }
 
     @Test
+    fun `maps product event without payload to resync required`() {
+        val event = RealtimeEventDto(
+            type = "PRODUCT_UPDATED",
+            householdId = "household-id",
+            occurredAt = "2026-05-14T00:00:00Z",
+            product = null
+        ).toDomain()
+
+        val resync = assertIs<HouseholdRealtimeEvent.ResyncRequired>(event)
+        assertEquals("PRODUCT_UPDATED event requires inventory resync", resync.reason)
+    }
+
+    @Test
     fun `maps product deleted event`() {
         val event = RealtimeEventDto(
             type = "PRODUCT_DELETED",

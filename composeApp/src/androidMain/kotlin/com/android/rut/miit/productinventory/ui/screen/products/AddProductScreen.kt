@@ -1,6 +1,8 @@
 package com.android.rut.miit.productinventory.ui.screen.products
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -17,6 +19,17 @@ import org.koin.compose.viewmodel.koinViewModel
 @Composable
 fun AddProductScreen(
     householdId: String,
+    barcode: String? = null,
+    initialName: String? = null,
+    initialBrand: String? = null,
+    initialCategory: String? = null,
+    initialPackageAmount: String? = null,
+    initialPackageUnit: String? = null,
+    initialIngredientsText: String? = null,
+    initialCalories: String? = null,
+    initialProtein: String? = null,
+    initialFat: String? = null,
+    initialCarbs: String? = null,
     onProductAdded: () -> Unit,
     onBack: () -> Unit,
     viewModel: AddProductViewModel = koinViewModel()
@@ -24,8 +37,39 @@ fun AddProductScreen(
     val state by viewModel.viewState.collectAsStateWithLifecycle()
     var categoryExpanded by remember { mutableStateOf(false) }
     var unitExpanded by remember { mutableStateOf(false) }
+    var packageUnitExpanded by remember { mutableStateOf(false) }
 
-    LaunchedEffect(householdId) { viewModel.householdId = householdId }
+    LaunchedEffect(
+        householdId,
+        barcode,
+        initialName,
+        initialBrand,
+        initialCategory,
+        initialPackageAmount,
+        initialPackageUnit,
+        initialIngredientsText,
+        initialCalories,
+        initialProtein,
+        initialFat,
+        initialCarbs
+    ) {
+        viewModel.householdId = householdId
+        viewModel.onEvent(
+            AddProductEvent.OnPrefill(
+                barcode = barcode,
+                name = initialName,
+                brand = initialBrand,
+                category = initialCategory?.let { runCatching { ProductCategory.valueOf(it) }.getOrNull() },
+                packageAmount = initialPackageAmount,
+                packageUnit = initialPackageUnit?.let { runCatching { QuantityUnit.valueOf(it) }.getOrNull() },
+                ingredientsText = initialIngredientsText,
+                calories = initialCalories,
+                protein = initialProtein,
+                fat = initialFat,
+                carbs = initialCarbs
+            )
+        )
+    }
 
     LaunchedEffect(Unit) {
         viewModel.viewAction.collect { action ->
@@ -53,6 +97,7 @@ fun AddProductScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
+                .verticalScroll(rememberScrollState())
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
@@ -62,6 +107,27 @@ fun AddProductScreen(
                 label = { Text(stringResource(R.string.product_name_label)) },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth()
+            )
+
+            OutlinedTextField(
+                value = state.brand,
+                onValueChange = { viewModel.onEvent(AddProductEvent.OnBrandChanged(it)) },
+                label = { Text(stringResource(R.string.product_brand_label)) },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            OutlinedTextField(
+                value = state.barcode,
+                onValueChange = { viewModel.onEvent(AddProductEvent.OnBarcodeChanged(it)) },
+                label = { Text(stringResource(R.string.product_barcode_label)) },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+                supportingText = if (state.isBarcodePrefilled) {
+                    { Text(stringResource(R.string.product_barcode_prefilled_hint)) }
+                } else {
+                    null
+                }
             )
 
             ExposedDropdownMenuBox(
@@ -91,6 +157,11 @@ fun AddProductScreen(
                     }
                 }
             }
+
+            Text(
+                text = stringResource(R.string.product_inventory_section),
+                style = MaterialTheme.typography.titleSmall
+            )
 
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedTextField(
@@ -131,6 +202,24 @@ fun AddProductScreen(
                 }
             }
 
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(
+                    value = state.remainingAmount,
+                    onValueChange = { viewModel.onEvent(AddProductEvent.OnRemainingAmountChanged(it)) },
+                    label = { Text(stringResource(R.string.product_remaining_label)) },
+                    singleLine = true,
+                    modifier = Modifier.weight(1f)
+                )
+
+                OutlinedTextField(
+                    value = state.lowStockThreshold,
+                    onValueChange = { viewModel.onEvent(AddProductEvent.OnLowStockThresholdChanged(it)) },
+                    label = { Text(stringResource(R.string.product_low_stock_threshold_label)) },
+                    singleLine = true,
+                    modifier = Modifier.weight(1f)
+                )
+            }
+
             OutlinedTextField(
                 value = state.expirationDate,
                 onValueChange = { viewModel.onEvent(AddProductEvent.OnExpirationDateChanged(it)) },
@@ -138,6 +227,92 @@ fun AddProductScreen(
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth()
             )
+
+            Text(
+                text = stringResource(R.string.product_ai_suggestions_section),
+                style = MaterialTheme.typography.titleSmall
+            )
+
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(
+                    value = state.packageAmount,
+                    onValueChange = { viewModel.onEvent(AddProductEvent.OnPackageAmountChanged(it)) },
+                    label = { Text(stringResource(R.string.product_package_amount_label)) },
+                    singleLine = true,
+                    modifier = Modifier.weight(1f)
+                )
+
+                ExposedDropdownMenuBox(
+                    expanded = packageUnitExpanded,
+                    onExpandedChange = { packageUnitExpanded = it },
+                    modifier = Modifier.weight(1f)
+                ) {
+                    OutlinedTextField(
+                        value = unitDisplayName(state.packageUnit),
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text(stringResource(R.string.product_package_unit_label)) },
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(packageUnitExpanded) },
+                        modifier = Modifier.menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable).fillMaxWidth()
+                    )
+                    ExposedDropdownMenu(
+                        expanded = packageUnitExpanded,
+                        onDismissRequest = { packageUnitExpanded = false }
+                    ) {
+                        QuantityUnit.entries.forEach { unit ->
+                            DropdownMenuItem(
+                                text = { Text(unitDisplayName(unit)) },
+                                onClick = {
+                                    viewModel.onEvent(AddProductEvent.OnPackageUnitChanged(unit))
+                                    packageUnitExpanded = false
+                                }
+                            )
+                        }
+                    }
+                }
+            }
+
+            OutlinedTextField(
+                value = state.ingredientsText,
+                onValueChange = { viewModel.onEvent(AddProductEvent.OnIngredientsChanged(it)) },
+                label = { Text(stringResource(R.string.product_ingredients_label)) },
+                minLines = 2,
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(
+                    value = state.calories,
+                    onValueChange = { viewModel.onEvent(AddProductEvent.OnCaloriesChanged(it)) },
+                    label = { Text(stringResource(R.string.product_calories_label)) },
+                    singleLine = true,
+                    modifier = Modifier.weight(1f)
+                )
+                OutlinedTextField(
+                    value = state.protein,
+                    onValueChange = { viewModel.onEvent(AddProductEvent.OnProteinChanged(it)) },
+                    label = { Text(stringResource(R.string.product_protein_label)) },
+                    singleLine = true,
+                    modifier = Modifier.weight(1f)
+                )
+            }
+
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(
+                    value = state.fat,
+                    onValueChange = { viewModel.onEvent(AddProductEvent.OnFatChanged(it)) },
+                    label = { Text(stringResource(R.string.product_fat_label)) },
+                    singleLine = true,
+                    modifier = Modifier.weight(1f)
+                )
+                OutlinedTextField(
+                    value = state.carbs,
+                    onValueChange = { viewModel.onEvent(AddProductEvent.OnCarbsChanged(it)) },
+                    label = { Text(stringResource(R.string.product_carbs_label)) },
+                    singleLine = true,
+                    modifier = Modifier.weight(1f)
+                )
+            }
 
             state.error?.let { error ->
                 Text(error, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)

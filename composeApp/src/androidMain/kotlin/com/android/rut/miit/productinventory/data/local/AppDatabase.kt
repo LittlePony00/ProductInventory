@@ -18,7 +18,7 @@ import com.android.rut.miit.productinventory.data.local.entity.ProductLocalEntit
         BarcodeEntity::class,
         PendingSyncActionEntity::class
     ],
-    version = 1,
+    version = 2,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
