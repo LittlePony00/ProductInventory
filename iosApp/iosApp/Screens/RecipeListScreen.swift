@@ -64,7 +64,7 @@ struct RecipeRow: View {
             Text(recipe.description_).font(.subheadline).foregroundColor(.secondary)
             Text("Ингредиенты:").font(.caption).fontWeight(.semibold)
             ForEach(recipe.ingredients, id: \.self) { ingredient in
-                Text("  • \(ingredient)").font(.caption)
+                Text("- \(ingredient)").font(.caption)
             }
             Text("Приготовление:").font(.caption).fontWeight(.semibold)
             Text(recipe.instructions).font(.caption)

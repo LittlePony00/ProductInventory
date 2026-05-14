@@ -20,7 +20,9 @@ data class CreateProductRequest(
     @field:NotNull(message = "Quantity unit is required")
     val quantityUnit: QuantityUnit,
 
-    val expirationDate: LocalDate? = null
+    val expirationDate: LocalDate? = null,
+
+    val barcode: String? = null
 )
 
 data class UpdateProductRequest(
@@ -28,5 +30,11 @@ data class UpdateProductRequest(
     val category: ProductCategory? = null,
     val quantity: Double? = null,
     val quantityUnit: QuantityUnit? = null,
-    val expirationDate: LocalDate? = null
+    val expirationDate: LocalDate? = null,
+    val barcode: String? = null
+)
+
+data class BarcodeLookupRequest(
+    @field:NotBlank(message = "Barcode is required")
+    val barcode: String
 )

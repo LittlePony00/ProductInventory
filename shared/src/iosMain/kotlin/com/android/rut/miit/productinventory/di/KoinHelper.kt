@@ -8,6 +8,7 @@ import com.android.rut.miit.productinventory.feature.notifications.presentation.
 import com.android.rut.miit.productinventory.feature.products.presentation.add.AddProductViewModel
 import com.android.rut.miit.productinventory.feature.products.presentation.list.ProductListViewModel
 import com.android.rut.miit.productinventory.feature.profile.presentation.ProfileViewModel
+import com.android.rut.miit.productinventory.feature.barcode.presentation.BarcodeScanViewModel
 import com.android.rut.miit.productinventory.feature.recommendations.presentation.RecipeListViewModel
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.get
@@ -28,4 +29,5 @@ class KoinHelper : KoinComponent {
     fun profileViewModel(): ProfileViewModel = get()
     fun notificationListViewModel(): NotificationListViewModel = get()
     fun recipeListViewModel(): RecipeListViewModel = get()
+    fun barcodeScanViewModel(): BarcodeScanViewModel = get()
 }

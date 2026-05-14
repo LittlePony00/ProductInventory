@@ -5,8 +5,10 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.android.rut.miit.productinventory.R
 import com.android.rut.miit.productinventory.feature.profile.presentation.*
 import org.koin.compose.viewmodel.koinViewModel
 
@@ -34,10 +36,10 @@ fun ProfileScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Профиль") },
+                title = { Text(stringResource(R.string.profile_title)) },
                 navigationIcon = {
                     TextButton(onClick = { viewModel.onEvent(ProfileEvent.OnBackClick) }) {
-                        Text("←", style = MaterialTheme.typography.titleLarge)
+                        Text(stringResource(R.string.back))
                     }
                 }
             )
@@ -56,7 +58,7 @@ fun ProfileScreen(
                 ) {
                     Card(modifier = Modifier.fillMaxWidth()) {
                         Column(modifier = Modifier.padding(16.dp)) {
-                            Text("Email", style = MaterialTheme.typography.labelMedium,
+                            Text(stringResource(R.string.profile_email_label), style = MaterialTheme.typography.labelMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant)
                             Text(s.profile.email, style = MaterialTheme.typography.bodyLarge)
                         }
@@ -64,7 +66,7 @@ fun ProfileScreen(
 
                     Card(modifier = Modifier.fillMaxWidth()) {
                         Column(modifier = Modifier.padding(16.dp)) {
-                            Text("Имя", style = MaterialTheme.typography.labelMedium,
+                            Text(stringResource(R.string.profile_name_label), style = MaterialTheme.typography.labelMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant)
                             if (s.isEditing) {
                                 OutlinedTextField(
@@ -78,11 +80,11 @@ fun ProfileScreen(
                                     horizontalArrangement = Arrangement.End
                                 ) {
                                     TextButton(onClick = { viewModel.onEvent(ProfileEvent.OnCancelEdit) }) {
-                                        Text("Отмена")
+                                        Text(stringResource(R.string.cancel))
                                     }
                                     Spacer(Modifier.width(8.dp))
                                     Button(onClick = { viewModel.onEvent(ProfileEvent.OnSaveClick) }) {
-                                        Text("Сохранить")
+                                        Text(stringResource(R.string.save))
                                     }
                                 }
                             } else {
@@ -93,7 +95,7 @@ fun ProfileScreen(
                                 ) {
                                     Text(s.profile.name, style = MaterialTheme.typography.bodyLarge)
                                     TextButton(onClick = { viewModel.onEvent(ProfileEvent.OnEditClick) }) {
-                                        Text("Изменить")
+                                        Text(stringResource(R.string.profile_edit))
                                     }
                                 }
                             }
@@ -109,17 +111,17 @@ fun ProfileScreen(
                             contentColor = MaterialTheme.colorScheme.error
                         )
                     ) {
-                        Text("Выйти из аккаунта")
+                        Text(stringResource(R.string.profile_logout))
                     }
                 }
             }
             is ProfileState.Error -> {
                 Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(s.message ?: "Ошибка загрузки")
+                        Text(s.message ?: stringResource(R.string.error_loading))
                         Spacer(Modifier.height(8.dp))
                         Button(onClick = { viewModel.onEvent(ProfileEvent.OnRetry) }) {
-                            Text("Повторить")
+                            Text(stringResource(R.string.retry))
                         }
                     }
                 }

@@ -17,5 +17,13 @@ data class ProductResponse(
     val expirationStatus: ExpirationStatus,
     val householdId: UUID,
     val addedByUserId: UUID,
-    val createdAt: Instant
+    val createdAt: Instant,
+    val barcode: String?
+)
+
+data class BarcodeProductResponse(
+    val barcode: String,
+    val name: String,
+    val category: String?,
+    val imageUrl: String?
 )

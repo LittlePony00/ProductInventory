@@ -4,8 +4,10 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.android.rut.miit.productinventory.R
 import com.android.rut.miit.productinventory.feature.products.api.models.ProductCategory
 import com.android.rut.miit.productinventory.feature.products.api.models.QuantityUnit
 import com.android.rut.miit.productinventory.feature.products.presentation.add.*
@@ -38,10 +40,10 @@ fun AddProductScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Добавить продукт") },
+                title = { Text(stringResource(R.string.product_add_title)) },
                 navigationIcon = {
                     TextButton(onClick = { viewModel.onEvent(AddProductEvent.OnBackClick) }) {
-                        Text("←", style = MaterialTheme.typography.titleLarge)
+                        Text(stringResource(R.string.back))
                     }
                 }
             )
@@ -57,7 +59,7 @@ fun AddProductScreen(
             OutlinedTextField(
                 value = state.name,
                 onValueChange = { viewModel.onEvent(AddProductEvent.OnNameChanged(it)) },
-                label = { Text("Название продукта") },
+                label = { Text(stringResource(R.string.product_name_label)) },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth()
             )
@@ -70,7 +72,7 @@ fun AddProductScreen(
                     value = categoryDisplayName(state.category),
                     onValueChange = {},
                     readOnly = true,
-                    label = { Text("Категория") },
+                    label = { Text(stringResource(R.string.product_category_label)) },
                     trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(categoryExpanded) },
                     modifier = Modifier.menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable).fillMaxWidth()
                 )
@@ -94,7 +96,7 @@ fun AddProductScreen(
                 OutlinedTextField(
                     value = state.quantity,
                     onValueChange = { viewModel.onEvent(AddProductEvent.OnQuantityChanged(it)) },
-                    label = { Text("Количество") },
+                    label = { Text(stringResource(R.string.product_quantity_label)) },
                     singleLine = true,
                     modifier = Modifier.weight(1f)
                 )
@@ -108,7 +110,7 @@ fun AddProductScreen(
                         value = unitDisplayName(state.quantityUnit),
                         onValueChange = {},
                         readOnly = true,
-                        label = { Text("Ед. изм.") },
+                        label = { Text(stringResource(R.string.product_unit_label)) },
                         trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(unitExpanded) },
                         modifier = Modifier.menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable).fillMaxWidth()
                     )
@@ -132,7 +134,7 @@ fun AddProductScreen(
             OutlinedTextField(
                 value = state.expirationDate,
                 onValueChange = { viewModel.onEvent(AddProductEvent.OnExpirationDateChanged(it)) },
-                label = { Text("Срок годности (ГГГГ-ММ-ДД)") },
+                label = { Text(stringResource(R.string.product_expiration_label)) },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth()
             )
@@ -149,29 +151,28 @@ fun AddProductScreen(
                 enabled = !state.isLoading
             ) {
                 if (state.isLoading) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(20.dp),
-                        strokeWidth = 2.dp
-                    )
+                    CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
                 } else {
-                    Text("Сохранить")
+                    Text(stringResource(R.string.save))
                 }
             }
         }
     }
 }
 
+@Composable
 private fun categoryDisplayName(category: ProductCategory): String = when (category) {
-    ProductCategory.DAIRY -> "Молочные"
-    ProductCategory.MEAT_FISH -> "Мясо/Рыба"
-    ProductCategory.VEGETABLES_FRUITS -> "Овощи/Фрукты"
-    ProductCategory.CEREALS -> "Крупы"
-    ProductCategory.BEVERAGES -> "Напитки"
-    ProductCategory.OTHER -> "Другое"
+    ProductCategory.DAIRY -> stringResource(R.string.category_dairy)
+    ProductCategory.MEAT_FISH -> stringResource(R.string.category_meat_fish)
+    ProductCategory.VEGETABLES_FRUITS -> stringResource(R.string.category_vegetables_fruits)
+    ProductCategory.CEREALS -> stringResource(R.string.category_cereals)
+    ProductCategory.BEVERAGES -> stringResource(R.string.category_beverages)
+    ProductCategory.OTHER -> stringResource(R.string.category_other)
 }
 
+@Composable
 private fun unitDisplayName(unit: QuantityUnit): String = when (unit) {
-    QuantityUnit.GRAMS -> "Граммы"
-    QuantityUnit.MILLILITERS -> "Миллилитры"
-    QuantityUnit.PIECES -> "Штуки"
+    QuantityUnit.GRAMS -> stringResource(R.string.unit_grams)
+    QuantityUnit.MILLILITERS -> stringResource(R.string.unit_milliliters)
+    QuantityUnit.PIECES -> stringResource(R.string.unit_pieces)
 }

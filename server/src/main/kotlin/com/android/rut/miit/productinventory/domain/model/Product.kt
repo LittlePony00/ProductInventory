@@ -11,5 +11,6 @@ data class Product(
     val expirationDate: ExpirationDate? = null,
     val householdId: UUID,
     val addedByUserId: UUID,
-    val createdAt: Instant = Instant.now()
+    val createdAt: Instant = Instant.now(),
+    val barcode: String? = null
 )

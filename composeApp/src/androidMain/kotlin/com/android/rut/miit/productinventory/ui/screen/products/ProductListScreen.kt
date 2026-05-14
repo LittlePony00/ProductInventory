@@ -7,10 +7,13 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.android.rut.miit.productinventory.R
 import com.android.rut.miit.productinventory.feature.products.api.models.ExpirationStatus
 import com.android.rut.miit.productinventory.feature.products.api.models.Product
+import com.android.rut.miit.productinventory.feature.products.api.models.QuantityUnit
 import com.android.rut.miit.productinventory.feature.products.presentation.list.*
 import org.koin.compose.viewmodel.koinViewModel
 
@@ -22,6 +25,7 @@ fun ProductListScreen(
     onBack: () -> Unit = {},
     onNavigateToRecipes: () -> Unit = {},
     onNavigateToNotifications: () -> Unit = {},
+    onNavigateToBarcodeScan: () -> Unit = {},
     viewModel: ProductListViewModel = koinViewModel()
 ) {
     val state by viewModel.viewState.collectAsStateWithLifecycle()
@@ -42,23 +46,32 @@ fun ProductListScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Продукты") },
+                title = { Text(stringResource(R.string.products_title)) },
                 navigationIcon = {
                     TextButton(onClick = onBack) {
-                        Text("←", style = MaterialTheme.typography.titleLarge)
+                        Text(stringResource(R.string.back))
                     }
                 },
                 actions = {
-                    TextButton(onClick = onNavigateToRecipes) { Text("Рецепты") }
-                    TextButton(onClick = onNavigateToNotifications) { Text("🔔") }
+                    TextButton(onClick = onNavigateToRecipes) { Text(stringResource(R.string.recipes_title)) }
+                    TextButton(onClick = onNavigateToNotifications) { Text(stringResource(R.string.notifications_title)) }
                 }
             )
         },
         floatingActionButton = {
-            FloatingActionButton(
-                onClick = { viewModel.onEvent(ProductListEvent.OnAddProductClick) }
-            ) {
-                Text("+", style = MaterialTheme.typography.headlineSmall)
+            Column(horizontalAlignment = Alignment.End) {
+                SmallFloatingActionButton(
+                    onClick = onNavigateToBarcodeScan,
+                    containerColor = MaterialTheme.colorScheme.secondaryContainer
+                ) {
+                    Text(stringResource(R.string.scan), style = MaterialTheme.typography.labelMedium)
+                }
+                Spacer(Modifier.height(12.dp))
+                FloatingActionButton(
+                    onClick = { viewModel.onEvent(ProductListEvent.OnAddProductClick) }
+                ) {
+                    Text(stringResource(R.string.add), style = MaterialTheme.typography.labelMedium)
+                }
             }
         }
     ) { padding ->
@@ -80,13 +93,13 @@ fun ProductListScreen(
                     ) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Text(
-                                text = "Нет продуктов",
+                                text = stringResource(R.string.products_empty),
                                 style = MaterialTheme.typography.titleMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                             Spacer(modifier = Modifier.height(8.dp))
                             Text(
-                                text = "Нажмите + чтобы добавить",
+                                text = stringResource(R.string.products_empty_hint),
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -116,12 +129,12 @@ fun ProductListScreen(
                 ) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Text(
-                            text = currentState.message ?: "Произошла ошибка",
+                            text = currentState.message ?: stringResource(R.string.error_generic),
                             color = MaterialTheme.colorScheme.error
                         )
                         Spacer(modifier = Modifier.height(16.dp))
                         Button(onClick = { viewModel.onEvent(ProductListEvent.OnRetry) }) {
-                            Text("Повторить")
+                            Text(stringResource(R.string.retry))
                         }
                     }
                 }
@@ -151,7 +164,7 @@ private fun ProductCard(
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = "${product.quantity} ${unitDisplayName(product.quantityUnit)}",
+                    text = "${product.quantity} ${unitShortName(product.quantityUnit)}",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -163,7 +176,7 @@ private fun ProductCard(
                         else -> MaterialTheme.colorScheme.onSurfaceVariant
                     }
                     Text(
-                        text = "Годен до: $date",
+                        text = stringResource(R.string.products_expiration, date),
                         style = MaterialTheme.typography.bodySmall,
                         color = statusColor
                     )
@@ -172,17 +185,18 @@ private fun ProductCard(
 
             TextButton(onClick = onDelete) {
                 Text(
-                    "✕",
+                    stringResource(R.string.delete),
                     color = MaterialTheme.colorScheme.error,
-                    style = MaterialTheme.typography.titleMedium
+                    style = MaterialTheme.typography.labelMedium
                 )
             }
         }
     }
 }
 
-private fun unitDisplayName(unit: com.android.rut.miit.productinventory.feature.products.api.models.QuantityUnit): String = when (unit) {
-    com.android.rut.miit.productinventory.feature.products.api.models.QuantityUnit.GRAMS -> "г"
-    com.android.rut.miit.productinventory.feature.products.api.models.QuantityUnit.MILLILITERS -> "мл"
-    com.android.rut.miit.productinventory.feature.products.api.models.QuantityUnit.PIECES -> "шт"
+@Composable
+private fun unitShortName(unit: QuantityUnit): String = when (unit) {
+    QuantityUnit.GRAMS -> stringResource(R.string.unit_grams_short)
+    QuantityUnit.MILLILITERS -> stringResource(R.string.unit_milliliters_short)
+    QuantityUnit.PIECES -> stringResource(R.string.unit_pieces_short)
 }

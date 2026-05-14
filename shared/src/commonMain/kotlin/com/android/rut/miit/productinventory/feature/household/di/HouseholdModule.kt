@@ -10,7 +10,7 @@ import org.koin.dsl.module
 
 val householdModule = module {
     factory { HouseholdRemoteDataSource(get()) }
-    factory<HouseholdRepository> { HouseholdRepositoryImpl(get()) }
+    factory<HouseholdRepository> { HouseholdRepositoryImpl(get(), get()) }
     factoryOf(::GetHouseholdsUseCase)
     factoryOf(::CreateHouseholdUseCase)
     factoryOf(::JoinHouseholdUseCase)

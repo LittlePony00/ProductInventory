@@ -29,7 +29,8 @@ class ProductController(
             category = request.category,
             quantity = request.quantity,
             quantityUnit = request.quantityUnit,
-            expirationDate = request.expirationDate
+            expirationDate = request.expirationDate,
+            barcode = request.barcode
         ).toResponse()
     }
 
@@ -59,7 +60,8 @@ class ProductController(
             category = request.category,
             quantity = request.quantity,
             quantityUnit = request.quantityUnit,
-            expirationDate = request.expirationDate
+            expirationDate = request.expirationDate,
+            barcode = request.barcode
         ).toResponse()
     }
 

@@ -33,5 +33,8 @@ class ProductEntity(
     var addedByUserId: UUID = UUID.randomUUID(),
 
     @Column(name = "created_at", nullable = false)
-    var createdAt: Instant = Instant.now()
+    var createdAt: Instant = Instant.now(),
+
+    @Column(name = "barcode")
+    var barcode: String? = null
 )

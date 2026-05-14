@@ -26,7 +26,8 @@ fun Product.toResponse() = ProductResponse(
     expirationStatus = expirationDate?.status ?: ExpirationStatus.UNKNOWN,
     householdId = householdId,
     addedByUserId = addedByUserId,
-    createdAt = createdAt
+    createdAt = createdAt,
+    barcode = barcode
 )
 
 fun Household.toResponse() = HouseholdResponse(

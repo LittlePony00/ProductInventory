@@ -6,10 +6,12 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.android.rut.miit.productinventory.R
 import com.android.rut.miit.productinventory.feature.auth.presentation.login.*
 import org.koin.compose.viewmodel.koinViewModel
 
@@ -48,7 +50,7 @@ private fun LoginContent(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
-                text = "Product Inventory",
+                text = stringResource(R.string.login_title),
                 style = MaterialTheme.typography.headlineLarge,
                 color = MaterialTheme.colorScheme.primary
             )
@@ -56,7 +58,7 @@ private fun LoginContent(
             Spacer(modifier = Modifier.height(8.dp))
 
             Text(
-                text = "Sign in to continue",
+                text = stringResource(R.string.login_subtitle),
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -68,7 +70,7 @@ private fun LoginContent(
                     OutlinedTextField(
                         value = state.email,
                         onValueChange = { onEvent(LoginEvent.OnEmailChanged(it)) },
-                        label = { Text("Email") },
+                        label = { Text(stringResource(R.string.login_email_label)) },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth()
@@ -79,7 +81,7 @@ private fun LoginContent(
                     OutlinedTextField(
                         value = state.password,
                         onValueChange = { onEvent(LoginEvent.OnPasswordChanged(it)) },
-                        label = { Text("Password") },
+                        label = { Text(stringResource(R.string.login_password_label)) },
                         visualTransformation = PasswordVisualTransformation(),
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
                         singleLine = true,
@@ -99,20 +101,20 @@ private fun LoginContent(
                                 color = MaterialTheme.colorScheme.onPrimary
                             )
                         } else {
-                            Text("Sign In")
+                            Text(stringResource(R.string.login_button))
                         }
                     }
                 }
 
                 is LoginState.Error -> {
                     Text(
-                        text = state.message ?: "An error occurred",
+                        text = state.message ?: stringResource(R.string.error_generic),
                         color = MaterialTheme.colorScheme.error,
                         style = MaterialTheme.typography.bodyMedium
                     )
                     Spacer(modifier = Modifier.height(16.dp))
                     Button(onClick = { onEvent(LoginEvent.OnLoginClick) }) {
-                        Text("Try Again")
+                        Text(stringResource(R.string.retry))
                     }
                 }
             }
@@ -120,7 +122,7 @@ private fun LoginContent(
             Spacer(modifier = Modifier.height(16.dp))
 
             TextButton(onClick = { onEvent(LoginEvent.OnRegisterClick) }) {
-                Text("Don't have an account? Register")
+                Text(stringResource(R.string.login_no_account))
             }
         }
     }

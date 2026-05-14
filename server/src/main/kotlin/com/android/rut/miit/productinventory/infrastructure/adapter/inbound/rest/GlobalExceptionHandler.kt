@@ -41,6 +41,17 @@ class GlobalExceptionHandler {
         ResponseEntity.status(HttpStatus.BAD_REQUEST)
             .body(ErrorResponse(message = ex.message ?: "Invalid invite code", code = "BAD_REQUEST"))
 
+    @ExceptionHandler(BarcodeNotFoundException::class)
+    fun handleBarcodeNotFound(ex: BarcodeNotFoundException): ResponseEntity<Map<String, Any>> =
+        ResponseEntity.status(HttpStatus.NOT_FOUND)
+            .body(
+                mapOf(
+                    "message" to (ex.message ?: "Barcode not found"),
+                    "barcode" to ex.barcode,
+                    "needsManualEntry" to true
+                )
+            )
+
     @ExceptionHandler(MethodArgumentNotValidException::class)
     fun handleValidation(ex: MethodArgumentNotValidException): ResponseEntity<ErrorResponse> {
         val message = ex.bindingResult.fieldErrors

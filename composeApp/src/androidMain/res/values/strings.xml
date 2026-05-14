@@ -1,3 +1,98 @@
 <resources>
     <string name="app_name">ProductInventory</string>
+
+    <!-- Common -->
+    <string name="back">Назад</string>
+    <string name="cancel">Отмена</string>
+    <string name="save">Сохранить</string>
+    <string name="add">Добавить</string>
+    <string name="delete">Удалить</string>
+    <string name="scan">Сканировать</string>
+    <string name="join">Вступить</string>
+    <string name="retry">Повторить</string>
+    <string name="error_generic">Произошла ошибка</string>
+    <string name="error_loading">Ошибка загрузки</string>
+
+    <!-- Auth -->
+    <string name="login_title">Учёт продуктов</string>
+    <string name="login_subtitle">Войдите в аккаунт</string>
+    <string name="login_email_label">Email</string>
+    <string name="login_password_label">Пароль</string>
+    <string name="login_button">Войти</string>
+    <string name="login_no_account">Нет аккаунта? Зарегистрироваться</string>
+    <string name="login_try_again">Повторить</string>
+
+    <string name="register_title">Создание аккаунта</string>
+    <string name="register_name_label">Имя</string>
+    <string name="register_button">Зарегистрироваться</string>
+    <string name="register_has_account">Уже есть аккаунт? Войти</string>
+
+    <!-- Households -->
+    <string name="households_title">Мои домохозяйства</string>
+    <string name="households_empty">Нет домохозяйств</string>
+    <string name="households_empty_hint">Создайте новое или присоединитесь по коду</string>
+    <string name="households_created_at">Создано: %s</string>
+    <string name="household_new_title">Новое домохозяйство</string>
+    <string name="household_name_label">Название</string>
+    <string name="household_create">Создать</string>
+    <string name="household_join_title">Присоединиться</string>
+    <string name="household_invite_code_label">Код приглашения</string>
+    <string name="household_join">Вступить</string>
+
+    <!-- Products -->
+    <string name="products_title">Продукты</string>
+    <string name="products_empty">Нет продуктов</string>
+    <string name="products_empty_hint">Нажмите кнопку Добавить</string>
+    <string name="products_expiration">Годен до: %s</string>
+    <string name="product_add_title">Добавить продукт</string>
+    <string name="product_name_label">Название продукта</string>
+    <string name="product_category_label">Категория</string>
+    <string name="product_quantity_label">Количество</string>
+    <string name="product_unit_label">Ед. изм.</string>
+    <string name="product_expiration_label">Срок годности (ГГГГ-ММ-ДД)</string>
+
+    <!-- Product categories -->
+    <string name="category_dairy">Молочные</string>
+    <string name="category_meat_fish">Мясо/Рыба</string>
+    <string name="category_vegetables_fruits">Овощи/Фрукты</string>
+    <string name="category_cereals">Крупы</string>
+    <string name="category_beverages">Напитки</string>
+    <string name="category_other">Другое</string>
+
+    <!-- Quantity units -->
+    <string name="unit_grams">Граммы</string>
+    <string name="unit_grams_short">г</string>
+    <string name="unit_milliliters">Миллилитры</string>
+    <string name="unit_milliliters_short">мл</string>
+    <string name="unit_pieces">Штуки</string>
+    <string name="unit_pieces_short">шт</string>
+
+    <!-- Profile -->
+    <string name="profile_title">Профиль</string>
+    <string name="profile_email_label">Email</string>
+    <string name="profile_name_label">Имя</string>
+    <string name="profile_edit">Изменить</string>
+    <string name="profile_logout">Выйти из аккаунта</string>
+
+    <!-- Notifications -->
+    <string name="notifications_title">Уведомления</string>
+    <string name="notifications_empty">Нет уведомлений</string>
+    <string name="notifications_mark_all_read">Прочитать все</string>
+    <string name="notifications_mark_read">Прочитано</string>
+
+    <!-- Recipes -->
+    <string name="recipes_title">Рецепты</string>
+    <string name="recipes_empty">Нет рецептов</string>
+    <string name="recipes_ingredients">Ингредиенты:</string>
+    <string name="recipes_instructions">Приготовление:</string>
+
+    <!-- Barcode (for future use) -->
+    <string name="barcode_scan_title">Сканирование штрихкода</string>
+    <string name="barcode_scanning">Наведите камеру на штрихкод</string>
+    <string name="barcode_not_found">Продукт не найден</string>
+    <string name="barcode_manual_entry">Введите данные вручную</string>
+    <string name="barcode_product_found">Продукт найден</string>
+    <string name="barcode_add_to_household">Добавить в домохозяйство</string>
+    <string name="camera_permission_required">Для сканирования необходим доступ к камере</string>
+    <string name="camera_permission_grant">Предоставить доступ</string>
 </resources>

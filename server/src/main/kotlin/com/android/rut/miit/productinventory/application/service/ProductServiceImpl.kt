@@ -29,7 +29,8 @@ class ProductServiceImpl(
         category: ProductCategory,
         quantity: Double,
         quantityUnit: QuantityUnit,
-        expirationDate: LocalDate?
+        expirationDate: LocalDate?,
+        barcode: String?
     ): Product {
         requireMembership(userId, householdId)
 
@@ -40,7 +41,8 @@ class ProductServiceImpl(
                 quantity = Quantity(value = quantity, unit = quantityUnit),
                 expirationDate = expirationDate?.let { ExpirationDate(it) },
                 householdId = householdId,
-                addedByUserId = userId
+                addedByUserId = userId,
+                barcode = barcode
             )
         )
 
@@ -57,7 +59,8 @@ class ProductServiceImpl(
         category: ProductCategory?,
         quantity: Double?,
         quantityUnit: QuantityUnit?,
-        expirationDate: LocalDate?
+        expirationDate: LocalDate?,
+        barcode: String?
     ): Product {
         val existing = productRepository.findById(productId)
             ?: throw EntityNotFoundException("Product", productId)
@@ -71,7 +74,8 @@ class ProductServiceImpl(
                 value = quantity ?: existing.quantity.value,
                 unit = quantityUnit ?: existing.quantity.unit
             ),
-            expirationDate = expirationDate?.let { ExpirationDate(it) } ?: existing.expirationDate
+            expirationDate = expirationDate?.let { ExpirationDate(it) } ?: existing.expirationDate,
+            barcode = barcode ?: existing.barcode
         )
 
         return productRepository.save(updated)

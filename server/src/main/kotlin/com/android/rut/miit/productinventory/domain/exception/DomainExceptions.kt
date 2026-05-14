@@ -25,3 +25,6 @@ class InviteCodeExpiredException :
 
 class InviteCodeAlreadyUsedException :
     DomainException("Invite code has already been used")
+
+class BarcodeNotFoundException(val barcode: String) :
+    DomainException("Product not found for barcode: $barcode")

@@ -14,7 +14,8 @@ interface IProductService {
         category: ProductCategory,
         quantity: Double,
         quantityUnit: QuantityUnit,
-        expirationDate: LocalDate?
+        expirationDate: LocalDate?,
+        barcode: String? = null
     ): Product
 
     fun updateProduct(
@@ -24,7 +25,8 @@ interface IProductService {
         category: ProductCategory?,
         quantity: Double?,
         quantityUnit: QuantityUnit?,
-        expirationDate: LocalDate?
+        expirationDate: LocalDate?,
+        barcode: String? = null
     ): Product
 
     fun deleteProduct(userId: UUID, productId: UUID)

@@ -6,10 +6,12 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.android.rut.miit.productinventory.R
 import com.android.rut.miit.productinventory.feature.auth.presentation.register.*
 import org.koin.compose.viewmodel.koinViewModel
 
@@ -48,7 +50,7 @@ private fun RegisterContent(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
-                text = "Create Account",
+                text = stringResource(R.string.register_title),
                 style = MaterialTheme.typography.headlineLarge,
                 color = MaterialTheme.colorScheme.primary
             )
@@ -60,7 +62,7 @@ private fun RegisterContent(
                     OutlinedTextField(
                         value = state.name,
                         onValueChange = { onEvent(RegisterEvent.OnNameChanged(it)) },
-                        label = { Text("Name") },
+                        label = { Text(stringResource(R.string.register_name_label)) },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth()
                     )
@@ -70,7 +72,7 @@ private fun RegisterContent(
                     OutlinedTextField(
                         value = state.email,
                         onValueChange = { onEvent(RegisterEvent.OnEmailChanged(it)) },
-                        label = { Text("Email") },
+                        label = { Text(stringResource(R.string.login_email_label)) },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth()
@@ -81,7 +83,7 @@ private fun RegisterContent(
                     OutlinedTextField(
                         value = state.password,
                         onValueChange = { onEvent(RegisterEvent.OnPasswordChanged(it)) },
-                        label = { Text("Password") },
+                        label = { Text(stringResource(R.string.login_password_label)) },
                         visualTransformation = PasswordVisualTransformation(),
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
                         singleLine = true,
@@ -104,20 +106,20 @@ private fun RegisterContent(
                                 color = MaterialTheme.colorScheme.onPrimary
                             )
                         } else {
-                            Text("Register")
+                            Text(stringResource(R.string.register_button))
                         }
                     }
                 }
 
                 is RegisterState.Error -> {
                     Text(
-                        text = state.message ?: "An error occurred",
+                        text = state.message ?: stringResource(R.string.error_generic),
                         color = MaterialTheme.colorScheme.error,
                         style = MaterialTheme.typography.bodyMedium
                     )
                     Spacer(modifier = Modifier.height(16.dp))
                     Button(onClick = { onEvent(RegisterEvent.OnRegisterClick) }) {
-                        Text("Try Again")
+                        Text(stringResource(R.string.retry))
                     }
                 }
             }
@@ -125,7 +127,7 @@ private fun RegisterContent(
             Spacer(modifier = Modifier.height(16.dp))
 
             TextButton(onClick = { onEvent(RegisterEvent.OnBackToLogin) }) {
-                Text("Already have an account? Sign In")
+                Text(stringResource(R.string.register_has_account))
             }
         }
     }

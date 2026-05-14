@@ -1,7 +1,12 @@
 package com.android.rut.miit.productinventory
 
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
+import androidx.navigation.toRoute
+import com.android.rut.miit.productinventory.navigation.Route
 import com.android.rut.miit.productinventory.ui.screen.auth.LoginScreen
 import com.android.rut.miit.productinventory.ui.screen.auth.RegisterScreen
 import com.android.rut.miit.productinventory.ui.screen.household.HouseholdListScreen
@@ -9,65 +14,100 @@ import com.android.rut.miit.productinventory.ui.screen.notifications.Notificatio
 import com.android.rut.miit.productinventory.ui.screen.products.AddProductScreen
 import com.android.rut.miit.productinventory.ui.screen.products.ProductListScreen
 import com.android.rut.miit.productinventory.ui.screen.profile.ProfileScreen
+import com.android.rut.miit.productinventory.ui.screen.barcode.BarcodeScannerScreen
 import com.android.rut.miit.productinventory.ui.screen.recipes.RecipeListScreen
-
-sealed class Screen {
-    data object Login : Screen()
-    data object Register : Screen()
-    data object HouseholdList : Screen()
-    data class ProductList(val householdId: String) : Screen()
-    data class AddProduct(val householdId: String) : Screen()
-    data class Recipes(val householdId: String) : Screen()
-    data object Notifications : Screen()
-    data object Profile : Screen()
-}
 
 @Composable
 fun App() {
     MaterialTheme {
-        val backStack = remember { mutableStateListOf<Screen>(Screen.Login) }
-        val currentScreen = backStack.last()
+        val navController = rememberNavController()
 
-        fun navigate(screen: Screen) { backStack.add(screen) }
-        fun goBack() { if (backStack.size > 1) backStack.removeAt(backStack.lastIndex) }
-        fun navigateAndClear(screen: Screen) { backStack.clear(); backStack.add(screen) }
+        NavHost(navController = navController, startDestination = Route.Login) {
+            composable<Route.Login> {
+                LoginScreen(
+                    onNavigateToHome = {
+                        navController.navigate(Route.HouseholdList) {
+                            popUpTo(Route.Login) { inclusive = true }
+                        }
+                    },
+                    onNavigateToRegister = { navController.navigate(Route.Register) }
+                )
+            }
 
-        when (currentScreen) {
-            is Screen.Login -> LoginScreen(
-                onNavigateToHome = { navigateAndClear(Screen.HouseholdList) },
-                onNavigateToRegister = { navigate(Screen.Register) }
-            )
-            is Screen.Register -> RegisterScreen(
-                onNavigateToHome = { navigateAndClear(Screen.HouseholdList) },
-                onNavigateBack = { goBack() }
-            )
-            is Screen.HouseholdList -> HouseholdListScreen(
-                onNavigateToHousehold = { id -> navigate(Screen.ProductList(id)) },
-                onNavigateToProfile = { navigate(Screen.Profile) }
-            )
-            is Screen.ProductList -> ProductListScreen(
-                householdId = currentScreen.householdId,
-                onAddProduct = { navigate(Screen.AddProduct(currentScreen.householdId)) },
-                onBack = { goBack() },
-                onNavigateToRecipes = { navigate(Screen.Recipes(currentScreen.householdId)) },
-                onNavigateToNotifications = { navigate(Screen.Notifications) }
-            )
-            is Screen.AddProduct -> AddProductScreen(
-                householdId = currentScreen.householdId,
-                onProductAdded = { goBack() },
-                onBack = { goBack() }
-            )
-            is Screen.Recipes -> RecipeListScreen(
-                householdId = currentScreen.householdId,
-                onBack = { goBack() }
-            )
-            is Screen.Notifications -> NotificationListScreen(
-                onBack = { goBack() }
-            )
-            is Screen.Profile -> ProfileScreen(
-                onNavigateToLogin = { navigateAndClear(Screen.Login) },
-                onBack = { goBack() }
-            )
+            composable<Route.Register> {
+                RegisterScreen(
+                    onNavigateToHome = {
+                        navController.navigate(Route.HouseholdList) {
+                            popUpTo(Route.Login) { inclusive = true }
+                        }
+                    },
+                    onNavigateBack = { navController.popBackStack() }
+                )
+            }
+
+            composable<Route.HouseholdList> {
+                HouseholdListScreen(
+                    onNavigateToHousehold = { id -> navController.navigate(Route.ProductList(id)) },
+                    onNavigateToProfile = { navController.navigate(Route.Profile) }
+                )
+            }
+
+            composable<Route.ProductList> { entry ->
+                val route = entry.toRoute<Route.ProductList>()
+                ProductListScreen(
+                    householdId = route.householdId,
+                    onAddProduct = { navController.navigate(Route.AddProduct(route.householdId)) },
+                    onBack = { navController.popBackStack() },
+                    onNavigateToRecipes = { navController.navigate(Route.Recipes(route.householdId)) },
+                    onNavigateToNotifications = { navController.navigate(Route.Notifications) },
+                    onNavigateToBarcodeScan = { navController.navigate(Route.BarcodeScan(route.householdId)) }
+                )
+            }
+
+            composable<Route.AddProduct> { entry ->
+                val route = entry.toRoute<Route.AddProduct>()
+                AddProductScreen(
+                    householdId = route.householdId,
+                    onProductAdded = { navController.popBackStack() },
+                    onBack = { navController.popBackStack() }
+                )
+            }
+
+            composable<Route.Recipes> { entry ->
+                val route = entry.toRoute<Route.Recipes>()
+                RecipeListScreen(
+                    householdId = route.householdId,
+                    onBack = { navController.popBackStack() }
+                )
+            }
+
+            composable<Route.Notifications> {
+                NotificationListScreen(
+                    onBack = { navController.popBackStack() }
+                )
+            }
+
+            composable<Route.Profile> {
+                ProfileScreen(
+                    onNavigateToLogin = {
+                        navController.navigate(Route.Login) {
+                            popUpTo(0) { inclusive = true }
+                        }
+                    },
+                    onBack = { navController.popBackStack() }
+                )
+            }
+
+            composable<Route.BarcodeScan> { entry ->
+                val route = entry.toRoute<Route.BarcodeScan>()
+                BarcodeScannerScreen(
+                    householdId = route.householdId,
+                    onBack = { navController.popBackStack() },
+                    onManualEntry = { barcode ->
+                        navController.navigate(Route.AddProduct(route.householdId))
+                    }
+                )
+            }
         }
     }
 }

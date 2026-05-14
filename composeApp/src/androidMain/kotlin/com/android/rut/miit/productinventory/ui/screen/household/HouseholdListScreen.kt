@@ -8,8 +8,10 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.android.rut.miit.productinventory.R
 import com.android.rut.miit.productinventory.feature.household.api.models.Household
 import com.android.rut.miit.productinventory.feature.household.presentation.list.*
 import org.koin.compose.viewmodel.koinViewModel
@@ -44,10 +46,10 @@ fun HouseholdListScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Мои домохозяйства") },
+                title = { Text(stringResource(R.string.households_title)) },
                 actions = {
                     TextButton(onClick = { viewModel.onEvent(HouseholdListEvent.OnProfileClick) }) {
-                        Text("Профиль")
+                        Text(stringResource(R.string.profile_title))
                     }
                 }
             )
@@ -58,13 +60,13 @@ fun HouseholdListScreen(
                     onClick = { viewModel.onEvent(HouseholdListEvent.OnJoinHouseholdClick) },
                     containerColor = MaterialTheme.colorScheme.secondaryContainer
                 ) {
-                    Text("↗", style = MaterialTheme.typography.titleMedium)
+                    Text(stringResource(R.string.join), style = MaterialTheme.typography.labelMedium)
                 }
                 Spacer(Modifier.height(12.dp))
                 FloatingActionButton(
                     onClick = { viewModel.onEvent(HouseholdListEvent.OnCreateHouseholdClick) }
                 ) {
-                    Text("+", style = MaterialTheme.typography.headlineSmall)
+                    Text(stringResource(R.string.add), style = MaterialTheme.typography.labelMedium)
                 }
             }
         }
@@ -79,11 +81,13 @@ fun HouseholdListScreen(
                 if (s.households.isEmpty()) {
                     Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text("Нет домохозяйств", style = MaterialTheme.typography.titleMedium)
+                            Text(stringResource(R.string.households_empty), style = MaterialTheme.typography.titleMedium)
                             Spacer(Modifier.height(8.dp))
-                            Text("Создайте новое или присоединитесь по коду",
+                            Text(
+                                stringResource(R.string.households_empty_hint),
                                 style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
                         }
                     }
                 } else {
@@ -103,10 +107,10 @@ fun HouseholdListScreen(
             is HouseholdListState.Error -> {
                 Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(s.message ?: "Ошибка загрузки")
+                        Text(s.message ?: stringResource(R.string.error_loading))
                         Spacer(Modifier.height(8.dp))
                         Button(onClick = { viewModel.onEvent(HouseholdListEvent.OnRetry) }) {
-                            Text("Повторить")
+                            Text(stringResource(R.string.retry))
                         }
                     }
                 }
@@ -117,12 +121,12 @@ fun HouseholdListScreen(
     if (showCreateDialog) {
         AlertDialog(
             onDismissRequest = { showCreateDialog = false; createName = "" },
-            title = { Text("Новое домохозяйство") },
+            title = { Text(stringResource(R.string.household_new_title)) },
             text = {
                 OutlinedTextField(
                     value = createName,
                     onValueChange = { createName = it },
-                    label = { Text("Название") },
+                    label = { Text(stringResource(R.string.household_name_label)) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -135,11 +139,11 @@ fun HouseholdListScreen(
                         createName = ""
                     },
                     enabled = createName.isNotBlank()
-                ) { Text("Создать") }
+                ) { Text(stringResource(R.string.household_create)) }
             },
             dismissButton = {
                 TextButton(onClick = { showCreateDialog = false; createName = "" }) {
-                    Text("Отмена")
+                    Text(stringResource(R.string.cancel))
                 }
             }
         )
@@ -148,12 +152,12 @@ fun HouseholdListScreen(
     if (showJoinDialog) {
         AlertDialog(
             onDismissRequest = { showJoinDialog = false; joinCode = "" },
-            title = { Text("Присоединиться") },
+            title = { Text(stringResource(R.string.household_join_title)) },
             text = {
                 OutlinedTextField(
                     value = joinCode,
                     onValueChange = { joinCode = it },
-                    label = { Text("Код приглашения") },
+                    label = { Text(stringResource(R.string.household_invite_code_label)) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -166,11 +170,11 @@ fun HouseholdListScreen(
                         joinCode = ""
                     },
                     enabled = joinCode.isNotBlank()
-                ) { Text("Вступить") }
+                ) { Text(stringResource(R.string.household_join)) }
             },
             dismissButton = {
                 TextButton(onClick = { showJoinDialog = false; joinCode = "" }) {
-                    Text("Отмена")
+                    Text(stringResource(R.string.cancel))
                 }
             }
         )
@@ -187,7 +191,7 @@ private fun HouseholdCard(household: Household, onClick: () -> Unit) {
             Text(household.name, style = MaterialTheme.typography.titleMedium)
             Spacer(Modifier.height(4.dp))
             Text(
-                "Создано: ${household.createdAt.take(10)}",
+                stringResource(R.string.households_created_at, household.createdAt.take(10)),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )

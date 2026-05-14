@@ -1,6 +1,7 @@
 package com.android.rut.miit.productinventory.infrastructure.adapter.outbound.persistence.adapter
 
 import com.android.rut.miit.productinventory.domain.model.*
+import com.android.rut.miit.productinventory.domain.model.BarcodeProduct
 import com.android.rut.miit.productinventory.infrastructure.adapter.outbound.persistence.entity.*
 
 fun UserEntity.toDomain() = User(
@@ -39,7 +40,8 @@ fun ProductEntity.toDomain() = Product(
     expirationDate = expirationDate?.let { ExpirationDate(it) },
     householdId = householdId,
     addedByUserId = addedByUserId,
-    createdAt = createdAt
+    createdAt = createdAt,
+    barcode = barcode
 )
 
 fun Product.toEntity() = ProductEntity(
@@ -51,7 +53,26 @@ fun Product.toEntity() = ProductEntity(
     expirationDate = expirationDate?.date,
     householdId = householdId,
     addedByUserId = addedByUserId,
-    createdAt = createdAt
+    createdAt = createdAt,
+    barcode = barcode
+)
+
+fun BarcodeProductEntity.toDomain() = BarcodeProduct(
+    id = id,
+    barcode = barcode,
+    name = name,
+    category = category,
+    imageUrl = imageUrl,
+    fetchedAt = fetchedAt
+)
+
+fun BarcodeProduct.toEntity() = BarcodeProductEntity(
+    id = id,
+    barcode = barcode,
+    name = name,
+    category = category,
+    imageUrl = imageUrl,
+    fetchedAt = fetchedAt
 )
 
 fun MembershipEntity.toDomain() = Membership(

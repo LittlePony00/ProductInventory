@@ -7,9 +7,11 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.android.rut.miit.productinventory.R
 import com.android.rut.miit.productinventory.feature.notifications.api.models.Notification
 import com.android.rut.miit.productinventory.feature.notifications.presentation.*
 import org.koin.compose.viewmodel.koinViewModel
@@ -35,15 +37,15 @@ fun NotificationListScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Уведомления") },
+                title = { Text(stringResource(R.string.notifications_title)) },
                 navigationIcon = {
                     TextButton(onClick = { viewModel.onEvent(NotificationListEvent.OnBackClick) }) {
-                        Text("←", style = MaterialTheme.typography.titleLarge)
+                        Text(stringResource(R.string.back))
                     }
                 },
                 actions = {
                     TextButton(onClick = { viewModel.onEvent(NotificationListEvent.OnMarkAllRead) }) {
-                        Text("Прочитать все")
+                        Text(stringResource(R.string.notifications_mark_all_read))
                     }
                 }
             )
@@ -58,7 +60,7 @@ fun NotificationListScreen(
             is NotificationListState.Content -> {
                 if (s.notifications.isEmpty()) {
                     Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
-                        Text("Нет уведомлений", style = MaterialTheme.typography.bodyLarge)
+                        Text(stringResource(R.string.notifications_empty), style = MaterialTheme.typography.bodyLarge)
                     }
                 } else {
                     LazyColumn(
@@ -77,10 +79,10 @@ fun NotificationListScreen(
             is NotificationListState.Error -> {
                 Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(s.message ?: "Ошибка загрузки")
+                        Text(s.message ?: stringResource(R.string.error_loading))
                         Spacer(Modifier.height(8.dp))
                         Button(onClick = { viewModel.onEvent(NotificationListEvent.OnRetry) }) {
-                            Text("Повторить")
+                            Text(stringResource(R.string.retry))
                         }
                     }
                 }
@@ -116,7 +118,7 @@ private fun NotificationCard(notification: Notification, onMarkRead: () -> Unit)
                 )
                 if (!notification.isRead) {
                     TextButton(onClick = onMarkRead) {
-                        Text("Прочитано", style = MaterialTheme.typography.labelSmall)
+                        Text(stringResource(R.string.notifications_mark_read), style = MaterialTheme.typography.labelSmall)
                     }
                 }
             }

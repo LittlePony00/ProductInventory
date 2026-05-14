@@ -8,4 +8,5 @@ import java.util.UUID
 interface JpaProductRepository : JpaRepository<ProductEntity, UUID> {
     fun findByHouseholdId(householdId: UUID): List<ProductEntity>
     fun findByHouseholdIdAndExpirationDateBefore(householdId: UUID, date: LocalDate): List<ProductEntity>
+    fun findByBarcodeAndHouseholdId(barcode: String, householdId: UUID): ProductEntity?
 }

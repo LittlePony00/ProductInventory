@@ -7,8 +7,10 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.android.rut.miit.productinventory.R
 import com.android.rut.miit.productinventory.feature.recommendations.api.models.Recipe
 import com.android.rut.miit.productinventory.feature.recommendations.presentation.*
 import org.koin.compose.viewmodel.koinViewModel
@@ -38,10 +40,10 @@ fun RecipeListScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Рецепты") },
+                title = { Text(stringResource(R.string.recipes_title)) },
                 navigationIcon = {
                     TextButton(onClick = { viewModel.onEvent(RecipeListEvent.OnBackClick) }) {
-                        Text("←", style = MaterialTheme.typography.titleLarge)
+                        Text(stringResource(R.string.back))
                     }
                 }
             )
@@ -56,7 +58,7 @@ fun RecipeListScreen(
             is RecipeListState.Content -> {
                 if (s.recipes.isEmpty()) {
                     Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
-                        Text("Нет рецептов", style = MaterialTheme.typography.bodyLarge)
+                        Text(stringResource(R.string.recipes_empty), style = MaterialTheme.typography.bodyLarge)
                     }
                 } else {
                     LazyColumn(
@@ -73,10 +75,10 @@ fun RecipeListScreen(
             is RecipeListState.Error -> {
                 Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(s.message ?: "Ошибка загрузки")
+                        Text(s.message ?: stringResource(R.string.error_loading))
                         Spacer(Modifier.height(8.dp))
                         Button(onClick = { viewModel.onEvent(RecipeListEvent.OnRetry) }) {
-                            Text("Повторить")
+                            Text(stringResource(R.string.retry))
                         }
                     }
                 }
@@ -98,13 +100,13 @@ private fun RecipeCard(recipe: Recipe) {
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(Modifier.height(8.dp))
 
-            Text("Ингредиенты:", style = MaterialTheme.typography.labelMedium)
+            Text(stringResource(R.string.recipes_ingredients), style = MaterialTheme.typography.labelMedium)
             recipe.ingredients.forEach { ingredient ->
-                Text("  • $ingredient", style = MaterialTheme.typography.bodySmall)
+                Text("- $ingredient", style = MaterialTheme.typography.bodySmall)
             }
 
             Spacer(Modifier.height(8.dp))
-            Text("Приготовление:", style = MaterialTheme.typography.labelMedium)
+            Text(stringResource(R.string.recipes_instructions), style = MaterialTheme.typography.labelMedium)
             Text(recipe.instructions, style = MaterialTheme.typography.bodySmall)
         }
     }
