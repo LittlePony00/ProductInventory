@@ -12,14 +12,8 @@ class RecommendationController(
     private val recommendationService: IRecommendationService
 ) {
 
-    @GetMapping
+    @GetMapping("", "/suggestions")
     fun getRecipes(@PathVariable householdId: UUID): List<RecipeResponse> {
-        return recommendationService.getRecipes(currentUserId(), householdId)
-            .map { it.toResponse() }
-    }
-
-    @GetMapping("/suggestions")
-    fun getRecipeSuggestions(@PathVariable householdId: UUID): List<RecipeResponse> {
         return recommendationService.getRecipes(currentUserId(), householdId)
             .map { it.toResponse() }
     }
