@@ -53,4 +53,6 @@ interface ProductRepository {
 
     suspend fun deleteProduct(householdId: String, productId: String)
     suspend fun getExpiringProducts(householdId: String, days: Int = 3): List<Product>
+    suspend fun upsertCachedProduct(product: Product)
+    suspend fun deleteCachedProduct(productId: String)
 }

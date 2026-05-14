@@ -5,8 +5,9 @@ import org.koin.core.module.Module
 import org.koin.dsl.module
 
 actual fun localDataSourceModule(): Module = module {
-    single<ProductLocalDataSource> { InMemoryProductLocalDataSource() }
-    single<HouseholdLocalDataSource> { InMemoryHouseholdLocalDataSource() }
-    single<BarcodeLocalDataSource> { InMemoryBarcodeLocalDataSource() }
-    single<SyncQueue> { InMemorySyncQueue() }
+    single<PersistentKeyValueStore> { NSUserDefaultsPersistentKeyValueStore() }
+    single<ProductLocalDataSource> { PersistentProductLocalDataSource(get()) }
+    single<HouseholdLocalDataSource> { PersistentHouseholdLocalDataSource(get()) }
+    single<BarcodeLocalDataSource> { PersistentBarcodeLocalDataSource(get()) }
+    single<SyncQueue> { PersistentSyncQueue(get()) }
 }

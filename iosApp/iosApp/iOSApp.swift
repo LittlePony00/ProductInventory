@@ -53,6 +53,10 @@ struct RootView: View {
             ProductListScreen(householdId: id)
         case .addProduct(let id):
             AddProductScreen(householdId: id)
+        case let .addProductFromDraft(id, draft):
+            AddProductScreen(householdId: id, draft: draft)
+        case .barcodeScan(let id):
+            BarcodeScannerScreen(householdId: id)
         case .recipes(let id):
             RecipeListScreen(householdId: id)
         case .notifications:

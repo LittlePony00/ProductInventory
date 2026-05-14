@@ -15,6 +15,7 @@ final class DIContainer {
     func householdListViewModel() -> HouseholdListViewModel { koinHelper.householdListViewModel() }
     func productListViewModel() -> ProductListViewModel { koinHelper.productListViewModel() }
     func addProductViewModel() -> AddProductViewModel { koinHelper.addProductViewModel() }
+    func barcodeScanViewModel() -> BarcodeScanViewModel { koinHelper.barcodeScanViewModel() }
     func profileViewModel() -> ProfileViewModel { koinHelper.profileViewModel() }
     func notificationListViewModel() -> NotificationListViewModel { koinHelper.notificationListViewModel() }
     func recipeListViewModel() -> RecipeListViewModel { koinHelper.recipeListViewModel() }

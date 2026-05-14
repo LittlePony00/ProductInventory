@@ -6,9 +6,18 @@ import com.android.rut.miit.productinventory.feature.products.api.models.Quantit
 
 data class AddProductState(
     val name: String = "",
+    val brand: String = "",
+    val barcode: String = "",
     val category: ProductCategory = ProductCategory.OTHER,
     val quantity: String = "",
     val quantityUnit: QuantityUnit = QuantityUnit.PIECES,
+    val packageAmount: String = "",
+    val packageUnit: QuantityUnit = QuantityUnit.PIECES,
+    val ingredientsText: String = "",
+    val calories: String = "",
+    val protein: String = "",
+    val fat: String = "",
+    val carbs: String = "",
     val expirationDate: String = "",
     val isLoading: Boolean = false,
     val error: String? = null

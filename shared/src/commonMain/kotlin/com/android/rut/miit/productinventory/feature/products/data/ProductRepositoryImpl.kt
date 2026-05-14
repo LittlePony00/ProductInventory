@@ -131,4 +131,12 @@ class ProductRepositoryImpl(
             emptyList()
         }
     }
+
+    override suspend fun upsertCachedProduct(product: Product) {
+        localDataSource.saveProduct(product)
+    }
+
+    override suspend fun deleteCachedProduct(productId: String) {
+        localDataSource.deleteProduct(productId)
+    }
 }
