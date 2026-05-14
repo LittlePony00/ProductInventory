@@ -2,19 +2,21 @@ package com.android.rut.miit.productinventory.feature.products.presentation.list
 
 import androidx.lifecycle.viewModelScope
 import com.android.rut.miit.productinventory.common.SharedViewModel
+import com.android.rut.miit.productinventory.feature.products.api.ApplyRealtimeProductEventUseCase
 import com.android.rut.miit.productinventory.feature.products.api.DeleteProductUseCase
 import com.android.rut.miit.productinventory.feature.products.api.GetProductsUseCase
 import com.android.rut.miit.productinventory.feature.products.api.models.Product
 import com.android.rut.miit.productinventory.feature.realtime.api.ObserveHouseholdEventsUseCase
 import com.android.rut.miit.productinventory.feature.realtime.api.models.HouseholdRealtimeEvent
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 
 class ProductListViewModel(
     private val getProductsUseCase: GetProductsUseCase,
     private val deleteProductUseCase: DeleteProductUseCase,
+    private val applyRealtimeProductEventUseCase: ApplyRealtimeProductEventUseCase,
     private val observeHouseholdEventsUseCase: ObserveHouseholdEventsUseCase
 ) : SharedViewModel<ProductListState, ProductListEvent, ProductListAction>(
     initialState = ProductListState.Loading
@@ -78,19 +80,20 @@ class ProductListViewModel(
                     }
                 }
                 .collect { event ->
+                    if (event.householdId != householdId) return@collect
                     updateState {
                         when (this) {
                             is ProductListState.Content -> copy(isRealtimeActive = true)
                             else -> this
                         }
                     }
+                    runCatching { applyRealtimeProductEventUseCase(event) }
                     handleRealtimeEvent(event)
                 }
         }
     }
 
     private fun handleRealtimeEvent(event: HouseholdRealtimeEvent) {
-        if (event.householdId != householdId) return
         when (event) {
             is HouseholdRealtimeEvent.ProductCreated -> upsertProduct(event.product)
             is HouseholdRealtimeEvent.ProductUpdated -> upsertProduct(event.product)
@@ -101,9 +104,11 @@ class ProductListViewModel(
 
     private fun upsertProduct(product: Product) {
         updateContentProducts { products ->
-            products
-                .filterNot { it.id == product.id }
-                .plus(product)
+            if (products.any { it.id == product.id }) {
+                products.map { if (it.id == product.id) product else it }
+            } else {
+                products + product
+            }
         }
     }
 
@@ -141,13 +146,14 @@ class ProductListViewModel(
     }
 
     private fun showContent(products: List<Product>) {
+        val isRealtimeActive = currentState is ProductListState.Content &&
+            (currentState as ProductListState.Content).isRealtimeActive
         updateState {
             ProductListState.Content(
                 products = products,
                 visibleProducts = products.applyFilters(filters),
                 filters = filters,
-                isRealtimeActive = currentState is ProductListState.Content &&
-                    (currentState as ProductListState.Content).isRealtimeActive
+                isRealtimeActive = isRealtimeActive
             )
         }
     }

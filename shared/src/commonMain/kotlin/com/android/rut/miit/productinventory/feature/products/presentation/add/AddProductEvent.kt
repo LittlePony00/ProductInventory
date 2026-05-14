@@ -20,6 +20,21 @@ sealed class AddProductEvent : UiEvent {
         val fat: String? = null,
         val carbs: String? = null
     ) : AddProductEvent()
+
+    data class OnScannedDraftApplied(
+        val barcode: String,
+        val name: String?,
+        val brand: String?,
+        val category: ProductCategory?,
+        val packageAmount: String?,
+        val packageUnit: QuantityUnit?,
+        val ingredientsText: String?,
+        val calories: String?,
+        val protein: String?,
+        val fat: String?,
+        val carbs: String?
+    ) : AddProductEvent()
+
     data class OnNameChanged(val name: String) : AddProductEvent()
     data class OnBrandChanged(val brand: String) : AddProductEvent()
     data class OnBarcodeChanged(val barcode: String) : AddProductEvent()

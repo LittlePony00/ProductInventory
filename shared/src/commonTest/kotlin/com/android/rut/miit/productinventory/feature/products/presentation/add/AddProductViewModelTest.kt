@@ -147,6 +147,8 @@ class AddProductViewModelTest {
 
         override suspend fun deleteProduct(householdId: String, productId: String) = Unit
         override suspend fun getExpiringProducts(householdId: String, days: Int): List<Product> = emptyList()
+        override suspend fun upsertCachedProduct(product: Product) = Unit
+        override suspend fun deleteCachedProduct(productId: String) = Unit
     }
 
     private data class Request(

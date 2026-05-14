@@ -2,6 +2,7 @@ package com.android.rut.miit.productinventory.feature.products.presentation.list
 
 import com.android.rut.miit.productinventory.feature.products.api.DeleteProductUseCase
 import com.android.rut.miit.productinventory.feature.products.api.GetProductsUseCase
+import com.android.rut.miit.productinventory.feature.products.api.ApplyRealtimeProductEventUseCase
 import com.android.rut.miit.productinventory.feature.products.api.ProductRepository
 import com.android.rut.miit.productinventory.feature.products.api.models.ExpirationStatus
 import com.android.rut.miit.productinventory.feature.products.api.models.Product
@@ -127,6 +128,7 @@ class ProductListViewModelTest {
         ProductListViewModel(
             getProductsUseCase = GetProductsUseCase(productRepository),
             deleteProductUseCase = DeleteProductUseCase(productRepository),
+            applyRealtimeProductEventUseCase = ApplyRealtimeProductEventUseCase(productRepository),
             observeHouseholdEventsUseCase = ObserveHouseholdEventsUseCase(realtimeRepository)
         )
 
@@ -199,6 +201,13 @@ class ProductListViewModelTest {
         ): Product = error("unused")
 
         override suspend fun getExpiringProducts(householdId: String, days: Int): List<Product> = emptyList()
+        override suspend fun upsertCachedProduct(product: Product) {
+            products = products.filterNot { it.id == product.id } + product
+        }
+
+        override suspend fun deleteCachedProduct(productId: String) {
+            products = products.filterNot { it.id == productId }
+        }
     }
 
     private fun product(

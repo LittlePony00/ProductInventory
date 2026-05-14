@@ -17,6 +17,7 @@ class AddProductViewModel(
     override suspend fun handleEvent(event: AddProductEvent) {
         when (event) {
             is AddProductEvent.OnPrefill -> prefill(event)
+            is AddProductEvent.OnScannedDraftApplied -> applyScannedDraft(event)
             is AddProductEvent.OnNameChanged ->
                 updateState { copy(name = event.name) }
             is AddProductEvent.OnBrandChanged ->
@@ -72,6 +73,25 @@ class AddProductViewModel(
                 fat = event.fat ?: fat,
                 carbs = event.carbs ?: carbs,
                 isBarcodePrefilled = event.barcode != null || isBarcodePrefilled
+            )
+        }
+    }
+
+    private fun applyScannedDraft(event: AddProductEvent.OnScannedDraftApplied) {
+        updateState {
+            copy(
+                barcode = event.barcode,
+                name = event.name ?: name,
+                brand = event.brand ?: brand,
+                category = event.category ?: category,
+                packageAmount = event.packageAmount ?: packageAmount,
+                packageUnit = event.packageUnit ?: packageUnit,
+                ingredientsText = event.ingredientsText ?: ingredientsText,
+                calories = event.calories ?: calories,
+                protein = event.protein ?: protein,
+                fat = event.fat ?: fat,
+                carbs = event.carbs ?: carbs,
+                isBarcodePrefilled = true
             )
         }
     }
