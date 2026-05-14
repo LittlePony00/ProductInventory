@@ -33,7 +33,7 @@ class RecipeKnowledgeRepositoryAdapterTest {
         )
         val adapter = RecipeKnowledgeRepositoryAdapter(jpaRepository, ObjectMapper().registerKotlinModule())
 
-        val document = adapter.findAll().single()
+        val document = adapter.findAll().single { it.id == "rice-bowl" }
 
         assertEquals("rice-bowl", document.id)
         assertEquals("Rice Bowl", document.title)

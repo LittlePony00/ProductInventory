@@ -80,7 +80,9 @@ class RecommendationServiceImplTest {
 
     private class FakeProductRepository(private val products: List<Product>) : IProductRepository {
         override fun findById(id: UUID): Product? = products.firstOrNull { it.id == id }
-        override fun findFirstByBarcode(barcode: String): Product? = products.firstOrNull { it.barcode == barcode }
+        override fun findByBarcodeAndHouseholdId(barcode: String, householdId: UUID): Product? =
+            products.firstOrNull { it.barcode == barcode && it.householdId == householdId }
+
         override fun findByHouseholdId(householdId: UUID): List<Product> =
             products.filter { it.householdId == householdId }
 
