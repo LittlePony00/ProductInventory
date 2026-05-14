@@ -2,6 +2,7 @@ package com.android.rut.miit.productinventory.application.service
 
 import com.android.rut.miit.productinventory.domain.exception.AccessDeniedException
 import com.android.rut.miit.productinventory.domain.model.Recipe
+import com.android.rut.miit.productinventory.domain.model.RecipeGenerationRequest
 import com.android.rut.miit.productinventory.domain.port.inbound.IRecommendationService
 import com.android.rut.miit.productinventory.domain.port.outbound.IMembershipRepository
 import com.android.rut.miit.productinventory.domain.port.outbound.IProductRepository
@@ -26,8 +27,6 @@ class RecommendationServiceImpl(
 
         val products = productRepository.findByHouseholdId(householdId)
         val sortedProducts = expirationCheckService.sortByExpirationPriority(products)
-        val ingredients = sortedProducts.map { it.name }
-
-        return recipeProvider.findByIngredients(ingredients)
+        return recipeProvider.findRecipes(RecipeGenerationRequest(sortedProducts))
     }
 }

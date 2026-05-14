@@ -96,18 +96,20 @@ private fun RecipeCard(recipe: Recipe) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text(recipe.title, style = MaterialTheme.typography.titleMedium)
             Spacer(Modifier.height(4.dp))
-            Text(recipe.description, style = MaterialTheme.typography.bodyMedium,
+            Text("${recipe.time} • ${recipe.calories} kcal", style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(Modifier.height(8.dp))
 
             Text(stringResource(R.string.recipes_ingredients), style = MaterialTheme.typography.labelMedium)
             recipe.ingredients.forEach { ingredient ->
-                Text("- $ingredient", style = MaterialTheme.typography.bodySmall)
+                Text("- ${ingredient.name}: ${ingredient.amount}", style = MaterialTheme.typography.bodySmall)
             }
 
             Spacer(Modifier.height(8.dp))
             Text(stringResource(R.string.recipes_instructions), style = MaterialTheme.typography.labelMedium)
-            Text(recipe.instructions, style = MaterialTheme.typography.bodySmall)
+            recipe.steps.forEachIndexed { index, step ->
+                Text("${index + 1}. $step", style = MaterialTheme.typography.bodySmall)
+            }
         }
     }
 }

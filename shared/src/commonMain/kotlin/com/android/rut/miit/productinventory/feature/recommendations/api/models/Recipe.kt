@@ -1,10 +1,14 @@
 package com.android.rut.miit.productinventory.feature.recommendations.api.models
 
 data class Recipe(
-    val id: String,
     val title: String,
-    val description: String,
-    val ingredients: List<String>,
-    val instructions: String,
-    val imageUrl: String?
+    val ingredients: List<RecipeIngredient>,
+    val steps: List<String>,
+    val time: String,
+    val calories: Int
+)
+
+data class RecipeIngredient(
+    val name: String,
+    val amount: String
 )

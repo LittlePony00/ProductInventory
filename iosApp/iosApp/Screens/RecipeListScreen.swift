@@ -39,7 +39,7 @@ struct RecipeListScreen: View {
                 Text("Нет рецептов").font(.headline)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
-                List(state.recipes, id: \.id) { recipe in
+                List(Array(state.recipes.enumerated()), id: \.offset) { _, recipe in
                     RecipeRow(recipe: recipe)
                 }
             }
@@ -61,13 +61,15 @@ struct RecipeRow: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text(recipe.title).font(.headline)
-            Text(recipe.description_).font(.subheadline).foregroundColor(.secondary)
+            Text("\(recipe.time) • \(recipe.calories) kcal").font(.subheadline).foregroundColor(.secondary)
             Text("Ингредиенты:").font(.caption).fontWeight(.semibold)
-            ForEach(recipe.ingredients, id: \.self) { ingredient in
-                Text("- \(ingredient)").font(.caption)
+            ForEach(recipe.ingredients, id: \.name) { ingredient in
+                Text("- \(ingredient.name): \(ingredient.amount)").font(.caption)
             }
             Text("Приготовление:").font(.caption).fontWeight(.semibold)
-            Text(recipe.instructions).font(.caption)
+            ForEach(Array(recipe.steps.enumerated()), id: \.offset) { index, step in
+                Text("\(index + 1). \(step)").font(.caption)
+            }
         }.padding(.vertical, 4)
     }
 }

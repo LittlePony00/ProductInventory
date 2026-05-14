@@ -56,12 +56,13 @@ fun Notification.toResponse() = NotificationResponse(
 )
 
 fun Recipe.toResponse() = RecipeResponse(
-    id = id,
     title = title,
-    description = description,
-    ingredients = ingredients,
-    instructions = instructions,
-    imageUrl = imageUrl
+    ingredients = ingredients.map {
+        RecipeIngredientResponse(name = it.name, amount = it.amount)
+    },
+    steps = steps,
+    time = time,
+    calories = calories
 )
 
 fun Membership.toResponse(user: User) = MembershipResponse(

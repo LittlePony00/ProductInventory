@@ -1,6 +1,7 @@
 package com.android.rut.miit.productinventory.feature.recommendations.api
 
 import com.android.rut.miit.productinventory.feature.recommendations.api.models.Recipe
+import com.android.rut.miit.productinventory.feature.recommendations.api.models.RecipeIngredient
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlinx.coroutines.test.runTest
@@ -20,11 +21,10 @@ class GetRecipeSuggestionsUseCaseTest {
 
     private fun recipe(): Recipe =
         Recipe(
-            id = "recipe-id",
             title = "Omelette",
-            description = "Fast breakfast",
-            ingredients = listOf("Eggs"),
-            instructions = "Cook",
-            imageUrl = null
+            ingredients = listOf(RecipeIngredient(name = "Eggs", amount = "2 pieces")),
+            steps = listOf("Cook"),
+            time = "10 minutes",
+            calories = 250
         )
 }
