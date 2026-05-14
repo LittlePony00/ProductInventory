@@ -7,6 +7,7 @@ import com.android.rut.miit.productinventory.feature.notifications.di.notificati
 import com.android.rut.miit.productinventory.feature.products.di.productsModule
 import com.android.rut.miit.productinventory.feature.profile.di.profileModule
 import com.android.rut.miit.productinventory.feature.recommendations.di.recommendationsModule
+import com.android.rut.miit.productinventory.feature.realtime.di.realtimeModule
 
 val appModules = listOf(
     platformModule(),
@@ -18,5 +19,6 @@ val appModules = listOf(
     barcodeModule,
     profileModule,
     notificationsModule,
-    recommendationsModule
+    recommendationsModule,
+    realtimeModule
 )

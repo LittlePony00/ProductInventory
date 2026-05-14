@@ -11,4 +11,8 @@ class RecipeRemoteDataSource(private val httpClient: HttpClient) {
     suspend fun getRecipes(householdId: String): List<RecipeResponseDto> {
         return httpClient.get("${ApiConstants.API_V1}/households/$householdId/recipes").body()
     }
+
+    suspend fun getRecipeSuggestions(householdId: String): List<RecipeResponseDto> {
+        return httpClient.get("${ApiConstants.API_V1}/households/$householdId/recipes/suggestions").body()
+    }
 }

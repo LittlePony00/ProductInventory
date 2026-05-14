@@ -1,0 +1,34 @@
+package com.android.rut.miit.productinventory.feature.realtime.data.mappers
+
+import com.android.rut.miit.productinventory.feature.products.data.mappers.toDomain
+import com.android.rut.miit.productinventory.feature.realtime.api.models.HouseholdRealtimeEvent
+import com.android.rut.miit.productinventory.feature.realtime.data.models.RealtimeEventDto
+
+fun RealtimeEventDto.toDomain(): HouseholdRealtimeEvent =
+    when (type) {
+        "PRODUCT_CREATED" -> HouseholdRealtimeEvent.ProductCreated(
+            householdId = householdId,
+            occurredAt = occurredAt,
+            product = requireNotNull(product) { "PRODUCT_CREATED event requires product" }.toDomain()
+        )
+        "PRODUCT_UPDATED" -> HouseholdRealtimeEvent.ProductUpdated(
+            householdId = householdId,
+            occurredAt = occurredAt,
+            product = requireNotNull(product) { "PRODUCT_UPDATED event requires product" }.toDomain()
+        )
+        "PRODUCT_DELETED" -> HouseholdRealtimeEvent.ProductDeleted(
+            householdId = householdId,
+            occurredAt = occurredAt,
+            productId = requireNotNull(productId) { "PRODUCT_DELETED event requires productId" }
+        )
+        "RESYNC_REQUIRED" -> HouseholdRealtimeEvent.ResyncRequired(
+            householdId = householdId,
+            occurredAt = occurredAt,
+            reason = reason
+        )
+        else -> HouseholdRealtimeEvent.ResyncRequired(
+            householdId = householdId,
+            occurredAt = occurredAt,
+            reason = "Unsupported realtime event type: $type"
+        )
+    }

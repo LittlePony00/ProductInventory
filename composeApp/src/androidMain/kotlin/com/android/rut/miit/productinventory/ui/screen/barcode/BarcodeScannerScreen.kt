@@ -48,6 +48,7 @@ fun BarcodeScannerScreen(
                 is BarcodeScanAction.NavigateBack -> onBack()
                 is BarcodeScanAction.ProductAdded -> onBack()
                 is BarcodeScanAction.NavigateToManualEntry -> onManualEntry(action.barcode)
+                is BarcodeScanAction.NavigateToDraftEntry -> onManualEntry(action.draft.barcode)
             }
         }
     }
@@ -125,6 +126,44 @@ fun BarcodeScannerScreen(
                             Spacer(Modifier.height(24.dp))
                             Button(onClick = { viewModel.onEvent(BarcodeScanEvent.OnDismissProduct) }) {
                                 Text(stringResource(R.string.barcode_scan_title))
+                            }
+                        }
+                    }
+                    is BarcodeScanState.DraftFound -> {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(
+                                stringResource(R.string.barcode_product_found),
+                                style = MaterialTheme.typography.headlineSmall,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                            Spacer(Modifier.height(16.dp))
+                            Text(
+                                s.draft.name ?: s.draft.barcode,
+                                style = MaterialTheme.typography.titleLarge
+                            )
+                            s.draft.brand?.let { brand ->
+                                Spacer(Modifier.height(8.dp))
+                                Text(brand, style = MaterialTheme.typography.bodyLarge)
+                            }
+                            s.draft.category?.let { category ->
+                                Spacer(Modifier.height(8.dp))
+                                Text(category.name, style = MaterialTheme.typography.bodyMedium)
+                            }
+                            Spacer(Modifier.height(24.dp))
+                            Button(onClick = {
+                                viewModel.onEvent(BarcodeScanEvent.OnUseDraftClick(s.draft.barcode))
+                            }) {
+                                Text(stringResource(R.string.save))
+                            }
+                            Spacer(Modifier.height(8.dp))
+                            OutlinedButton(onClick = {
+                                viewModel.onEvent(BarcodeScanEvent.OnDraftManualEntryClick(s.draft))
+                            }) {
+                                Text(stringResource(R.string.barcode_manual_entry))
+                            }
+                            Spacer(Modifier.height(8.dp))
+                            OutlinedButton(onClick = { viewModel.onEvent(BarcodeScanEvent.OnRetry) }) {
+                                Text(stringResource(R.string.retry))
                             }
                         }
                     }
