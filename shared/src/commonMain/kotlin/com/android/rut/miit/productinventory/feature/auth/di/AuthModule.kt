@@ -10,11 +10,10 @@ import com.android.rut.miit.productinventory.feature.auth.presentation.register.
 import org.koin.core.module.dsl.factoryOf
 import org.koin.core.module.dsl.viewModelOf
 import org.koin.dsl.module
-import org.koin.core.module.dsl.bind
 
 val authModule = module {
     factory { AuthRemoteDataSource(get()) }
-    factory<AuthRepository> { AuthRepositoryImpl(get(), get()) }
+    factory<AuthRepository> { AuthRepositoryImpl(get(), get(), get()) }
     factoryOf(::LoginUseCase)
     factoryOf(::RegisterUseCase)
     viewModelOf(::LoginViewModel)

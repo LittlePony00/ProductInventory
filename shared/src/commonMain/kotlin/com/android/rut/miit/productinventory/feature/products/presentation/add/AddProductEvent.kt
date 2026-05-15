@@ -35,10 +35,14 @@ sealed class AddProductEvent : UiEvent {
         val carbs: String?
     ) : AddProductEvent()
 
+    data class OnCreate(val householdId: String) : AddProductEvent()
     data class OnNameChanged(val name: String) : AddProductEvent()
     data class OnBrandChanged(val brand: String) : AddProductEvent()
     data class OnBarcodeChanged(val barcode: String) : AddProductEvent()
-    data class OnCategoryChanged(val category: ProductCategory) : AddProductEvent()
+    data class OnCategoryChanged(val categoryId: String, val category: ProductCategory) : AddProductEvent()
+    data class OnNewCategoryNameChanged(val name: String) : AddProductEvent()
+    data object OnCreateCategoryClick : AddProductEvent()
+    data object OnSuggestProductClick : AddProductEvent()
     data class OnQuantityChanged(val quantity: String) : AddProductEvent()
     data class OnQuantityUnitChanged(val unit: QuantityUnit) : AddProductEvent()
     data class OnRemainingAmountChanged(val amount: String) : AddProductEvent()

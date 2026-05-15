@@ -86,8 +86,31 @@ class RecommendationServiceImplTest {
         override fun findByHouseholdId(householdId: UUID): List<Product> =
             products.filter { it.householdId == householdId }
 
+        override fun findByHouseholdIdAndCategoryId(householdId: UUID, categoryId: UUID): List<Product> =
+            products.filter { it.householdId == householdId && it.categoryId == categoryId }
+
         override fun findExpiringBefore(householdId: UUID, date: LocalDate): List<Product> =
             products.filter { it.householdId == householdId && it.expirationDate?.date?.isBefore(date) == true }
+
+        override fun findExpiringBetween(startInclusive: LocalDate, endExclusive: LocalDate): List<Product> =
+            products.filter { product ->
+                product.expirationDate?.date?.let { !it.isBefore(startInclusive) && it.isBefore(endExclusive) } == true
+            }
+
+        override fun findExpiringBetweenByHouseholdId(
+            householdId: UUID,
+            startInclusive: LocalDate,
+            endExclusive: LocalDate
+        ): List<Product> =
+            findExpiringBetween(startInclusive, endExclusive).filter { it.householdId == householdId }
+
+        override fun findLowStock(): List<Product> =
+            products.filter { product ->
+                product.lowStockThreshold?.let { product.remainingAmount <= it } == true
+            }
+
+        override fun findLowStockByHouseholdId(householdId: UUID): List<Product> =
+            findLowStock().filter { it.householdId == householdId }
 
         override fun save(product: Product): Product = product
         override fun deleteById(id: UUID) = Unit

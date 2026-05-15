@@ -43,7 +43,7 @@ class BarcodeScanViewModel(
         lastScannedCode = code
         updateState { BarcodeScanState.Loading }
 
-        when (val result = lookupBarcodeUseCase(code)) {
+        when (val result = lookupBarcodeUseCase(householdId, code)) {
             is BarcodeLookupResult.DraftFound -> {
                 updateState { BarcodeScanState.DraftFound(result.draft) }
             }

@@ -12,6 +12,12 @@ struct AddProductScreen: View {
             brand: "",
             barcode: "",
             category: .other,
+            categoryId: nil,
+            categories: ProductCategoryOption.companion.systemDefaults(),
+            newCategoryName: "",
+            isCreatingCategory: false,
+            isSuggestingProduct: false,
+            suggestionMessage: nil,
             quantity: "",
             quantityUnit: .pieces,
             remainingAmount: "",
@@ -64,6 +70,7 @@ struct AddProductScreen: View {
                         }
                     }
                 }
+                holder.sendEvent(AddProductEvent.OnCreate(householdId: householdId))
                 applyInitialDraftIfNeeded()
             }
             .navigationTitle("Добавить продукт")
@@ -88,13 +95,32 @@ struct AddProductScreen: View {
                 ))
                 .keyboardType(.numberPad)
                 Picker("Категория", selection: Binding(
-                    get: { state.category },
-                    set: { holder.sendEvent(AddProductEvent.OnCategoryChanged(category: $0)) }
+                    get: { state.categoryId ?? categoryId(for: state.category, in: state.categories) ?? "" },
+                    set: { categoryId in
+                        if let option = state.categories.first(where: { $0.id == categoryId }) {
+                            holder.sendEvent(AddProductEvent.OnCategoryChanged(
+                                categoryId: categoryId,
+                                category: option.legacyCategory
+                            ))
+                        }
+                    }
                 )) {
-                    ForEach(categories, id: \.0) { cat, name in
-                        Text(name).tag(cat)
+                    ForEach(state.categories, id: \.id) { option in
+                        Text(option.name).tag(option.id)
                     }
                 }
+                TextField("Новая категория", text: Binding(
+                    get: { state.newCategoryName },
+                    set: { holder.sendEvent(AddProductEvent.OnNewCategoryNameChanged(name: $0)) }
+                ))
+                Button(action: { holder.sendEvent(AddProductEvent.OnCreateCategoryClick()) }) {
+                    if state.isCreatingCategory {
+                        ProgressView()
+                    } else {
+                        Text("Создать категорию")
+                    }
+                }
+                .disabled(state.isCreatingCategory || state.newCategoryName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             }
             Section("Количество") {
                 TextField("Количество", text: Binding(
@@ -139,6 +165,18 @@ struct AddProductScreen: View {
                 ))
             }
             Section("AI-подсказки") {
+                Button(action: { holder.sendEvent(AddProductEvent.OnSuggestProductClick()) }) {
+                    HStack {
+                        if state.isSuggestingProduct {
+                            ProgressView()
+                        }
+                        Text(state.isSuggestingProduct ? "Получаем подсказку..." : "Подсказать ИИ")
+                    }
+                }
+                .disabled(state.isSuggestingProduct)
+                if let message = state.suggestionMessage {
+                    Text(message).font(.caption).foregroundColor(.secondary)
+                }
                 TextField("Состав", text: Binding(
                     get: { state.ingredientsText },
                     set: { holder.sendEvent(AddProductEvent.OnIngredientsChanged(ingredients: $0)) }
@@ -195,6 +233,10 @@ struct AddProductScreen: View {
 
     private func decimalString(_ value: Double?) -> String? {
         value.map { String($0) }
+    }
+
+    private func categoryId(for category: ProductCategory, in categories: [ProductCategoryOption]) -> String? {
+        categories.first { $0.legacyCategory == category }?.id
     }
 
     private func productCategory(from name: String?) -> ProductCategory? {

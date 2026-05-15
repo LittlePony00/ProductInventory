@@ -1,5 +1,7 @@
 import SwiftUI
 import Shared
+import UIKit
+import UserNotifications
 
 struct NotificationListScreen: View {
     @StateObject private var holder = SharedVMHolder<NotificationListState, NotificationListEvent, NotificationListAction, NotificationListViewModel>(
@@ -40,13 +42,32 @@ struct NotificationListScreen: View {
         case is NotificationListState.Loading:
             ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
         case let state as NotificationListState.Content:
-            if state.notifications.isEmpty {
-                Text("Нет уведомлений").font(.headline)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-            } else {
-                List(state.notifications, id: \.id) { notification in
-                    NotificationRow(notification: notification) {
-                        holder.sendEvent(NotificationListEvent.OnMarkRead(notificationId: notification.id))
+            Form {
+                NotificationSettingsSection(
+                    settings: state.settings,
+                    isSaving: state.isSavingSettings,
+                    error: state.settingsError,
+                    onExpirationEnabledChanged: {
+                        holder.sendEvent(NotificationListEvent.OnExpirationRemindersEnabledChange(enabled: $0))
+                    },
+                    onLowStockEnabledChanged: {
+                        holder.sendEvent(NotificationListEvent.OnLowStockRemindersEnabledChange(enabled: $0))
+                    },
+                    onPushEnabledChanged: updatePushEnabled,
+                    onDaysChanged: {
+                        holder.sendEvent(NotificationListEvent.OnExpirationReminderDaysChange(days: Int32($0)))
+                    }
+                )
+
+                Section("История") {
+                    if state.notifications.isEmpty {
+                        Text("Нет уведомлений").foregroundColor(.secondary)
+                    } else {
+                        ForEach(state.notifications, id: \.id) { notification in
+                            NotificationRow(notification: notification) {
+                                holder.sendEvent(NotificationListEvent.OnMarkRead(notificationId: notification.id))
+                            }
+                        }
                     }
                 }
             }
@@ -58,6 +79,66 @@ struct NotificationListScreen: View {
             }.frame(maxWidth: .infinity, maxHeight: .infinity)
         default:
             EmptyView()
+        }
+    }
+
+    private func updatePushEnabled(_ enabled: Bool) {
+        if enabled {
+            UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .badge, .sound]) { granted, error in
+                if let error {
+                    print("iOS notification permission request failed: \(error.localizedDescription)")
+                }
+                if granted {
+                    DispatchQueue.main.async {
+                        UIApplication.shared.registerForRemoteNotifications()
+                    }
+                }
+            }
+        }
+        holder.sendEvent(NotificationListEvent.OnPushEnabledChange(enabled: enabled))
+    }
+}
+
+private struct NotificationSettingsSection: View {
+    let settings: NotificationSettings
+    let isSaving: Bool
+    let error: String?
+    let onExpirationEnabledChanged: (Bool) -> Void
+    let onLowStockEnabledChanged: (Bool) -> Void
+    let onPushEnabledChanged: (Bool) -> Void
+    let onDaysChanged: (Int) -> Void
+
+    var body: some View {
+        Section("Настройки") {
+            Toggle("Напоминать о сроке годности", isOn: Binding(
+                get: { settings.expirationRemindersEnabled },
+                set: onExpirationEnabledChanged
+            ))
+            Toggle("Напоминать о низком остатке", isOn: Binding(
+                get: { settings.lowStockRemindersEnabled },
+                set: onLowStockEnabledChanged
+            ))
+            Toggle("Push-уведомления", isOn: Binding(
+                get: { settings.pushEnabled },
+                set: onPushEnabledChanged
+            ))
+            Stepper(
+                "За \(settings.expirationReminderDays) дн.",
+                value: Binding(
+                    get: { Int(settings.expirationReminderDays) },
+                    set: onDaysChanged
+                ),
+                in: 1...30
+            )
+            if isSaving {
+                HStack {
+                    ProgressView()
+                    Text("Сохраняем настройки")
+                }
+            }
+            if let error {
+                Text(error).foregroundColor(.red)
+            }
         }
     }
 }

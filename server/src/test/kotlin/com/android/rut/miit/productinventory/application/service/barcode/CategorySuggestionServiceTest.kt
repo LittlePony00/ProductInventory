@@ -6,6 +6,7 @@ import com.android.rut.miit.productinventory.domain.model.barcode.BarcodeProduct
 import com.android.rut.miit.productinventory.domain.model.barcode.CategorySuggestion
 import com.android.rut.miit.productinventory.domain.model.barcode.CategorySuggestionSource
 import com.android.rut.miit.productinventory.domain.port.outbound.barcode.IGigaChatCategoryClient
+import com.android.rut.miit.productinventory.domain.service.ProductCategoryRuleMatcher
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
@@ -16,7 +17,8 @@ class CategorySuggestionServiceTest {
         val service = CategorySuggestionService(
             gigaChatClient = StaticGigaChatClient(
                 CategorySuggestion(ProductCategory.OTHER, 0.9, CategorySuggestionSource.GIGACHAT)
-            )
+            ),
+            ruleMatcher = ProductCategoryRuleMatcher()
         )
 
         val suggestion = service.suggestCategory(draft(name = "Молоко 3.2%"))
@@ -30,7 +32,8 @@ class CategorySuggestionServiceTest {
         val service = CategorySuggestionService(
             gigaChatClient = StaticGigaChatClient(
                 CategorySuggestion(ProductCategory.BEVERAGES, 0.74, CategorySuggestionSource.GIGACHAT)
-            )
+            ),
+            ruleMatcher = ProductCategoryRuleMatcher()
         )
 
         val suggestion = service.suggestCategory(draft(name = "Unknown product"))
@@ -41,7 +44,10 @@ class CategorySuggestionServiceTest {
 
     @Test
     fun `uses other fallback when rules and gigachat do not match`() {
-        val service = CategorySuggestionService(gigaChatClient = StaticGigaChatClient(null))
+        val service = CategorySuggestionService(
+            gigaChatClient = StaticGigaChatClient(null),
+            ruleMatcher = ProductCategoryRuleMatcher()
+        )
 
         val suggestion = service.suggestCategory(draft(name = "Unknown product"))
 

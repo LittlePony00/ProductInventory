@@ -54,6 +54,8 @@
     <string name="product_barcode_label">Штрихкод</string>
     <string name="product_barcode_prefilled_hint">Предзаполнено после сканирования</string>
     <string name="product_category_label">Категория</string>
+    <string name="product_new_category_label">Новая категория</string>
+    <string name="product_create_category">Создать</string>
     <string name="product_quantity_label">Количество</string>
     <string name="product_unit_label">Ед. изм.</string>
     <string name="product_inventory_section">Запасы</string>
@@ -61,6 +63,7 @@
     <string name="product_low_stock_threshold_label">Порог низкого запаса</string>
     <string name="product_expiration_label">Срок годности (ГГГГ-ММ-ДД)</string>
     <string name="product_ai_suggestions_section">AI-подсказки</string>
+    <string name="product_ai_suggest_button">Подсказать ИИ</string>
     <string name="product_package_amount_label">Объем упаковки</string>
     <string name="product_package_unit_label">Ед. упаковки</string>
     <string name="product_ingredients_label">Состав</string>
@@ -74,6 +77,11 @@
     <string name="filter_expired">Просрочено</string>
 
     <!-- Product categories -->
+    <string name="categories_title">Категории</string>
+    <string name="category_new_title">Новая категория</string>
+    <string name="category_system_badge">Системная</string>
+    <string name="category_custom_badge">Пользовательская</string>
+    <string name="category_archive">В архив</string>
     <string name="category_dairy">Молочные</string>
     <string name="category_meat_fish">Мясо/Рыба</string>
     <string name="category_vegetables_fruits">Овощи/Фрукты</string>
@@ -101,6 +109,16 @@
     <string name="notifications_empty">Нет уведомлений</string>
     <string name="notifications_mark_all_read">Прочитать все</string>
     <string name="notifications_mark_read">Прочитано</string>
+    <string name="notifications_settings_title">Настройки уведомлений</string>
+    <string name="notifications_settings_expiration">Напоминать о сроке годности</string>
+    <string name="notifications_settings_low_stock">Напоминать о низком запасе</string>
+    <string name="notifications_settings_push">Push-уведомления</string>
+    <string name="notifications_settings_expiration_days">За %d дн.</string>
+    <string name="notifications_settings_saving">Сохранение...</string>
+    <string name="notifications_settings_error">Не удалось сохранить настройки</string>
+    <string name="notifications_push_permission_required">Разрешите уведомления Android, чтобы push показывались на устройстве.</string>
+    <string name="notifications_push_permission_denied">Push включены в настройках, но Android не дал разрешение на уведомления.</string>
+    <string name="notifications_push_permission_grant">Разрешить уведомления</string>
 
     <!-- Recipes -->
     <string name="recipes_title">Рецепты</string>

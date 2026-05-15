@@ -4,6 +4,7 @@ import com.android.rut.miit.productinventory.domain.exception.AccessDeniedExcept
 import com.android.rut.miit.productinventory.domain.exception.EntityNotFoundException
 import com.android.rut.miit.productinventory.domain.model.*
 import com.android.rut.miit.productinventory.domain.port.inbound.IProductService
+import com.android.rut.miit.productinventory.domain.port.outbound.ICategoryRepository
 import com.android.rut.miit.productinventory.domain.port.outbound.IMembershipRepository
 import com.android.rut.miit.productinventory.domain.port.outbound.IHouseholdEventPublisher
 import com.android.rut.miit.productinventory.domain.port.outbound.INotificationRepository
@@ -20,7 +21,8 @@ class ProductServiceImpl(
     private val membershipRepository: IMembershipRepository,
     private val notificationRepository: INotificationRepository,
     private val notificationSender: INotificationSender,
-    private val householdEventPublisher: IHouseholdEventPublisher
+    private val householdEventPublisher: IHouseholdEventPublisher,
+    private val categoryRepository: ICategoryRepository
 ) : IProductService {
 
     @Transactional
@@ -31,6 +33,7 @@ class ProductServiceImpl(
         brand: String?,
         barcode: String?,
         category: ProductCategory,
+        categoryId: UUID?,
         quantity: Double,
         quantityUnit: QuantityUnit,
         packageAmount: Double?,
@@ -46,13 +49,16 @@ class ProductServiceImpl(
         expirationDate: LocalDate?
     ): Product {
         requireMembership(userId, householdId)
+        val resolvedCategory = resolveCategory(householdId, category, categoryId)
 
         val product = productRepository.save(
             Product(
                 name = name.trim(),
                 brand = brand?.trimToNull(),
                 barcode = barcode?.trimToNull(),
-                category = category,
+                category = resolvedCategory.legacyCategory,
+                categoryId = resolvedCategory.id,
+                categoryName = resolvedCategory.name,
                 quantity = Quantity(value = quantity, unit = quantityUnit),
                 packageQuantity = packageAmount?.let { Quantity(value = it, unit = packageUnit ?: quantityUnit) },
                 ingredientsText = ingredientsText?.trimToNull(),
@@ -73,7 +79,7 @@ class ProductServiceImpl(
         publishStateEvents(userId, product)
         notifyOtherMembers(userId, householdId, "New product", "${product.name} was added")
 
-        return product
+        return product.withCategoryDetails(householdId)
     }
 
     @Transactional
@@ -84,6 +90,7 @@ class ProductServiceImpl(
         brand: String?,
         barcode: String?,
         category: ProductCategory?,
+        categoryId: UUID?,
         quantity: Double?,
         quantityUnit: QuantityUnit?,
         packageAmount: Double?,
@@ -102,13 +109,20 @@ class ProductServiceImpl(
             ?: throw EntityNotFoundException("Product", productId)
 
         requireMembership(userId, existing.householdId)
+        val resolvedCategory = when {
+            categoryId != null -> resolveCategory(existing.householdId, category ?: existing.category, categoryId)
+            category != null -> resolveCategory(existing.householdId, category, null)
+            else -> null
+        }
 
         val updatedQuantityUnit = quantityUnit ?: existing.quantity.unit
         val updated = existing.copy(
             name = name?.trim() ?: existing.name,
             brand = brand?.trimToNull() ?: existing.brand,
             barcode = barcode?.trimToNull() ?: existing.barcode,
-            category = category ?: existing.category,
+            category = resolvedCategory?.legacyCategory ?: category ?: existing.category,
+            categoryId = resolvedCategory?.id ?: existing.categoryId,
+            categoryName = resolvedCategory?.name ?: existing.categoryName,
             quantity = Quantity(
                 value = quantity ?: existing.quantity.value,
                 unit = updatedQuantityUnit
@@ -147,7 +161,7 @@ class ProductServiceImpl(
         }
         publishStateTransitionEvents(userId, existing, saved)
 
-        return saved
+        return saved.withCategoryDetails(saved.householdId)
     }
 
     @Transactional
@@ -161,9 +175,12 @@ class ProductServiceImpl(
     }
 
     @Transactional(readOnly = true)
-    override fun getProducts(userId: UUID, householdId: UUID): List<Product> {
+    override fun getProducts(userId: UUID, householdId: UUID, categoryId: UUID?): List<Product> {
         requireMembership(userId, householdId)
-        return productRepository.findByHouseholdId(householdId)
+        return (categoryId
+            ?.let { productRepository.findByHouseholdIdAndCategoryId(householdId, it) }
+            ?: productRepository.findByHouseholdId(householdId))
+            .map { it.withCategoryDetails(householdId) }
     }
 
     @Transactional(readOnly = true)
@@ -172,7 +189,7 @@ class ProductServiceImpl(
             ?: throw EntityNotFoundException("Product", productId)
 
         requireMembership(userId, product.householdId)
-        return product
+        return product.withCategoryDetails(product.householdId)
     }
 
     @Transactional(readOnly = true)
@@ -184,6 +201,31 @@ class ProductServiceImpl(
     private fun requireMembership(userId: UUID, householdId: UUID) {
         membershipRepository.findByUserIdAndHouseholdId(userId, householdId)
             ?: throw AccessDeniedException("User is not a member of this household")
+    }
+
+    private fun resolveCategory(
+        householdId: UUID,
+        fallbackCategory: ProductCategory,
+        categoryId: UUID?
+    ): ResolvedCategory {
+        val category = categoryId?.let {
+            categoryRepository.findAvailableById(it, householdId)
+                ?: throw EntityNotFoundException("Category", it)
+        }
+        return ResolvedCategory(
+            id = category?.id ?: SystemCategoryCatalog.idFor(fallbackCategory),
+            legacyCategory = category?.code ?: fallbackCategory,
+            name = category?.name ?: categoryRepository.findAvailableById(
+                SystemCategoryCatalog.idFor(fallbackCategory),
+                householdId
+            )?.name
+        )
+    }
+
+    private fun Product.withCategoryDetails(householdId: UUID): Product {
+        val resolvedId = categoryId ?: SystemCategoryCatalog.idFor(category)
+        val resolvedName = categoryName ?: categoryRepository.findAvailableById(resolvedId, householdId)?.name
+        return copy(categoryId = resolvedId, categoryName = resolvedName)
     }
 
     private fun notifyOtherMembers(actorId: UUID, householdId: UUID, title: String, message: String) {
@@ -235,3 +277,9 @@ class ProductServiceImpl(
 }
 
 private fun String.trimToNull(): String? = trim().takeIf { it.isNotEmpty() }
+
+private data class ResolvedCategory(
+    val id: UUID,
+    val legacyCategory: ProductCategory,
+    val name: String?
+)

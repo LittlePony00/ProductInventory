@@ -4,7 +4,7 @@ import com.android.rut.miit.productinventory.feature.barcode.api.models.BarcodeP
 import com.android.rut.miit.productinventory.feature.products.api.models.Product
 
 interface BarcodeRepository {
-    suspend fun lookupBarcode(barcode: String): BarcodeLookupResult
+    suspend fun lookupBarcode(householdId: String, barcode: String): BarcodeLookupResult
     suspend fun addBarcodeProduct(householdId: String, barcode: String): BarcodeAddProductResult
 }
 

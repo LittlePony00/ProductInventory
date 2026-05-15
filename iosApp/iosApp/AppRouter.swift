@@ -64,6 +64,7 @@ enum AppRoute: Hashable {
     case productList(householdId: String)
     case addProduct(householdId: String)
     case addProductFromDraft(householdId: String, draft: ProductDraftInput)
+    case categories(householdId: String)
     case barcodeScan(householdId: String)
     case recipes(householdId: String)
     case notifications
@@ -73,6 +74,17 @@ enum AppRoute: Hashable {
 final class AppRouter: ObservableObject {
     @Published var path: [AppRoute] = []
     @Published var root: AppRoute = .login
+
+    init() {
+        #if DEBUG
+        let arguments = ProcessInfo.processInfo.arguments
+        if arguments.contains("--ios-ui-test-root-barcode") {
+            root = .barcodeScan(householdId: Self.uiTestHouseholdId)
+        } else if arguments.contains("--ios-ui-test-root-products") {
+            root = .productList(householdId: Self.uiTestHouseholdId)
+        }
+        #endif
+    }
 
     func push(_ route: AppRoute) {
         path.append(route)
@@ -88,4 +100,6 @@ final class AppRouter: ObservableObject {
         path.removeAll()
         root = route
     }
+
+    private static let uiTestHouseholdId = "00000000-0000-0000-0000-000000000001"
 }

@@ -10,6 +10,7 @@ spring:
     password: postgres
     driver-class-name: org.postgresql.Driver
   jpa:
+    open-in-view: false
     hibernate:
       ddl-auto: validate
     show-sql: false
@@ -34,5 +35,12 @@ barcode:
     base-url: ${GS1_BASE_URL:}
 
 gigachat:
-  base-url: ${GIGACHAT_BASE_URL:}
+  base-url: ${GIGACHAT_BASE_URL:https://gigachat.devices.sberbank.ru/api/v1}
   api-key: ${GIGACHAT_API_KEY:}
+  oauth-url: ${GIGACHAT_OAUTH_URL:https://ngw.devices.sberbank.ru:9443/api/v2/oauth}
+  scope: ${GIGACHAT_SCOPE:GIGACHAT_API_PERS}
+
+firebase:
+  project-id: ${FIREBASE_PROJECT_ID:}
+  service-account-json: ${FIREBASE_SERVICE_ACCOUNT_JSON:}
+  service-account-path: ${FIREBASE_SERVICE_ACCOUNT_PATH:}

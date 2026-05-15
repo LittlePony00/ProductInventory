@@ -12,6 +12,7 @@ import com.android.rut.miit.productinventory.domain.port.outbound.barcode.Barcod
 import com.android.rut.miit.productinventory.domain.port.outbound.barcode.BarcodeProductProviderOrder
 import com.android.rut.miit.productinventory.domain.port.outbound.barcode.IBarcodeProductCacheRepository
 import com.android.rut.miit.productinventory.domain.port.outbound.barcode.IBarcodeProductProvider
+import com.android.rut.miit.productinventory.domain.service.ProductCategoryRuleMatcher
 import com.android.rut.miit.productinventory.domain.port.outbound.barcode.IGigaChatCategoryClient
 import java.util.UUID
 import kotlin.test.Test
@@ -178,7 +179,7 @@ class BarcodeProductServiceImplTest {
             cacheRepository = cache,
             membershipRepository = membershipRepository,
             providers = providers,
-            categorySuggestionService = CategorySuggestionService(TestGigaChatClient(null))
+            categorySuggestionService = CategorySuggestionService(TestGigaChatClient(null), ProductCategoryRuleMatcher())
         )
 
     private fun draft(

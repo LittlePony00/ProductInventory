@@ -9,7 +9,6 @@ struct ProductListScreen: View {
         initialState: ProductListState.Loading()
     )
     @EnvironmentObject private var router: AppRouter
-    @State private var selectedCategory: ProductCategory?
 
     var body: some View {
         content
@@ -27,14 +26,21 @@ struct ProductListScreen: View {
                 }
                 holder.sendEvent(ProductListEvent.OnCreate(householdId: householdId))
             }
+            .onAppear {
+                holder.sendEvent(ProductListEvent.OnResume())
+            }
             .navigationTitle("Продукты")
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     HStack {
+                        Button("Категории") { router.push(.categories(householdId: householdId)) }
+                            .accessibilityIdentifier("productList.categories")
                         Button("Рецепты") { router.push(.recipes(householdId: householdId)) }
+                            .accessibilityIdentifier("productList.recipes")
                         Button(action: { router.push(.notifications) }) {
                             Image(systemName: "bell")
                         }
+                        .accessibilityIdentifier("productList.notifications")
                     }
                 }
             }
@@ -47,7 +53,7 @@ struct ProductListScreen: View {
             case is ProductListState.Loading:
                 ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
             case let state as ProductListState.Content:
-                let products = filteredProducts(state.products)
+                let products = state.visibleProducts
                 if state.products.isEmpty {
                     VStack(spacing: 8) {
                         Text("Нет продуктов").font(.headline)
@@ -56,15 +62,25 @@ struct ProductListScreen: View {
                     }.frame(maxWidth: .infinity, maxHeight: .infinity)
                 } else if products.isEmpty {
                     VStack(spacing: 8) {
-                        ProductCategoryFilter(selectedCategory: $selectedCategory)
+                        ProductFilters(
+                            categories: state.categories,
+                            filters: state.filters,
+                            onCategoryChanged: { holder.sendEvent(ProductListEvent.OnCategoryFilterChanged(categoryId: $0)) },
+                            onInventoryChanged: { holder.sendEvent(ProductListEvent.OnInventoryFilterChanged(filter: $0)) }
+                        )
                         Spacer()
-                        Text("Нет продуктов в выбранной категории").font(.headline)
+                        Text("Нет продуктов по выбранным фильтрам").font(.headline)
                         Spacer()
                     }
                     .padding()
                 } else {
                     VStack(spacing: 8) {
-                        ProductCategoryFilter(selectedCategory: $selectedCategory)
+                        ProductFilters(
+                            categories: state.categories,
+                            filters: state.filters,
+                            onCategoryChanged: { holder.sendEvent(ProductListEvent.OnCategoryFilterChanged(categoryId: $0)) },
+                            onInventoryChanged: { holder.sendEvent(ProductListEvent.OnInventoryFilterChanged(filter: $0)) }
+                        )
                             .padding(.horizontal)
                         List(products, id: \.id) { product in
                             ProductRow(product: product) {
@@ -88,17 +104,14 @@ struct ProductListScreen: View {
                     Image(systemName: "barcode.viewfinder").font(.title2).padding(14)
                         .background(Color.secondary.opacity(0.18)).foregroundColor(.primary).clipShape(Circle())
                 }
+                .accessibilityIdentifier("productList.scanBarcode")
                 Button { holder.sendEvent(ProductListEvent.OnAddProductClick()) } label: {
                     Image(systemName: "plus").font(.title2).padding(16)
                         .background(Color.accentColor).foregroundColor(.white).clipShape(Circle())
                 }
+                .accessibilityIdentifier("productList.addProduct")
             }.padding()
         }
-    }
-
-    private func filteredProducts(_ products: [Product]) -> [Product] {
-        guard let selectedCategory else { return products }
-        return products.filter { $0.category == selectedCategory }
     }
 }
 
@@ -110,7 +123,7 @@ struct ProductRow: View {
         HStack {
             VStack(alignment: .leading, spacing: 4) {
                 Text(product.name).font(.headline)
-                Text("\(categoryName(product.category)) • \(String(format: "%.0f", product.quantity)) \(unitName(product.quantityUnit))")
+                Text("\(product.categoryName ?? categoryName(product.category)) • \(String(format: "%.0f", product.quantity)) \(unitName(product.quantityUnit))")
                     .font(.subheadline).foregroundColor(.secondary)
                 if product.remainingAmount <= (product.lowStockThreshold?.doubleValue ?? 0) {
                     Text("Низкий остаток")
@@ -151,31 +164,51 @@ struct ProductRow: View {
     }
 }
 
-private struct ProductCategoryFilter: View {
-    @Binding var selectedCategory: ProductCategory?
-
-    private let categories: [(ProductCategory?, String)] = [
-        (nil, "Все"),
-        (.dairy, "Молочные"),
-        (.meatFish, "Мясо/Рыба"),
-        (.vegetablesFruits, "Овощи/Фрукты"),
-        (.cereals, "Крупы"),
-        (.beverages, "Напитки"),
-        (.other, "Другое")
-    ]
+private struct ProductFilters: View {
+    let categories: [ProductCategoryOption]
+    let filters: ProductListFilters
+    let onCategoryChanged: (String?) -> Void
+    let onInventoryChanged: (InventoryFilter) -> Void
 
     var body: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
-                ForEach(Array(categories.enumerated()), id: \.offset) { _, item in
-                    Button(item.1) {
-                        selectedCategory = item.0
+        VStack(alignment: .leading, spacing: 8) {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    Button("Все") { onCategoryChanged(nil) }
+                        .buttonStyle(.bordered)
+                        .tint(filters.categoryId == nil ? .accentColor : .secondary)
+                    ForEach(categories, id: \.id) { category in
+                        Button(categoryDisplayName(category)) {
+                            onCategoryChanged(category.id)
+                        }
+                        .buttonStyle(.bordered)
+                        .tint(filters.categoryId == category.id ? .accentColor : .secondary)
                     }
-                    .buttonStyle(.bordered)
-                    .tint(selectedCategory == item.0 ? .accentColor : .secondary)
                 }
+                .padding(.vertical, 4)
             }
-            .padding(.vertical, 4)
+            Picker("Фильтр", selection: Binding(
+                get: { filters.inventory },
+                set: onInventoryChanged
+            )) {
+                Text("Все").tag(InventoryFilter.all)
+                Text("Мало").tag(InventoryFilter.lowStock)
+                Text("Скоро истекают").tag(InventoryFilter.expiringSoon)
+                Text("Просрочены").tag(InventoryFilter.expired)
+            }
+            .pickerStyle(.segmented)
         }
     }
+}
+
+func categoryDisplayName(_ category: ProductCategoryOption) -> String {
+    if let code = category.code {
+        if code == .dairy { return "Молочные" }
+        if code == .meatFish { return "Мясо/Рыба" }
+        if code == .vegetablesFruits { return "Овощи/Фрукты" }
+        if code == .cereals { return "Крупы" }
+        if code == .beverages { return "Напитки" }
+        if code == .other { return "Другое" }
+    }
+    return category.name
 }

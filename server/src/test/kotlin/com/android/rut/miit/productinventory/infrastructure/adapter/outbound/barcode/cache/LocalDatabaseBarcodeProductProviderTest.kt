@@ -98,7 +98,16 @@ private class FakeProductRepository(
         products.firstOrNull { it.barcode == barcode && it.householdId == householdId }
 
     override fun findByHouseholdId(householdId: UUID): List<Product> = emptyList()
+    override fun findByHouseholdIdAndCategoryId(householdId: UUID, categoryId: UUID): List<Product> = emptyList()
     override fun findExpiringBefore(householdId: UUID, date: LocalDate): List<Product> = emptyList()
+    override fun findExpiringBetween(startInclusive: LocalDate, endExclusive: LocalDate): List<Product> = emptyList()
+    override fun findExpiringBetweenByHouseholdId(
+        householdId: UUID,
+        startInclusive: LocalDate,
+        endExclusive: LocalDate
+    ): List<Product> = emptyList()
+    override fun findLowStock(): List<Product> = emptyList()
+    override fun findLowStockByHouseholdId(householdId: UUID): List<Product> = emptyList()
     override fun save(product: Product): Product = product
     override fun deleteById(id: UUID) = Unit
     override fun existsById(id: UUID): Boolean = false

@@ -2,6 +2,7 @@ package com.android.rut.miit.productinventory.application.service
 
 import com.android.rut.miit.productinventory.domain.model.HouseholdEvent
 import com.android.rut.miit.productinventory.domain.model.HouseholdEventType
+import com.android.rut.miit.productinventory.domain.model.Category
 import com.android.rut.miit.productinventory.domain.model.ExpirationDate
 import com.android.rut.miit.productinventory.domain.model.Membership
 import com.android.rut.miit.productinventory.domain.model.MembershipRole
@@ -10,7 +11,9 @@ import com.android.rut.miit.productinventory.domain.model.Product
 import com.android.rut.miit.productinventory.domain.model.ProductCategory
 import com.android.rut.miit.productinventory.domain.model.Quantity
 import com.android.rut.miit.productinventory.domain.model.QuantityUnit
+import com.android.rut.miit.productinventory.domain.model.SystemCategoryCatalog
 import com.android.rut.miit.productinventory.domain.port.outbound.IHouseholdEventPublisher
+import com.android.rut.miit.productinventory.domain.port.outbound.ICategoryRepository
 import com.android.rut.miit.productinventory.domain.port.outbound.IMembershipRepository
 import com.android.rut.miit.productinventory.domain.port.outbound.INotificationRepository
 import com.android.rut.miit.productinventory.domain.port.outbound.INotificationSender
@@ -41,7 +44,8 @@ class ProductServiceImplTest {
             membershipRepository = membershipRepository,
             notificationRepository = notificationRepository,
             notificationSender = notificationSender,
-            householdEventPublisher = RecordingHouseholdEventPublisher()
+            householdEventPublisher = RecordingHouseholdEventPublisher(),
+            categoryRepository = FakeCategoryRepository()
         )
         val purchaseDate = LocalDate.of(2026, 5, 14)
 
@@ -52,6 +56,7 @@ class ProductServiceImplTest {
             brand = " Brand ",
             barcode = " 4601234567890 ",
             category = ProductCategory.DAIRY,
+            categoryId = null,
             quantity = 2.0,
             quantityUnit = QuantityUnit.PIECES,
             packageAmount = 950.0,
@@ -95,6 +100,7 @@ class ProductServiceImplTest {
             brand = "Old brand",
             barcode = "111",
             category = ProductCategory.CEREALS,
+            categoryId = null,
             quantity = Quantity(1.0, QuantityUnit.PIECES),
             packageQuantity = Quantity(1_000.0, QuantityUnit.GRAMS),
             ingredientsText = "Rice",
@@ -116,7 +122,8 @@ class ProductServiceImplTest {
             ),
             notificationRepository = RecordingNotificationRepository(),
             notificationSender = RecordingNotificationSender(),
-            householdEventPublisher = RecordingHouseholdEventPublisher()
+            householdEventPublisher = RecordingHouseholdEventPublisher(),
+            categoryRepository = FakeCategoryRepository()
         )
 
         val updated = service.updateProduct(
@@ -126,6 +133,7 @@ class ProductServiceImplTest {
             brand = " New brand ",
             barcode = null,
             category = null,
+            categoryId = null,
             quantity = 2.0,
             quantityUnit = null,
             packageAmount = null,
@@ -169,7 +177,8 @@ class ProductServiceImplTest {
             ),
             notificationRepository = RecordingNotificationRepository(),
             notificationSender = RecordingNotificationSender(),
-            householdEventPublisher = RecordingHouseholdEventPublisher()
+            householdEventPublisher = RecordingHouseholdEventPublisher(),
+            categoryRepository = FakeCategoryRepository()
         )
 
         val product = service.addProduct(
@@ -179,6 +188,7 @@ class ProductServiceImplTest {
             brand = null,
             barcode = null,
             category = ProductCategory.BEVERAGES,
+            categoryId = null,
             quantity = 2.0,
             quantityUnit = QuantityUnit.PIECES,
             packageAmount = 1_000.0,
@@ -210,7 +220,8 @@ class ProductServiceImplTest {
             ),
             notificationRepository = RecordingNotificationRepository(),
             notificationSender = RecordingNotificationSender(),
-            householdEventPublisher = eventPublisher
+            householdEventPublisher = eventPublisher,
+            categoryRepository = FakeCategoryRepository()
         )
 
         val product = service.addProduct(
@@ -220,6 +231,7 @@ class ProductServiceImplTest {
             brand = null,
             barcode = null,
             category = ProductCategory.DAIRY,
+            categoryId = null,
             quantity = 1.0,
             quantityUnit = QuantityUnit.PIECES,
             packageAmount = null,
@@ -259,6 +271,7 @@ class ProductServiceImplTest {
             id = UUID.randomUUID(),
             name = "Rice",
             category = ProductCategory.CEREALS,
+            categoryId = null,
             quantity = Quantity(1.0, QuantityUnit.PIECES),
             householdId = householdId,
             addedByUserId = actorId
@@ -271,7 +284,8 @@ class ProductServiceImplTest {
             ),
             notificationRepository = RecordingNotificationRepository(),
             notificationSender = RecordingNotificationSender(),
-            householdEventPublisher = eventPublisher
+            householdEventPublisher = eventPublisher,
+            categoryRepository = FakeCategoryRepository()
         )
 
         service.updateProduct(
@@ -281,6 +295,7 @@ class ProductServiceImplTest {
             brand = null,
             barcode = null,
             category = ProductCategory.OTHER,
+            categoryId = null,
             quantity = null,
             quantityUnit = null,
             packageAmount = null,
@@ -313,6 +328,7 @@ class ProductServiceImplTest {
             id = UUID.randomUUID(),
             name = "Milk",
             category = ProductCategory.DAIRY,
+            categoryId = null,
             quantity = Quantity(2.0, QuantityUnit.PIECES),
             remainingAmount = 2.0,
             lowStockThreshold = 0.5,
@@ -328,7 +344,8 @@ class ProductServiceImplTest {
             ),
             notificationRepository = RecordingNotificationRepository(),
             notificationSender = RecordingNotificationSender(),
-            householdEventPublisher = eventPublisher
+            householdEventPublisher = eventPublisher,
+            categoryRepository = FakeCategoryRepository()
         )
 
         service.updateProduct(
@@ -338,6 +355,7 @@ class ProductServiceImplTest {
             brand = null,
             barcode = null,
             category = null,
+            categoryId = null,
             quantity = null,
             quantityUnit = null,
             packageAmount = null,
@@ -369,6 +387,7 @@ class ProductServiceImplTest {
             brand = null,
             barcode = null,
             category = null,
+            categoryId = null,
             quantity = null,
             quantityUnit = null,
             packageAmount = null,
@@ -396,6 +415,98 @@ class ProductServiceImplTest {
     }
 
     @Test
+    fun `add product with custom category stores category id and name`() {
+        val actorId = UUID.randomUUID()
+        val householdId = UUID.randomUUID()
+        val customCategory = Category(householdId = householdId, name = "Bakery")
+        val productRepository = InMemoryProductRepository()
+        val service = ProductServiceImpl(
+            productRepository = productRepository,
+            membershipRepository = FakeMembershipRepository(
+                memberships = listOf(Membership(userId = actorId, householdId = householdId, role = MembershipRole.OWNER))
+            ),
+            notificationRepository = RecordingNotificationRepository(),
+            notificationSender = RecordingNotificationSender(),
+            householdEventPublisher = RecordingHouseholdEventPublisher(),
+            categoryRepository = FakeCategoryRepository(
+                (SystemCategoryCatalog.categories + customCategory).toMutableList()
+            )
+        )
+
+        val product = service.addProduct(
+            userId = actorId,
+            householdId = householdId,
+            name = "Bread",
+            brand = null,
+            barcode = null,
+            category = ProductCategory.OTHER,
+            categoryId = customCategory.id,
+            quantity = 1.0,
+            quantityUnit = QuantityUnit.PIECES,
+            packageAmount = null,
+            packageUnit = null,
+            ingredientsText = null,
+            calories = null,
+            protein = null,
+            fat = null,
+            carbs = null,
+            purchaseDate = null,
+            remainingAmount = null,
+            lowStockThreshold = null,
+            expirationDate = null
+        )
+
+        assertEquals(customCategory.id, product.categoryId)
+        assertEquals("Bakery", product.categoryName)
+        assertEquals(ProductCategory.OTHER, product.category)
+        assertEquals(customCategory.id, productRepository.savedProducts.single().categoryId)
+    }
+
+    @Test
+    fun `get products filters by category id and enriches category details`() {
+        val actorId = UUID.randomUUID()
+        val householdId = UUID.randomUUID()
+        val bakeryCategory = Category(householdId = householdId, name = "Bakery")
+        val pantryCategory = Category(householdId = householdId, name = "Pantry")
+        val bread = Product(
+            id = UUID.randomUUID(),
+            name = "Bread",
+            category = ProductCategory.OTHER,
+            categoryId = bakeryCategory.id,
+            quantity = Quantity(1.0, QuantityUnit.PIECES),
+            householdId = householdId,
+            addedByUserId = actorId
+        )
+        val rice = Product(
+            id = UUID.randomUUID(),
+            name = "Rice",
+            category = ProductCategory.CEREALS,
+            categoryId = pantryCategory.id,
+            quantity = Quantity(1.0, QuantityUnit.PIECES),
+            householdId = householdId,
+            addedByUserId = actorId
+        )
+        val service = ProductServiceImpl(
+            productRepository = InMemoryProductRepository(initialProducts = listOf(bread, rice)),
+            membershipRepository = FakeMembershipRepository(
+                memberships = listOf(Membership(userId = actorId, householdId = householdId, role = MembershipRole.OWNER))
+            ),
+            notificationRepository = RecordingNotificationRepository(),
+            notificationSender = RecordingNotificationSender(),
+            householdEventPublisher = RecordingHouseholdEventPublisher(),
+            categoryRepository = FakeCategoryRepository(
+                (SystemCategoryCatalog.categories + bakeryCategory + pantryCategory).toMutableList()
+            )
+        )
+
+        val products = service.getProducts(actorId, householdId, bakeryCategory.id)
+
+        assertEquals(listOf("Bread"), products.map { it.name })
+        assertEquals(bakeryCategory.id, products.single().categoryId)
+        assertEquals("Bakery", products.single().categoryName)
+    }
+
+    @Test
     fun `delete product publishes deleted event`() {
         val actorId = UUID.randomUUID()
         val householdId = UUID.randomUUID()
@@ -403,6 +514,7 @@ class ProductServiceImplTest {
             id = UUID.randomUUID(),
             name = "Rice",
             category = ProductCategory.CEREALS,
+            categoryId = null,
             quantity = Quantity(1.0, QuantityUnit.PIECES),
             householdId = householdId,
             addedByUserId = actorId
@@ -415,7 +527,8 @@ class ProductServiceImplTest {
             ),
             notificationRepository = RecordingNotificationRepository(),
             notificationSender = RecordingNotificationSender(),
-            householdEventPublisher = eventPublisher
+            householdEventPublisher = eventPublisher,
+            categoryRepository = FakeCategoryRepository()
         )
 
         service.deleteProduct(actorId, existing.id)
@@ -440,7 +553,30 @@ class ProductServiceImplTest {
         override fun findByHouseholdId(householdId: UUID): List<Product> =
             products.values.filter { it.householdId == householdId }
 
+        override fun findByHouseholdIdAndCategoryId(householdId: UUID, categoryId: UUID): List<Product> =
+            products.values.filter { it.householdId == householdId && it.categoryId == categoryId }
+
         override fun findExpiringBefore(householdId: UUID, date: LocalDate): List<Product> = emptyList()
+
+        override fun findExpiringBetween(startInclusive: LocalDate, endExclusive: LocalDate): List<Product> =
+            products.values.filter { product ->
+                product.expirationDate?.date?.let { !it.isBefore(startInclusive) && it.isBefore(endExclusive) } == true
+            }
+
+        override fun findExpiringBetweenByHouseholdId(
+            householdId: UUID,
+            startInclusive: LocalDate,
+            endExclusive: LocalDate
+        ): List<Product> =
+            findExpiringBetween(startInclusive, endExclusive).filter { it.householdId == householdId }
+
+        override fun findLowStock(): List<Product> =
+            products.values.filter { product ->
+                product.lowStockThreshold?.let { product.remainingAmount <= it } == true
+            }
+
+        override fun findLowStockByHouseholdId(householdId: UUID): List<Product> =
+            findLowStock().filter { it.householdId == householdId }
 
         override fun save(product: Product): Product {
             products[product.id] = product
@@ -453,6 +589,27 @@ class ProductServiceImplTest {
         }
 
         override fun existsById(id: UUID): Boolean = products.containsKey(id)
+    }
+
+    private class FakeCategoryRepository(
+        private val categories: MutableList<Category> = SystemCategoryCatalog.categories.toMutableList()
+    ) : ICategoryRepository {
+        override fun findSystemCategories(includeArchived: Boolean): List<Category> =
+            categories.filter { it.system && (includeArchived || !it.archived) }
+
+        override fun findByHouseholdId(householdId: UUID, includeArchived: Boolean): List<Category> =
+            categories.filter { it.householdId == householdId && (includeArchived || !it.archived) }
+
+        override fun findAvailableById(categoryId: UUID, householdId: UUID): Category? =
+            categories.firstOrNull {
+                it.id == categoryId && !it.archived && (it.system || it.householdId == householdId)
+            }
+
+        override fun save(category: Category): Category {
+            categories.removeAll { it.id == category.id }
+            categories += category
+            return category
+        }
     }
 
     private class FakeMembershipRepository(
@@ -478,6 +635,9 @@ class ProductServiceImplTest {
         override fun findByUserId(userId: UUID): List<Notification> = emptyList()
 
         override fun findUnreadByUserId(userId: UUID): List<Notification> = emptyList()
+
+        override fun existsByUserIdAndDedupeKey(userId: UUID, dedupeKey: String): Boolean =
+            savedNotifications.any { it.userId == userId && it.dedupeKey == dedupeKey }
 
         override fun save(notification: Notification): Notification {
             savedNotifications += notification

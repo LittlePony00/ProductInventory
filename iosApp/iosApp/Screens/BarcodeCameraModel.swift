@@ -19,10 +19,14 @@ final class BarcodeCameraModel: NSObject, ObservableObject, AVCaptureMetadataOut
 
     override init() {
         super.init()
-        authorizationState = Self.currentAuthorizationState()
+        authorizationState = Self.isForcedDeniedForUiTest ? .denied : Self.currentAuthorizationState()
     }
 
     func requestAccessAndStart() {
+        if Self.isForcedDeniedForUiTest {
+            authorizationState = .denied
+            return
+        }
         switch AVCaptureDevice.authorizationStatus(for: .video) {
         case .authorized:
             authorizationState = .authorized
@@ -123,6 +127,14 @@ final class BarcodeCameraModel: NSObject, ObservableObject, AVCaptureMetadataOut
         .itf14,
         .qr
     ]
+
+    private static var isForcedDeniedForUiTest: Bool {
+        #if DEBUG
+        return ProcessInfo.processInfo.arguments.contains("--ios-ui-test-camera-denied")
+        #else
+        return false
+        #endif
+    }
 }
 
 struct BarcodeCameraPreview: UIViewRepresentable {

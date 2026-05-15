@@ -20,10 +20,10 @@ class BarcodeUseCaseTest {
             addResult = BarcodeAddProductResult.ProductAdded(product())
         )
 
-        val result = LookupBarcodeUseCase(repository)("4601234567890")
+        val result = LookupBarcodeUseCase(repository)("household-id", "4601234567890")
 
         assertIs<BarcodeLookupResult.DraftFound>(result)
-        assertEquals("lookup:4601234567890", repository.calls.single())
+        assertEquals("lookup:household-id:4601234567890", repository.calls.single())
     }
 
     @Test
@@ -45,8 +45,8 @@ class BarcodeUseCaseTest {
     ) : BarcodeRepository {
         val calls = mutableListOf<String>()
 
-        override suspend fun lookupBarcode(barcode: String): BarcodeLookupResult {
-            calls += "lookup:$barcode"
+        override suspend fun lookupBarcode(householdId: String, barcode: String): BarcodeLookupResult {
+            calls += "lookup:$householdId:$barcode"
             return lookupResult
         }
 

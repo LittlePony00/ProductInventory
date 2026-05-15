@@ -3,11 +3,21 @@ package com.android.rut.miit.productinventory.feature.products.presentation.add
 import androidx.lifecycle.viewModelScope
 import com.android.rut.miit.productinventory.common.SharedViewModel
 import com.android.rut.miit.productinventory.feature.products.api.AddProductUseCase
+import com.android.rut.miit.productinventory.feature.products.api.CreateProductCategoryUseCase
+import com.android.rut.miit.productinventory.feature.products.api.GetProductCategoriesUseCase
+import com.android.rut.miit.productinventory.feature.products.api.SuggestProductEnrichmentUseCase
+import com.android.rut.miit.productinventory.feature.products.api.models.ProductEnrichmentSource
+import com.android.rut.miit.productinventory.feature.products.api.models.ProductEnrichmentSuggestion
+import com.android.rut.miit.productinventory.feature.products.api.models.ProductCategory
+import com.android.rut.miit.productinventory.feature.products.api.models.ProductCategoryOption
 import kotlinx.coroutines.launch
 import kotlinx.datetime.LocalDate
 
 class AddProductViewModel(
-    private val addProductUseCase: AddProductUseCase
+    private val addProductUseCase: AddProductUseCase,
+    private val getProductCategoriesUseCase: GetProductCategoriesUseCase,
+    private val createProductCategoryUseCase: CreateProductCategoryUseCase,
+    private val suggestProductEnrichmentUseCase: SuggestProductEnrichmentUseCase
 ) : SharedViewModel<AddProductState, AddProductEvent, AddProductAction>(
     initialState = AddProductState()
 ) {
@@ -16,6 +26,7 @@ class AddProductViewModel(
 
     override suspend fun handleEvent(event: AddProductEvent) {
         when (event) {
+            is AddProductEvent.OnCreate -> onCreate(event.householdId)
             is AddProductEvent.OnPrefill -> prefill(event)
             is AddProductEvent.OnScannedDraftApplied -> applyScannedDraft(event)
             is AddProductEvent.OnNameChanged ->
@@ -25,7 +36,11 @@ class AddProductViewModel(
             is AddProductEvent.OnBarcodeChanged ->
                 updateState { copy(barcode = event.barcode) }
             is AddProductEvent.OnCategoryChanged ->
-                updateState { copy(category = event.category) }
+                updateState { copy(categoryId = event.categoryId, category = event.category) }
+            is AddProductEvent.OnNewCategoryNameChanged ->
+                updateState { copy(newCategoryName = event.name) }
+            is AddProductEvent.OnCreateCategoryClick -> createCategory()
+            is AddProductEvent.OnSuggestProductClick -> suggestProduct()
             is AddProductEvent.OnQuantityChanged ->
                 updateState { copy(quantity = event.quantity) }
             is AddProductEvent.OnQuantityUnitChanged ->
@@ -56,6 +71,25 @@ class AddProductViewModel(
         }
     }
 
+    private fun onCreate(householdId: String) {
+        this.householdId = householdId
+        viewModelScope.launch {
+            runCatching { getProductCategoriesUseCase(householdId) }
+                .onSuccess { categories ->
+                    updateState {
+                        val selectedId = categoryId ?: categories.idFor(category)
+                        copy(categories = categories, categoryId = selectedId)
+                    }
+                }
+                .onFailure {
+                    updateState {
+                        val fallback = ProductCategoryOption.systemDefaults()
+                        copy(categories = fallback, categoryId = categoryId ?: fallback.idFor(category))
+                    }
+                }
+        }
+    }
+
     private fun prefill(event: AddProductEvent.OnPrefill) {
         updateState {
             copy(
@@ -63,6 +97,7 @@ class AddProductViewModel(
                 name = event.name ?: name,
                 brand = event.brand ?: brand,
                 category = event.category ?: category,
+                categoryId = event.category?.let { categories.idFor(it) } ?: categoryId,
                 quantity = event.quantity ?: quantity,
                 quantityUnit = event.quantityUnit ?: quantityUnit,
                 packageAmount = event.packageAmount ?: packageAmount,
@@ -84,6 +119,7 @@ class AddProductViewModel(
                 name = event.name ?: name,
                 brand = event.brand ?: brand,
                 category = event.category ?: category,
+                categoryId = event.category?.let { categories.idFor(it) } ?: categoryId,
                 packageAmount = event.packageAmount ?: packageAmount,
                 packageUnit = event.packageUnit ?: packageUnit,
                 ingredientsText = event.ingredientsText ?: ingredientsText,
@@ -92,6 +128,80 @@ class AddProductViewModel(
                 fat = event.fat ?: fat,
                 carbs = event.carbs ?: carbs,
                 isBarcodePrefilled = true
+            )
+        }
+    }
+
+    private fun createCategory() {
+        val name = currentState.newCategoryName.trim()
+        if (name.isBlank()) {
+            updateState { copy(error = "Введите название категории") }
+            sendAction(AddProductAction.ShowError("Введите название категории"))
+            return
+        }
+        viewModelScope.launch {
+            updateState { copy(isCreatingCategory = true, error = null) }
+            runCatching { createProductCategoryUseCase(householdId, name) }
+                .onSuccess { category ->
+                    updateState {
+                        copy(
+                            categories = (categories.filterNot { it.id == category.id } + category)
+                                .sortedWith(compareBy<ProductCategoryOption> { !it.system }.thenBy { it.name.lowercase() }),
+                            categoryId = category.id,
+                            category = category.legacyCategory,
+                            newCategoryName = "",
+                            isCreatingCategory = false
+                        )
+                    }
+                }
+                .onFailure { error ->
+                    updateState { copy(isCreatingCategory = false, error = error.message) }
+                    sendAction(AddProductAction.ShowError(error.message ?: "Ошибка"))
+                }
+        }
+    }
+
+    private fun suggestProduct() {
+        val state = currentState
+        if (listOf(state.name, state.brand, state.barcode, state.ingredientsText).all { it.isBlank() }) {
+            updateState { copy(error = "Введите данные продукта для подсказки") }
+            sendAction(AddProductAction.ShowError("Введите данные продукта для подсказки"))
+            return
+        }
+
+        viewModelScope.launch {
+            updateState { copy(isSuggestingProduct = true, error = null, suggestionMessage = null) }
+            runCatching {
+                suggestProductEnrichmentUseCase(
+                    householdId = householdId,
+                    name = state.name.trim().ifBlank { null },
+                    brand = state.brand.trim().ifBlank { null },
+                    barcode = state.barcode.trim().ifBlank { null },
+                    ingredientsText = state.ingredientsText.trim().ifBlank { null }
+                )
+            }.onSuccess { suggestion ->
+                applySuggestion(suggestion)
+            }.onFailure { error ->
+                updateState { copy(isSuggestingProduct = false, error = error.message) }
+                sendAction(AddProductAction.ShowError(error.message ?: "Ошибка подсказки"))
+            }
+        }
+    }
+
+    private fun applySuggestion(suggestion: ProductEnrichmentSuggestion) {
+        updateState {
+            copy(
+                category = suggestion.category,
+                categoryId = suggestion.categoryId,
+                name = name.ifBlank { suggestion.suggestedName.orEmpty() },
+                brand = brand.ifBlank { suggestion.suggestedBrand.orEmpty() },
+                ingredientsText = ingredientsText.ifBlank { suggestion.suggestedIngredientsText.orEmpty() },
+                calories = calories.ifBlank { suggestion.calories?.formatNumber().orEmpty() },
+                protein = protein.ifBlank { suggestion.protein?.formatNumber().orEmpty() },
+                fat = fat.ifBlank { suggestion.fat?.formatNumber().orEmpty() },
+                carbs = carbs.ifBlank { suggestion.carbs?.formatNumber().orEmpty() },
+                isSuggestingProduct = false,
+                suggestionMessage = suggestion.message()
             )
         }
     }
@@ -150,6 +260,7 @@ class AddProductViewModel(
                     householdId = householdId,
                     name = state.name,
                     category = state.category,
+                    categoryId = state.categoryId,
                     quantity = qty,
                     quantityUnit = state.quantityUnit,
                     expirationDate = expDate,
@@ -198,4 +309,17 @@ class AddProductViewModel(
         data class Valid<T>(val value: T) : ParseResult<T>
         data object Invalid : ParseResult<Nothing>
     }
+
+    private fun List<ProductCategoryOption>.idFor(category: ProductCategory): String? =
+        firstOrNull { it.code == category }?.id
+
+    private fun ProductEnrichmentSuggestion.message(): String =
+        when (source) {
+            ProductEnrichmentSource.GIGACHAT -> "Подсказка GigaChat: $categoryName (${(confidence * 100).toInt()}%)"
+            ProductEnrichmentSource.RULE_BASED -> "Подсказка по правилам: $categoryName (${(confidence * 100).toInt()}%)"
+            ProductEnrichmentSource.FALLBACK -> "Подсказка по умолчанию: $categoryName"
+        }
+
+    private fun Double.formatNumber(): String =
+        if (this % 1.0 == 0.0) toInt().toString() else toString()
 }

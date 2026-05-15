@@ -50,12 +50,14 @@ struct LoginScreen: View {
                 .keyboardType(.emailAddress)
                 .autocapitalization(.none)
                 .textFieldStyle(.roundedBorder)
+                .accessibilityIdentifier("login.email")
 
                 SecureField("Пароль", text: Binding(
                     get: { inputState?.password ?? "" },
                     set: { holder.sendEvent(LoginEvent.OnPasswordChanged(password: $0)) }
                 ))
                 .textFieldStyle(.roundedBorder)
+                .accessibilityIdentifier("login.password")
             }
             .padding(.horizontal)
 
@@ -79,11 +81,13 @@ struct LoginScreen: View {
             .buttonStyle(.borderedProminent)
             .disabled(inputState?.isLoading == true)
             .padding(.horizontal)
+            .accessibilityIdentifier("login.submit")
 
             Button("Нет аккаунта? Зарегистрироваться") {
                 holder.sendEvent(LoginEvent.OnRegisterClick())
             }
             .font(.footnote)
+            .accessibilityIdentifier("login.register")
 
             Spacer()
         }

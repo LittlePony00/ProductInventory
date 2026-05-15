@@ -42,6 +42,8 @@ kotlin {
         androidMain.dependencies {
             implementation(libs.ktor.client.okhttp)
             implementation(libs.androidx.datastore.preferences)
+            implementation(project.dependencies.platform(libs.firebase.bom))
+            implementation(libs.firebase.messaging)
         }
         iosMain.dependencies {
             implementation(libs.ktor.client.darwin)

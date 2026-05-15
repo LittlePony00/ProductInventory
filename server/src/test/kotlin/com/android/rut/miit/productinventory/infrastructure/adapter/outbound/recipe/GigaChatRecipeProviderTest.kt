@@ -9,6 +9,8 @@ import com.android.rut.miit.productinventory.domain.model.RecipeGenerationReques
 import com.android.rut.miit.productinventory.domain.model.RecipeIngredient
 import com.android.rut.miit.productinventory.domain.port.outbound.IRecipeKnowledgeRepository
 import com.android.rut.miit.productinventory.domain.service.RecipeRetriever
+import com.android.rut.miit.productinventory.infrastructure.adapter.outbound.ai.AiRateLimiter
+import com.android.rut.miit.productinventory.infrastructure.adapter.outbound.ai.GigaChatAccessTokenProvider
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.kotlin.registerKotlinModule
 import java.util.UUID
@@ -31,9 +33,10 @@ class GigaChatRecipeProviderTest {
         val builder = RestClient.builder()
         val server = MockRestServiceServer.bindTo(builder).build()
         val provider = provider(builder = builder, apiKey = "secret")
+        expectOAuth(server)
         server.expect(requestTo("https://gigachat.test/chat/completions"))
             .andExpect(method(HttpMethod.POST))
-            .andExpect(header("Authorization", "Bearer secret"))
+            .andExpect(header("Authorization", "Bearer access-token"))
             .andRespond(
                 withSuccess(
                     """
@@ -66,14 +69,48 @@ class GigaChatRecipeProviderTest {
         val builder = RestClient.builder()
         val server = MockRestServiceServer.bindTo(builder).build()
         val provider = provider(builder = builder, apiKey = "secret")
+        expectOAuth(server)
         server.expect(requestTo("https://gigachat.test/chat/completions"))
             .andExpect(method(HttpMethod.POST))
+            .andExpect(header("Authorization", "Bearer access-token"))
             .andRespond(withServerError())
 
         val recipes = provider.findRecipes(RecipeGenerationRequest(listOf(product("Rice", ProductCategory.CEREALS))))
 
         assertEquals("Fallback Rice", recipes.single().title)
         assertEquals(listOf(RecipeIngredient("rice", "1 cup")), recipes.single().ingredients)
+        server.verify()
+    }
+
+    @Test
+    fun `parses recipe JSON wrapped in markdown fence`() {
+        val builder = RestClient.builder()
+        val server = MockRestServiceServer.bindTo(builder).build()
+        val provider = provider(builder = builder, apiKey = "secret")
+        expectOAuth(server)
+        server.expect(requestTo("https://gigachat.test/chat/completions"))
+            .andExpect(method(HttpMethod.POST))
+            .andExpect(header("Authorization", "Bearer access-token"))
+            .andRespond(
+                withSuccess(
+                    """
+                    {
+                      "choices": [
+                        {
+                          "message": {
+                            "content": "```json\n{\"title\":\"Rice Bowl\",\"ingredients\":[{\"name\":\"rice\",\"amount\":\"1 cup\"}],\"steps\":[\"Cook rice\"],\"time\":\"15 minutes\",\"calories\":300}\n```"
+                          }
+                        }
+                      ]
+                    }
+                    """.trimIndent(),
+                    MediaType.APPLICATION_JSON
+                )
+            )
+
+        val recipes = provider.findRecipes(RecipeGenerationRequest(listOf(product("Rice", ProductCategory.CEREALS))))
+
+        assertEquals("Rice Bowl", recipes.single().title)
         server.verify()
     }
 
@@ -94,9 +131,29 @@ class GigaChatRecipeProviderTest {
             restClientBuilder = builder,
             recipeRetriever = RecipeRetriever(FakeRecipeKnowledgeRepository(listOf(document()))),
             objectMapper = ObjectMapper().registerKotlinModule(),
+            rateLimiter = AiRateLimiter(30),
+            accessTokenProvider = GigaChatAccessTokenProvider(
+                restClientBuilder = builder,
+                apiKey = apiKey,
+                oauthUrl = "https://oauth.test/token",
+                scope = "GIGACHAT_API_PERS"
+            ),
             baseUrl = "https://gigachat.test",
-            apiKey = apiKey
+            retryAttempts = 1,
+            retryBackoffMs = 0
         )
+
+    private fun expectOAuth(server: MockRestServiceServer) {
+        server.expect(requestTo("https://oauth.test/token"))
+            .andExpect(method(HttpMethod.POST))
+            .andExpect(header("Authorization", "Basic secret"))
+            .andRespond(
+                withSuccess(
+                    """{"access_token":"access-token","expires_at":4102444800000}""",
+                    MediaType.APPLICATION_JSON
+                )
+            )
+    }
 
     private fun document(): RecipeDocument =
         RecipeDocument(

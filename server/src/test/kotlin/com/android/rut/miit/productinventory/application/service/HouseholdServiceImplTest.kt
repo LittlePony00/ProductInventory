@@ -136,6 +136,8 @@ class HouseholdServiceImplTest {
 
         override fun findUnreadByUserId(userId: UUID): List<Notification> = emptyList()
 
+        override fun existsByUserIdAndDedupeKey(userId: UUID, dedupeKey: String): Boolean = false
+
         override fun save(notification: Notification): Notification = notification
 
         override fun markAsRead(id: UUID, userId: UUID) = Unit

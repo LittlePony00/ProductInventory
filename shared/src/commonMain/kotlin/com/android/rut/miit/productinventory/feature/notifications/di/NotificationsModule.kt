@@ -12,7 +12,9 @@ val notificationsModule = module {
     factory { NotificationRemoteDataSource(get()) }
     factory<NotificationRepository> { NotificationRepositoryImpl(get()) }
     factoryOf(::GetNotificationsUseCase)
+    factoryOf(::GetNotificationSettingsUseCase)
     factoryOf(::MarkNotificationReadUseCase)
     factoryOf(::MarkAllReadUseCase)
+    factoryOf(::UpdateNotificationSettingsUseCase)
     viewModelOf(::NotificationListViewModel)
 }

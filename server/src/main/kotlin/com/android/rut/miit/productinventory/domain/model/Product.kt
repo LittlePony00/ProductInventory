@@ -10,6 +10,8 @@ data class Product(
     val brand: String? = null,
     val barcode: String? = null,
     val category: ProductCategory,
+    val categoryId: UUID? = null,
+    val categoryName: String? = null,
     val quantity: Quantity,
     val packageQuantity: Quantity? = null,
     val ingredientsText: String? = null,

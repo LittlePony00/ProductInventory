@@ -7,6 +7,8 @@ import com.android.rut.miit.productinventory.domain.model.RecipeGenerationReques
 import com.android.rut.miit.productinventory.domain.model.RecipeIngredient
 import com.android.rut.miit.productinventory.domain.port.outbound.IRecipeProvider
 import com.android.rut.miit.productinventory.domain.service.RecipeRetriever
+import com.android.rut.miit.productinventory.infrastructure.adapter.outbound.ai.AiRateLimiter
+import com.android.rut.miit.productinventory.infrastructure.adapter.outbound.ai.GigaChatAccessTokenProvider
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.ObjectMapper
@@ -21,8 +23,11 @@ class GigaChatRecipeProvider(
     restClientBuilder: RestClient.Builder,
     private val recipeRetriever: RecipeRetriever,
     private val objectMapper: ObjectMapper,
+    private val rateLimiter: AiRateLimiter,
+    private val accessTokenProvider: GigaChatAccessTokenProvider,
     @Value("\${gigachat.base-url:}") baseUrl: String,
-    @param:Value("\${gigachat.api-key:}") private val apiKey: String
+    @param:Value("\${gigachat.retry-attempts:2}") private val retryAttempts: Int,
+    @param:Value("\${gigachat.retry-backoff-ms:250}") private val retryBackoffMs: Long
 ) : IRecipeProvider {
 
     private val log = LoggerFactory.getLogger(GigaChatRecipeProvider::class.java)
@@ -37,26 +42,54 @@ class GigaChatRecipeProvider(
     }
 
     private fun requestFromGigaChat(products: List<Product>, matches: List<RecipeDocumentMatch>): Recipe? {
-        val client = restClient ?: return null
-        if (apiKey.isBlank()) return null
+        val client = restClient ?: run {
+            log.info("GigaChat recipe generation skipped: base URL is not configured")
+            return null
+        }
+        if (!rateLimiter.tryAcquire()) {
+            log.warn("GigaChat recipe generation skipped: rate limit exceeded")
+            return null
+        }
+        val accessToken = accessTokenProvider.getAccessToken() ?: run {
+            log.warn("GigaChat recipe generation skipped: access token is unavailable")
+            return null
+        }
 
-        return try {
+        return retrying {
             val response = client.post()
                 .uri("/chat/completions")
-                .header("Authorization", "Bearer $apiKey")
+                .header("Authorization", "Bearer $accessToken")
                 .body(GigaChatRecipeRequest.from(buildPrompt(products, matches)))
                 .retrieve()
                 .body(JsonNode::class.java)
-                ?: return null
+                ?: return@retrying null
 
-            parseRecipe(response)
-        } catch (exception: RestClientException) {
-            log.warn("GigaChat recipe generation failed: {}", exception.message)
-            null
-        } catch (exception: RuntimeException) {
-            log.warn("GigaChat recipe response is not valid JSON recipe: {}", exception.message)
-            null
+            val recipe = parseRecipe(response)
+            if (recipe == null) {
+                log.warn("GigaChat recipe generation returned invalid recipe JSON")
+            } else {
+                log.info("GigaChat recipe generation succeeded")
+            }
+            recipe
         }
+    }
+
+    private fun retrying(block: () -> Recipe?): Recipe? {
+        repeat(retryAttempts.coerceAtLeast(1)) { attempt ->
+            try {
+                return block()
+            } catch (exception: RestClientException) {
+                if (attempt == retryAttempts.coerceAtLeast(1) - 1) {
+                    log.warn("GigaChat recipe generation failed: {}", exception.message)
+                    return null
+                }
+                Thread.sleep(retryBackoffMs.coerceAtLeast(0))
+            } catch (exception: RuntimeException) {
+                log.warn("GigaChat recipe response is not valid JSON recipe: {}", exception.message)
+                return null
+            }
+        }
+        return null
     }
 
     private fun parseRecipe(response: JsonNode): Recipe? {
@@ -64,10 +97,10 @@ class GigaChatRecipeProvider(
             .takeUnless(JsonNode::isMissingNode)
             ?.asText()
         val recipeNode = content
-            ?.let { objectMapper.readTree(it).firstObjectNode() }
+            ?.let { objectMapper.readTree(it.extractJsonPayload()).firstObjectNode() }
             ?: response.firstObjectNode()
 
-        return objectMapper.treeToValue(recipeNode, GigaChatRecipeResponse::class.java).toDomainOrNull()
+        return recipeNode.toRecipeOrNull()
     }
 
     private fun buildPrompt(products: List<Product>, matches: List<RecipeDocumentMatch>): String =
@@ -92,6 +125,8 @@ private fun RecipeDocumentMatch.toPromptBlock(): String =
     ${document.title}
     ingredients=${document.ingredients.joinToString { "${it.name}: ${it.amount}" }}
     steps=${document.steps.joinToString(" | ")}
+    time=${document.time}
+    calories=${document.calories}
     rules=${appliedRules.joinToString(" | ")}
     matched=${matchedProducts.joinToString { it.name }}
     """.trimIndent()
@@ -102,6 +137,18 @@ private fun JsonNode.firstObjectNode(): JsonNode =
         isArray && size() > 0 && first().isObject -> first()
         else -> error("Expected recipe object")
     }
+
+private fun String.extractJsonPayload(): String {
+    val trimmed = trim()
+        .removePrefix("```json")
+        .removePrefix("```")
+        .removeSuffix("```")
+        .trim()
+    val start = trimmed.indexOfFirst { it == '{' || it == '[' }
+    val end = trimmed.indexOfLast { it == '}' || it == ']' }
+    require(start >= 0 && end >= start) { "Expected JSON payload" }
+    return trimmed.substring(start, end + 1)
+}
 
 private data class GigaChatRecipeRequest(
     val model: String,
@@ -129,28 +176,49 @@ private data class GigaChatMessage(
     val content: String
 )
 
-@JsonIgnoreProperties(ignoreUnknown = true)
-private data class GigaChatRecipeResponse(
-    val title: String? = null,
-    val ingredients: List<RecipeIngredient>? = null,
-    val steps: List<String>? = null,
-    val time: String? = null,
-    val calories: Int? = null
-) {
-    fun toDomainOrNull(): Recipe? {
-        val safeTitle = title?.takeIf(String::isNotBlank) ?: return null
-        val safeIngredients = ingredients?.filter { it.name.isNotBlank() && it.amount.isNotBlank() }.orEmpty()
-        val safeSteps = steps?.filter(String::isNotBlank).orEmpty()
-        val safeTime = time?.takeIf(String::isNotBlank) ?: return null
-        val safeCalories = calories?.takeIf { it >= 0 } ?: return null
-        if (safeIngredients.isEmpty() || safeSteps.isEmpty()) return null
+private fun JsonNode.toRecipeOrNull(): Recipe? {
+    val safeTitle = fieldText("title") ?: return null
+    val safeIngredients = path("ingredients")
+        .takeIf(JsonNode::isArray)
+        ?.mapNotNull { ingredient ->
+            val name = ingredient.fieldText("name")
+            val amount = ingredient.path("amount").valueText()
+            if (name == null || amount == null) null else RecipeIngredient(name, amount)
+        }
+        .orEmpty()
+    val safeSteps = path("steps")
+        .takeIf(JsonNode::isArray)
+        ?.mapNotNull(JsonNode::valueText)
+        .orEmpty()
+    val safeTime = path("time").valueText() ?: return null
+    val safeCalories = path("calories").toNonNegativeIntOrNull() ?: return null
+    if (safeIngredients.isEmpty() || safeSteps.isEmpty()) return null
 
-        return Recipe(
-            title = safeTitle,
-            ingredients = safeIngredients,
-            steps = safeSteps,
-            time = safeTime,
-            calories = safeCalories
-        )
-    }
+    return Recipe(
+        title = safeTitle,
+        ingredients = safeIngredients,
+        steps = safeSteps,
+        time = safeTime,
+        calories = safeCalories
+    )
 }
+
+private fun JsonNode.fieldText(name: String): String? =
+    path(name).valueText()
+
+private fun JsonNode.valueText(): String? =
+    when {
+        isMissingNode || isNull -> null
+        isTextual -> asText()
+        isNumber || isBoolean -> asText()
+        else -> null
+    }?.trim()?.takeIf(String::isNotEmpty)
+
+private fun JsonNode.toNonNegativeIntOrNull(): Int? =
+    when {
+        isNumber -> asDouble().takeIf { it >= 0.0 }?.toInt()
+        isTextual -> numberPattern.find(asText())?.value?.toDoubleOrNull()?.takeIf { it >= 0.0 }?.toInt()
+        else -> null
+    }
+
+private val numberPattern = Regex("""\d+(?:\.\d+)?""")

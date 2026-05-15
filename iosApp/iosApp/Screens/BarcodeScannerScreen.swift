@@ -118,6 +118,7 @@ struct BarcodeScannerScreen: View {
                     .font(.subheadline).foregroundColor(.secondary).multilineTextAlignment(.center)
                 Button("Добавить вручную") { router.push(.addProduct(householdId: householdId)) }
                     .buttonStyle(.borderedProminent)
+                    .accessibilityIdentifier("barcode.manualAddDenied")
             }
             .padding()
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -138,6 +139,7 @@ struct BarcodeScannerScreen: View {
                         .clipShape(Capsule())
                     Button("Ввести вручную") { router.push(.addProduct(householdId: householdId)) }
                         .buttonStyle(.borderedProminent)
+                        .accessibilityIdentifier("barcode.manualEntry")
                 }
                 .padding(.bottom, 36)
             }

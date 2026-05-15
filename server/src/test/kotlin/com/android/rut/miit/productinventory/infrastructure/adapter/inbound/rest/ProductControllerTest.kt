@@ -26,6 +26,7 @@ class ProductControllerTest {
     fun `add product forwards extended request fields to service`() {
         val userId = UUID.randomUUID()
         val householdId = UUID.randomUUID()
+        val categoryId = UUID.randomUUID()
         val service = RecordingProductService()
         val controller = ProductController(service)
         authenticate(userId)
@@ -37,6 +38,7 @@ class ProductControllerTest {
                 brand = "Brand",
                 barcode = "4601234567890",
                 category = ProductCategory.DAIRY,
+                categoryId = categoryId,
                 quantity = 2.0,
                 quantityUnit = QuantityUnit.PIECES,
                 packageAmount = 950.0,
@@ -56,6 +58,7 @@ class ProductControllerTest {
         val call = service.addCalls.single()
         assertEquals(userId, call.userId)
         assertEquals(householdId, call.householdId)
+        assertEquals(categoryId, call.categoryId)
         assertEquals("Brand", call.brand)
         assertEquals("4601234567890", call.barcode)
         assertEquals(950.0, call.packageAmount)
@@ -77,6 +80,7 @@ class ProductControllerTest {
         val userId = UUID.randomUUID()
         val householdId = UUID.randomUUID()
         val productId = UUID.randomUUID()
+        val categoryId = UUID.randomUUID()
         val service = RecordingProductService(productId = productId)
         val controller = ProductController(service)
         authenticate(userId)
@@ -89,6 +93,7 @@ class ProductControllerTest {
                 brand = "Updated",
                 barcode = "9876543210987",
                 category = null,
+                categoryId = categoryId,
                 quantity = null,
                 quantityUnit = null,
                 packageAmount = 500.0,
@@ -108,6 +113,7 @@ class ProductControllerTest {
         val call = service.updateCalls.single()
         assertEquals(userId, call.userId)
         assertEquals(productId, call.productId)
+        assertEquals(categoryId, call.categoryId)
         assertEquals("Updated", call.brand)
         assertEquals("9876543210987", call.barcode)
         assertEquals(500.0, call.packageAmount)
@@ -122,6 +128,23 @@ class ProductControllerTest {
         assertEquals(0.1, call.lowStockThreshold)
     }
 
+    @Test
+    fun `get products forwards category filter to service`() {
+        val userId = UUID.randomUUID()
+        val householdId = UUID.randomUUID()
+        val categoryId = UUID.randomUUID()
+        val service = RecordingProductService()
+        val controller = ProductController(service)
+        authenticate(userId)
+
+        controller.getProducts(householdId = householdId, categoryId = categoryId)
+
+        val call = service.getProductsCalls.single()
+        assertEquals(userId, call.userId)
+        assertEquals(householdId, call.householdId)
+        assertEquals(categoryId, call.categoryId)
+    }
+
     private fun authenticate(userId: UUID) {
         SecurityContextHolder.getContext().authentication =
             UsernamePasswordAuthenticationToken(userId, null, emptyList())
@@ -132,6 +155,7 @@ class ProductControllerTest {
     ) : IProductService {
         val addCalls = mutableListOf<AddCall>()
         val updateCalls = mutableListOf<UpdateCall>()
+        val getProductsCalls = mutableListOf<GetProductsCall>()
 
         override fun addProduct(
             userId: UUID,
@@ -140,6 +164,7 @@ class ProductControllerTest {
             brand: String?,
             barcode: String?,
             category: ProductCategory,
+            categoryId: UUID?,
             quantity: Double,
             quantityUnit: QuantityUnit,
             packageAmount: Double?,
@@ -157,6 +182,7 @@ class ProductControllerTest {
             addCalls += AddCall(
                 userId = userId,
                 householdId = householdId,
+                categoryId = categoryId,
                 brand = brand,
                 barcode = barcode,
                 packageAmount = packageAmount,
@@ -176,6 +202,7 @@ class ProductControllerTest {
                 brand = brand,
                 barcode = barcode,
                 category = category,
+                categoryId = categoryId,
                 quantity = Quantity(quantity, quantityUnit),
                 packageQuantity = packageAmount?.let { Quantity(it, packageUnit ?: quantityUnit) },
                 ingredientsText = ingredientsText,
@@ -198,6 +225,7 @@ class ProductControllerTest {
             brand: String?,
             barcode: String?,
             category: ProductCategory?,
+            categoryId: UUID?,
             quantity: Double?,
             quantityUnit: QuantityUnit?,
             packageAmount: Double?,
@@ -215,6 +243,7 @@ class ProductControllerTest {
             updateCalls += UpdateCall(
                 userId = userId,
                 productId = productId,
+                categoryId = categoryId,
                 brand = brand,
                 barcode = barcode,
                 packageAmount = packageAmount,
@@ -234,6 +263,7 @@ class ProductControllerTest {
                 brand = brand,
                 barcode = barcode,
                 category = category ?: ProductCategory.OTHER,
+                categoryId = categoryId,
                 quantity = Quantity(quantity ?: 1.0, quantityUnit ?: QuantityUnit.PIECES),
                 packageQuantity = packageAmount?.let { Quantity(it, packageUnit ?: QuantityUnit.PIECES) },
                 ingredientsText = ingredientsText,
@@ -251,7 +281,10 @@ class ProductControllerTest {
 
         override fun deleteProduct(userId: UUID, productId: UUID) = Unit
 
-        override fun getProducts(userId: UUID, householdId: UUID): List<Product> = emptyList()
+        override fun getProducts(userId: UUID, householdId: UUID, categoryId: UUID?): List<Product> {
+            getProductsCalls += GetProductsCall(userId, householdId, categoryId)
+            return emptyList()
+        }
 
         override fun getProduct(userId: UUID, productId: UUID): Product = product(
             id = productId,
@@ -265,6 +298,7 @@ class ProductControllerTest {
     private data class AddCall(
         val userId: UUID,
         val householdId: UUID,
+        val categoryId: UUID?,
         val brand: String?,
         val barcode: String?,
         val packageAmount: Double?,
@@ -282,6 +316,7 @@ class ProductControllerTest {
     private data class UpdateCall(
         val userId: UUID,
         val productId: UUID,
+        val categoryId: UUID?,
         val brand: String?,
         val barcode: String?,
         val packageAmount: Double?,
@@ -296,6 +331,12 @@ class ProductControllerTest {
         val lowStockThreshold: Double?
     )
 
+    private data class GetProductsCall(
+        val userId: UUID,
+        val householdId: UUID,
+        val categoryId: UUID?
+    )
+
     private companion object {
         fun product(
             id: UUID = UUID.randomUUID(),
@@ -303,6 +344,7 @@ class ProductControllerTest {
             brand: String? = null,
             barcode: String? = null,
             category: ProductCategory = ProductCategory.OTHER,
+            categoryId: UUID? = null,
             quantity: Quantity = Quantity(1.0, QuantityUnit.PIECES),
             packageQuantity: Quantity? = null,
             ingredientsText: String? = null,
@@ -321,6 +363,7 @@ class ProductControllerTest {
             brand = brand,
             barcode = barcode,
             category = category,
+            categoryId = categoryId,
             quantity = quantity,
             packageQuantity = packageQuantity,
             ingredientsText = ingredientsText,

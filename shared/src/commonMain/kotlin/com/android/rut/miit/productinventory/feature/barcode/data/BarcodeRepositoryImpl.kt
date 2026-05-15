@@ -18,9 +18,9 @@ class BarcodeRepositoryImpl(
     private val localDataSource: BarcodeLocalDataSource
 ) : BarcodeRepository {
 
-    override suspend fun lookupBarcode(barcode: String): BarcodeLookupResult {
+    override suspend fun lookupBarcode(householdId: String, barcode: String): BarcodeLookupResult {
         return try {
-            val response = remoteDataSource.lookupBarcode(barcode)
+            val response = remoteDataSource.lookupBarcode(householdId, barcode)
 
             when (response.status) {
                 HttpStatusCode.OK -> {

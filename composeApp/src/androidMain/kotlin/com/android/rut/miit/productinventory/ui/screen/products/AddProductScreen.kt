@@ -11,6 +11,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.android.rut.miit.productinventory.R
 import com.android.rut.miit.productinventory.feature.products.api.models.ProductCategory
+import com.android.rut.miit.productinventory.feature.products.api.models.ProductCategoryOption
 import com.android.rut.miit.productinventory.feature.products.api.models.QuantityUnit
 import com.android.rut.miit.productinventory.feature.products.presentation.add.*
 import org.koin.compose.viewmodel.koinViewModel
@@ -53,7 +54,7 @@ fun AddProductScreen(
         initialFat,
         initialCarbs
     ) {
-        viewModel.householdId = householdId
+        viewModel.onEvent(AddProductEvent.OnCreate(householdId))
         viewModel.onEvent(
             AddProductEvent.OnPrefill(
                 barcode = barcode,
@@ -135,7 +136,10 @@ fun AddProductScreen(
                 onExpandedChange = { categoryExpanded = it }
             ) {
                 OutlinedTextField(
-                    value = categoryDisplayName(state.category),
+                    value = state.categories
+                        .firstOrNull { it.id == state.categoryId }
+                        ?.let { categoryOptionDisplayName(it) }
+                        ?: categoryDisplayName(state.category),
                     onValueChange = {},
                     readOnly = true,
                     label = { Text(stringResource(R.string.product_category_label)) },
@@ -146,14 +150,40 @@ fun AddProductScreen(
                     expanded = categoryExpanded,
                     onDismissRequest = { categoryExpanded = false }
                 ) {
-                    ProductCategory.entries.forEach { cat ->
+                    state.categories.forEach { category ->
                         DropdownMenuItem(
-                            text = { Text(categoryDisplayName(cat)) },
+                            text = { Text(categoryOptionDisplayName(category)) },
                             onClick = {
-                                viewModel.onEvent(AddProductEvent.OnCategoryChanged(cat))
+                                viewModel.onEvent(
+                                    AddProductEvent.OnCategoryChanged(
+                                        categoryId = category.id,
+                                        category = category.legacyCategory
+                                    )
+                                )
                                 categoryExpanded = false
                             }
                         )
+                    }
+                }
+            }
+
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(
+                    value = state.newCategoryName,
+                    onValueChange = { viewModel.onEvent(AddProductEvent.OnNewCategoryNameChanged(it)) },
+                    label = { Text(stringResource(R.string.product_new_category_label)) },
+                    singleLine = true,
+                    modifier = Modifier.weight(1f)
+                )
+                Button(
+                    onClick = { viewModel.onEvent(AddProductEvent.OnCreateCategoryClick) },
+                    enabled = !state.isCreatingCategory,
+                    modifier = Modifier.padding(top = 8.dp)
+                ) {
+                    if (state.isCreatingCategory) {
+                        CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                    } else {
+                        Text(stringResource(R.string.product_create_category))
                     }
                 }
             }
@@ -232,6 +262,26 @@ fun AddProductScreen(
                 text = stringResource(R.string.product_ai_suggestions_section),
                 style = MaterialTheme.typography.titleSmall
             )
+
+            Button(
+                onClick = { viewModel.onEvent(AddProductEvent.OnSuggestProductClick) },
+                enabled = !state.isSuggestingProduct && !state.isLoading,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                if (state.isSuggestingProduct) {
+                    CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                } else {
+                    Text(stringResource(R.string.product_ai_suggest_button))
+                }
+            }
+
+            state.suggestionMessage?.let { message ->
+                Text(
+                    text = message,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
 
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedTextField(
@@ -334,6 +384,10 @@ fun AddProductScreen(
         }
     }
 }
+
+@Composable
+private fun categoryOptionDisplayName(category: ProductCategoryOption): String =
+    category.code?.let { categoryDisplayName(it) } ?: category.name
 
 @Composable
 private fun categoryDisplayName(category: ProductCategory): String = when (category) {

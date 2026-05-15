@@ -31,7 +31,7 @@ class ProductInventoryFilterTest {
 
         val result = products.applyFilters(
             ProductListFilters(
-                category = ProductCategory.DAIRY,
+                categoryId = "dairy",
                 inventory = InventoryFilter.EXPIRING_SOON
             )
         )
@@ -42,6 +42,7 @@ class ProductInventoryFilterTest {
     private fun product(
         id: String,
         category: ProductCategory = ProductCategory.OTHER,
+        categoryId: String? = category.name.lowercase(),
         remainingAmount: Double = 1.0,
         lowStockThreshold: Double? = null,
         expirationStatus: ExpirationStatus = ExpirationStatus.FRESH
@@ -50,6 +51,7 @@ class ProductInventoryFilterTest {
             id = id,
             name = id,
             category = category,
+            categoryId = categoryId,
             quantity = 10.0,
             quantityUnit = QuantityUnit.PIECES,
             remainingAmount = remainingAmount,

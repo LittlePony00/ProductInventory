@@ -1,12 +1,15 @@
 package com.android.rut.miit.productinventory.feature.products.presentation.list
 
 import com.android.rut.miit.productinventory.feature.products.api.DeleteProductUseCase
+import com.android.rut.miit.productinventory.feature.products.api.CategoryRepository
+import com.android.rut.miit.productinventory.feature.products.api.GetProductCategoriesUseCase
 import com.android.rut.miit.productinventory.feature.products.api.GetProductsUseCase
 import com.android.rut.miit.productinventory.feature.products.api.ApplyRealtimeProductEventUseCase
 import com.android.rut.miit.productinventory.feature.products.api.ProductRepository
 import com.android.rut.miit.productinventory.feature.products.api.models.ExpirationStatus
 import com.android.rut.miit.productinventory.feature.products.api.models.Product
 import com.android.rut.miit.productinventory.feature.products.api.models.ProductCategory
+import com.android.rut.miit.productinventory.feature.products.api.models.ProductCategoryOption
 import com.android.rut.miit.productinventory.feature.products.api.models.QuantityUnit
 import com.android.rut.miit.productinventory.feature.realtime.api.ObserveHouseholdEventsUseCase
 import com.android.rut.miit.productinventory.feature.realtime.api.RealtimeRepository
@@ -46,6 +49,7 @@ class ProductListViewModelRealtimeTest {
         val realtime = FakeRealtimeRepository()
         val viewModel = ProductListViewModel(
             getProductsUseCase = GetProductsUseCase(products),
+            getProductCategoriesUseCase = GetProductCategoriesUseCase(FakeCategoryRepository()),
             deleteProductUseCase = DeleteProductUseCase(products),
             applyRealtimeProductEventUseCase = ApplyRealtimeProductEventUseCase(products),
             observeHouseholdEventsUseCase = ObserveHouseholdEventsUseCase(realtime)
@@ -78,6 +82,7 @@ class ProductListViewModelRealtimeTest {
         val realtime = FakeRealtimeRepository()
         val viewModel = ProductListViewModel(
             getProductsUseCase = GetProductsUseCase(products),
+            getProductCategoriesUseCase = GetProductCategoriesUseCase(FakeCategoryRepository()),
             deleteProductUseCase = DeleteProductUseCase(products),
             applyRealtimeProductEventUseCase = ApplyRealtimeProductEventUseCase(products),
             observeHouseholdEventsUseCase = ObserveHouseholdEventsUseCase(realtime)
@@ -127,7 +132,8 @@ private class FakeProductRepository(
 ) : ProductRepository {
     private var cachedProducts = products
 
-    override suspend fun getProducts(householdId: String): List<Product> = products
+    override suspend fun getProducts(householdId: String, categoryId: String?): List<Product> =
+        categoryId?.let { id -> products.filter { it.categoryId == id } } ?: products
 
     override suspend fun deleteProduct(householdId: String, productId: String) {
         products = products.filterNot { it.id == productId }
@@ -140,6 +146,7 @@ private class FakeProductRepository(
         householdId: String,
         name: String,
         category: ProductCategory,
+        categoryId: String?,
         quantity: Double,
         quantityUnit: QuantityUnit,
         expirationDate: LocalDate?,
@@ -162,6 +169,7 @@ private class FakeProductRepository(
         productId: String,
         name: String?,
         category: ProductCategory?,
+        categoryId: String?,
         quantity: Double?,
         quantityUnit: QuantityUnit?,
         expirationDate: LocalDate?,
@@ -182,6 +190,15 @@ private class FakeProductRepository(
     override suspend fun getExpiringProducts(householdId: String, days: Int): List<Product> =
         emptyList()
 
+    override suspend fun suggestProductEnrichment(
+        householdId: String,
+        name: String?,
+        brand: String?,
+        barcode: String?,
+        ingredientsText: String?
+    ): com.android.rut.miit.productinventory.feature.products.api.models.ProductEnrichmentSuggestion =
+        error("Unused")
+
     override suspend fun upsertCachedProduct(product: Product) {
         cachedProducts = cachedProducts.filterNot { it.id == product.id } + product
     }
@@ -191,4 +208,17 @@ private class FakeProductRepository(
     }
 
     fun cachedProductNames(): List<String> = cachedProducts.map { it.name }
+}
+
+private class FakeCategoryRepository : CategoryRepository {
+    override suspend fun getCategories(householdId: String, includeArchived: Boolean): List<ProductCategoryOption> =
+        ProductCategoryOption.systemDefaults()
+
+    override suspend fun createCategory(householdId: String, name: String): ProductCategoryOption =
+        error("Unused")
+
+    override suspend fun updateCategory(householdId: String, categoryId: String, name: String): ProductCategoryOption =
+        error("Unused")
+
+    override suspend fun archiveCategory(householdId: String, categoryId: String) = Unit
 }

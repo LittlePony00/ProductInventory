@@ -1,13 +1,21 @@
 package com.android.rut.miit.productinventory.feature.products.di
 
 import com.android.rut.miit.productinventory.feature.products.api.AddProductUseCase
+import com.android.rut.miit.productinventory.feature.products.api.ArchiveProductCategoryUseCase
 import com.android.rut.miit.productinventory.feature.products.api.ApplyRealtimeProductEventUseCase
+import com.android.rut.miit.productinventory.feature.products.api.CategoryRepository
+import com.android.rut.miit.productinventory.feature.products.api.CreateProductCategoryUseCase
 import com.android.rut.miit.productinventory.feature.products.api.DeleteProductUseCase
 import com.android.rut.miit.productinventory.feature.products.api.GetProductCategoriesUseCase
 import com.android.rut.miit.productinventory.feature.products.api.GetProductsUseCase
 import com.android.rut.miit.productinventory.feature.products.api.ProductRepository
+import com.android.rut.miit.productinventory.feature.products.api.SuggestProductEnrichmentUseCase
+import com.android.rut.miit.productinventory.feature.products.api.UpdateProductCategoryUseCase
+import com.android.rut.miit.productinventory.feature.products.data.CategoryRemoteDataSource
+import com.android.rut.miit.productinventory.feature.products.data.CategoryRepositoryImpl
 import com.android.rut.miit.productinventory.feature.products.data.ProductRemoteDataSource
 import com.android.rut.miit.productinventory.feature.products.data.ProductRepositoryImpl
+import com.android.rut.miit.productinventory.feature.products.presentation.categories.CategoryManagementViewModel
 import com.android.rut.miit.productinventory.feature.products.presentation.add.AddProductViewModel
 import com.android.rut.miit.productinventory.feature.products.presentation.list.ProductListViewModel
 import org.koin.core.module.dsl.factoryOf
@@ -16,12 +24,19 @@ import org.koin.dsl.module
 
 val productsModule = module {
     factory { ProductRemoteDataSource(get()) }
+    factory { CategoryRemoteDataSource(get()) }
     factory<ProductRepository> { ProductRepositoryImpl(get(), get()) }
+    factory<CategoryRepository> { CategoryRepositoryImpl(get()) }
     factoryOf(::GetProductsUseCase)
     factoryOf(::GetProductCategoriesUseCase)
+    factoryOf(::CreateProductCategoryUseCase)
+    factoryOf(::UpdateProductCategoryUseCase)
+    factoryOf(::ArchiveProductCategoryUseCase)
     factoryOf(::AddProductUseCase)
+    factoryOf(::SuggestProductEnrichmentUseCase)
     factoryOf(::ApplyRealtimeProductEventUseCase)
     factoryOf(::DeleteProductUseCase)
     viewModelOf(::ProductListViewModel)
     viewModelOf(::AddProductViewModel)
+    viewModelOf(::CategoryManagementViewModel)
 }

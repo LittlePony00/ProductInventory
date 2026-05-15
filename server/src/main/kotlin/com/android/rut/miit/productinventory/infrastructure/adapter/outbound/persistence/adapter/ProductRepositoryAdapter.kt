@@ -21,8 +21,28 @@ class ProductRepositoryAdapter(
     override fun findByHouseholdId(householdId: UUID): List<Product> =
         jpaRepository.findByHouseholdId(householdId).map { it.toDomain() }
 
+    override fun findByHouseholdIdAndCategoryId(householdId: UUID, categoryId: UUID): List<Product> =
+        jpaRepository.findByHouseholdIdAndCategoryId(householdId, categoryId).map { it.toDomain() }
+
     override fun findExpiringBefore(householdId: UUID, date: LocalDate): List<Product> =
         jpaRepository.findByHouseholdIdAndExpirationDateBefore(householdId, date).map { it.toDomain() }
+
+    override fun findExpiringBetween(startInclusive: LocalDate, endExclusive: LocalDate): List<Product> =
+        jpaRepository.findExpiringBetween(startInclusive, endExclusive).map { it.toDomain() }
+
+    override fun findExpiringBetweenByHouseholdId(
+        householdId: UUID,
+        startInclusive: LocalDate,
+        endExclusive: LocalDate
+    ): List<Product> =
+        jpaRepository.findExpiringBetweenByHouseholdId(householdId, startInclusive, endExclusive)
+            .map { it.toDomain() }
+
+    override fun findLowStock(): List<Product> =
+        jpaRepository.findLowStock().map { it.toDomain() }
+
+    override fun findLowStockByHouseholdId(householdId: UUID): List<Product> =
+        jpaRepository.findLowStockByHouseholdId(householdId).map { it.toDomain() }
 
     override fun save(product: Product): Product =
         jpaRepository.save(product.toEntity()).toDomain()

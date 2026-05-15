@@ -4,17 +4,22 @@ import androidx.lifecycle.viewModelScope
 import com.android.rut.miit.productinventory.common.SharedViewModel
 import com.android.rut.miit.productinventory.feature.products.api.ApplyRealtimeProductEventUseCase
 import com.android.rut.miit.productinventory.feature.products.api.DeleteProductUseCase
+import com.android.rut.miit.productinventory.feature.products.api.GetProductCategoriesUseCase
 import com.android.rut.miit.productinventory.feature.products.api.GetProductsUseCase
 import com.android.rut.miit.productinventory.feature.products.api.models.Product
+import com.android.rut.miit.productinventory.feature.products.api.models.ProductCategoryOption
 import com.android.rut.miit.productinventory.feature.realtime.api.ObserveHouseholdEventsUseCase
 import com.android.rut.miit.productinventory.feature.realtime.api.models.HouseholdRealtimeEvent
+import kotlinx.coroutines.async
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 
 class ProductListViewModel(
     private val getProductsUseCase: GetProductsUseCase,
+    private val getProductCategoriesUseCase: GetProductCategoriesUseCase,
     private val deleteProductUseCase: DeleteProductUseCase,
     private val applyRealtimeProductEventUseCase: ApplyRealtimeProductEventUseCase,
     private val observeHouseholdEventsUseCase: ObserveHouseholdEventsUseCase
@@ -29,10 +34,11 @@ class ProductListViewModel(
     override suspend fun handleEvent(event: ProductListEvent) {
         when (event) {
             is ProductListEvent.OnCreate -> onCreate(event.householdId)
+            is ProductListEvent.OnResume -> onResume()
             is ProductListEvent.OnRetry -> loadProducts()
             is ProductListEvent.OnProductClick -> onProductClick(event.productId)
             is ProductListEvent.OnDeleteProduct -> onDeleteProduct(event.productId)
-            is ProductListEvent.OnCategoryFilterChanged -> updateFilters(filters.copy(category = event.category))
+            is ProductListEvent.OnCategoryFilterChanged -> updateFilters(filters.copy(categoryId = event.categoryId))
             is ProductListEvent.OnInventoryFilterChanged -> updateFilters(filters.copy(inventory = event.filter))
             is ProductListEvent.OnAddProductClick -> sendAction(ProductListAction.OpenAddProduct)
         }
@@ -46,11 +52,23 @@ class ProductListViewModel(
         observeRealtimeEvents()
     }
 
+    private fun onResume() {
+        if (householdId.isNotBlank() && currentState is ProductListState.Content) {
+            loadProducts()
+        }
+    }
+
     private fun loadProducts() {
         viewModelScope.launch {
             updateState { ProductListState.Loading }
-            runCatching { getProductsUseCase(householdId) }
-                .onSuccess { products -> showContent(products) }
+            runCatching {
+                coroutineScope {
+                    val categories = async { getProductCategoriesUseCase(householdId) }
+                    val products = async { getProductsUseCase(householdId) }
+                    ProductsContent(products = products.await(), categories = categories.await())
+                }
+            }
+                .onSuccess { content -> showContent(content.products, content.categories) }
                 .onFailure { error -> updateState { ProductListState.Error(error.message) } }
         }
     }
@@ -136,6 +154,7 @@ class ProductListViewModel(
                     val nextProducts = transform(products)
                     copy(
                         products = nextProducts,
+                        categories = categories,
                         visibleProducts = nextProducts.applyFilters(filters),
                         filters = filters
                     )
@@ -145,16 +164,22 @@ class ProductListViewModel(
         }
     }
 
-    private fun showContent(products: List<Product>) {
+    private fun showContent(products: List<Product>, categories: List<ProductCategoryOption>) {
         val isRealtimeActive = currentState is ProductListState.Content &&
             (currentState as ProductListState.Content).isRealtimeActive
         updateState {
             ProductListState.Content(
                 products = products,
+                categories = categories,
                 visibleProducts = products.applyFilters(filters),
                 filters = filters,
                 isRealtimeActive = isRealtimeActive
             )
         }
     }
+
+    private data class ProductsContent(
+        val products: List<Product>,
+        val categories: List<ProductCategoryOption>
+    )
 }

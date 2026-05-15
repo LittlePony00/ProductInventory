@@ -17,6 +17,9 @@ class NotificationRepositoryAdapter(
     override fun findUnreadByUserId(userId: UUID): List<Notification> =
         jpaRepository.findByUserIdAndIsReadFalseOrderBySentAtDesc(userId).map { it.toDomain() }
 
+    override fun existsByUserIdAndDedupeKey(userId: UUID, dedupeKey: String): Boolean =
+        jpaRepository.existsByUserIdAndDedupeKey(userId, dedupeKey)
+
     override fun save(notification: Notification): Notification =
         jpaRepository.save(notification.toEntity()).toDomain()
 

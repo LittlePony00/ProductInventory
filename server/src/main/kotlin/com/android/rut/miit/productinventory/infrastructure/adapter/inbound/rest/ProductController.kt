@@ -29,6 +29,7 @@ class ProductController(
             brand = request.brand,
             barcode = request.barcode,
             category = request.category,
+            categoryId = request.categoryId,
             quantity = request.quantity,
             quantityUnit = request.quantityUnit,
             packageAmount = request.packageAmount,
@@ -46,8 +47,11 @@ class ProductController(
     }
 
     @GetMapping
-    fun getProducts(@PathVariable householdId: UUID): List<ProductResponse> {
-        return productService.getProducts(currentUserId(), householdId).map { it.toResponse() }
+    fun getProducts(
+        @PathVariable householdId: UUID,
+        @RequestParam(required = false) categoryId: UUID?
+    ): List<ProductResponse> {
+        return productService.getProducts(currentUserId(), householdId, categoryId).map { it.toResponse() }
     }
 
     @GetMapping("/{productId}")
@@ -71,6 +75,7 @@ class ProductController(
             brand = request.brand,
             barcode = request.barcode,
             category = request.category,
+            categoryId = request.categoryId,
             quantity = request.quantity,
             quantityUnit = request.quantityUnit,
             packageAmount = request.packageAmount,

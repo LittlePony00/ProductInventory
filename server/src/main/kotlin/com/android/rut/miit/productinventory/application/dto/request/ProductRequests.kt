@@ -7,6 +7,7 @@ import jakarta.validation.constraints.NotNull
 import jakarta.validation.constraints.Positive
 import jakarta.validation.constraints.PositiveOrZero
 import java.time.LocalDate
+import java.util.UUID
 
 data class CreateProductRequest(
     @field:NotBlank(message = "Product name is required")
@@ -18,6 +19,8 @@ data class CreateProductRequest(
 
     @field:NotNull(message = "Category is required")
     val category: ProductCategory,
+
+    val categoryId: UUID? = null,
 
     @field:Positive(message = "Quantity must be positive")
     val quantity: Double,
@@ -60,6 +63,7 @@ data class UpdateProductRequest(
     val brand: String? = null,
     val barcode: String? = null,
     val category: ProductCategory? = null,
+    val categoryId: UUID? = null,
     @field:Positive(message = "Quantity must be positive")
     val quantity: Double? = null,
     val quantityUnit: QuantityUnit? = null,

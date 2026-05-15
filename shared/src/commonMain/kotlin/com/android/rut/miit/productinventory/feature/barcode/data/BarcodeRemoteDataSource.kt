@@ -16,7 +16,7 @@ class BarcodeRemoteDataSource(private val httpClient: HttpClient) {
         }
     }
 
-    suspend fun lookupBarcode(barcode: String): HttpResponse {
-        return httpClient.get("${ApiConstants.API_V1}/barcodes/$barcode")
+    suspend fun lookupBarcode(householdId: String, barcode: String): HttpResponse {
+        return httpClient.get("${ApiConstants.API_V1}/households/$householdId/barcodes/$barcode")
     }
 }

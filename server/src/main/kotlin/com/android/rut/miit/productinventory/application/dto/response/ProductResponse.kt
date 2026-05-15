@@ -13,6 +13,8 @@ data class ProductResponse(
     val brand: String?,
     val barcode: String?,
     val category: ProductCategory,
+    val categoryId: UUID?,
+    val categoryName: String?,
     val quantity: Double,
     val quantityUnit: QuantityUnit,
     val packageAmount: Double?,

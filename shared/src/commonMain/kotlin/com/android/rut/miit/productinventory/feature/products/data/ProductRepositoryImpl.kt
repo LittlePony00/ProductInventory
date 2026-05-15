@@ -4,9 +4,11 @@ import com.android.rut.miit.productinventory.core.local.ProductLocalDataSource
 import com.android.rut.miit.productinventory.feature.products.api.ProductRepository
 import com.android.rut.miit.productinventory.feature.products.api.models.Product
 import com.android.rut.miit.productinventory.feature.products.api.models.ProductCategory
+import com.android.rut.miit.productinventory.feature.products.api.models.ProductEnrichmentSuggestion
 import com.android.rut.miit.productinventory.feature.products.api.models.QuantityUnit
 import com.android.rut.miit.productinventory.feature.products.data.mappers.toDomain
 import com.android.rut.miit.productinventory.feature.products.data.models.CreateProductRequestDto
+import com.android.rut.miit.productinventory.feature.products.data.models.ProductEnrichmentSuggestionRequestDto
 import com.android.rut.miit.productinventory.feature.products.data.models.UpdateProductRequestDto
 import kotlinx.datetime.LocalDate
 
@@ -15,14 +17,15 @@ class ProductRepositoryImpl(
     private val localDataSource: ProductLocalDataSource
 ) : ProductRepository {
 
-    override suspend fun getProducts(householdId: String): List<Product> {
+    override suspend fun getProducts(householdId: String, categoryId: String?): List<Product> {
         return try {
-            val remote = remoteDataSource.getProducts(householdId).map { it.toDomain() }
-            localDataSource.saveProducts(householdId, remote)
+            val remote = remoteDataSource.getProducts(householdId, categoryId).map { it.toDomain() }
+            if (categoryId == null) localDataSource.saveProducts(householdId, remote)
             remote
         } catch (e: Exception) {
             val local = localDataSource.getProducts(householdId)
-            if (local.isNotEmpty()) local else throw e
+            val filtered = categoryId?.let { id -> local.filter { it.categoryId == id } } ?: local
+            if (filtered.isNotEmpty()) filtered else throw e
         }
     }
 
@@ -34,6 +37,7 @@ class ProductRepositoryImpl(
         householdId: String,
         name: String,
         category: ProductCategory,
+        categoryId: String?,
         quantity: Double,
         quantityUnit: QuantityUnit,
         expirationDate: LocalDate?,
@@ -55,6 +59,7 @@ class ProductRepositoryImpl(
             brand = brand,
             barcode = barcode,
             category = category.name,
+            categoryId = categoryId,
             quantity = quantity,
             quantityUnit = quantityUnit.name,
             packageAmount = packageAmount,
@@ -79,6 +84,7 @@ class ProductRepositoryImpl(
         productId: String,
         name: String?,
         category: ProductCategory?,
+        categoryId: String?,
         quantity: Double?,
         quantityUnit: QuantityUnit?,
         expirationDate: LocalDate?,
@@ -100,6 +106,7 @@ class ProductRepositoryImpl(
             brand = brand,
             barcode = barcode,
             category = category?.name,
+            categoryId = categoryId,
             quantity = quantity,
             quantityUnit = quantityUnit?.name,
             packageAmount = packageAmount,
@@ -131,6 +138,23 @@ class ProductRepositoryImpl(
             emptyList()
         }
     }
+
+    override suspend fun suggestProductEnrichment(
+        householdId: String,
+        name: String?,
+        brand: String?,
+        barcode: String?,
+        ingredientsText: String?
+    ): ProductEnrichmentSuggestion =
+        remoteDataSource.suggestProductEnrichment(
+            householdId = householdId,
+            request = ProductEnrichmentSuggestionRequestDto(
+                name = name,
+                brand = brand,
+                barcode = barcode,
+                ingredientsText = ingredientsText
+            )
+        ).toDomain()
 
     override suspend fun upsertCachedProduct(product: Product) {
         localDataSource.saveProduct(product)

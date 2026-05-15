@@ -38,6 +38,7 @@ fun ProductEntity.toDomain() = Product(
     brand = brand,
     barcode = barcode,
     category = ProductCategory.valueOf(category),
+    categoryId = categoryId,
     quantity = Quantity(value = quantity, unit = QuantityUnit.valueOf(quantityUnit)),
     packageQuantity = packageAmount?.let {
         Quantity(value = it, unit = QuantityUnit.valueOf(packageUnit ?: quantityUnit))
@@ -62,6 +63,7 @@ fun Product.toEntity() = ProductEntity(
     brand = brand,
     barcode = barcode,
     category = category.name,
+    categoryId = categoryId,
     quantity = quantity.value,
     quantityUnit = quantity.unit.name,
     packageAmount = packageQuantity?.value,
@@ -77,6 +79,26 @@ fun Product.toEntity() = ProductEntity(
     expirationDate = expirationDate?.date,
     householdId = householdId,
     addedByUserId = addedByUserId,
+    createdAt = createdAt
+)
+
+fun CategoryEntity.toDomain() = Category(
+    id = id,
+    householdId = householdId,
+    code = code?.let { ProductCategory.valueOf(it) },
+    name = name,
+    system = system,
+    archived = archived,
+    createdAt = createdAt
+)
+
+fun Category.toEntity() = CategoryEntity(
+    id = id,
+    householdId = householdId,
+    code = code?.name,
+    name = name,
+    system = system,
+    archived = archived,
     createdAt = createdAt
 )
 
@@ -117,8 +139,12 @@ fun Membership.toEntity() = MembershipEntity(
 fun NotificationEntity.toDomain() = Notification(
     id = id,
     userId = userId,
+    type = NotificationType.valueOf(type),
     title = title,
     message = message,
+    householdId = householdId,
+    productId = productId,
+    dedupeKey = dedupeKey,
     sentAt = sentAt,
     isRead = isRead
 )
@@ -126,10 +152,52 @@ fun NotificationEntity.toDomain() = Notification(
 fun Notification.toEntity() = NotificationEntity(
     id = id,
     userId = userId,
+    type = type.name,
     title = title,
     message = message,
+    householdId = householdId,
+    productId = productId,
+    dedupeKey = dedupeKey,
     sentAt = sentAt,
     isRead = isRead
+)
+
+fun NotificationDeviceTokenEntity.toDomain() = NotificationDeviceToken(
+    id = id,
+    userId = userId,
+    token = token,
+    platform = NotificationPlatform.valueOf(platform),
+    active = active,
+    createdAt = createdAt,
+    lastSeenAt = lastSeenAt
+)
+
+fun NotificationDeviceToken.toEntity() = NotificationDeviceTokenEntity(
+    id = id,
+    userId = userId,
+    token = token,
+    platform = platform.name,
+    active = active,
+    createdAt = createdAt,
+    lastSeenAt = lastSeenAt
+)
+
+fun NotificationSettingsEntity.toDomain() = NotificationSettings(
+    userId = userId,
+    expirationRemindersEnabled = expirationRemindersEnabled,
+    lowStockRemindersEnabled = lowStockRemindersEnabled,
+    pushEnabled = pushEnabled,
+    expirationReminderDays = expirationReminderDays,
+    updatedAt = updatedAt
+)
+
+fun NotificationSettings.toEntity() = NotificationSettingsEntity(
+    userId = userId,
+    expirationRemindersEnabled = expirationRemindersEnabled,
+    lowStockRemindersEnabled = lowStockRemindersEnabled,
+    pushEnabled = pushEnabled,
+    expirationReminderDays = expirationReminderDays,
+    updatedAt = updatedAt
 )
 
 fun InviteCodeEntity.toDomain() = InviteCode(

@@ -1,12 +1,15 @@
 package com.android.rut.miit.productinventory.feature.products.presentation.list
 
 import com.android.rut.miit.productinventory.feature.products.api.DeleteProductUseCase
+import com.android.rut.miit.productinventory.feature.products.api.CategoryRepository
+import com.android.rut.miit.productinventory.feature.products.api.GetProductCategoriesUseCase
 import com.android.rut.miit.productinventory.feature.products.api.GetProductsUseCase
 import com.android.rut.miit.productinventory.feature.products.api.ApplyRealtimeProductEventUseCase
 import com.android.rut.miit.productinventory.feature.products.api.ProductRepository
 import com.android.rut.miit.productinventory.feature.products.api.models.ExpirationStatus
 import com.android.rut.miit.productinventory.feature.products.api.models.Product
 import com.android.rut.miit.productinventory.feature.products.api.models.ProductCategory
+import com.android.rut.miit.productinventory.feature.products.api.models.ProductCategoryOption
 import com.android.rut.miit.productinventory.feature.products.api.models.QuantityUnit
 import com.android.rut.miit.productinventory.feature.realtime.api.ObserveHouseholdEventsUseCase
 import com.android.rut.miit.productinventory.feature.realtime.api.RealtimeRepository
@@ -33,21 +36,33 @@ class ProductListViewModelTest {
         try {
             val repository = FakeProductRepository(
                 products = listOf(
-                    product(id = "milk", category = ProductCategory.DAIRY, remainingAmount = 1.0, lowStockThreshold = 2.0),
-                    product(id = "juice", category = ProductCategory.BEVERAGES, remainingAmount = 5.0, lowStockThreshold = 2.0)
+                    product(
+                        id = "milk",
+                        category = ProductCategory.DAIRY,
+                        categoryId = "dairy",
+                        remainingAmount = 1.0,
+                        lowStockThreshold = 2.0
+                    ),
+                    product(
+                        id = "juice",
+                        category = ProductCategory.BEVERAGES,
+                        categoryId = "beverages",
+                        remainingAmount = 5.0,
+                        lowStockThreshold = 2.0
+                    )
                 )
             )
             val viewModel = viewModel(repository, FakeRealtimeRepository())
 
             viewModel.onEvent(ProductListEvent.OnCreate("household-id"))
             advanceUntilIdle()
-            viewModel.onEvent(ProductListEvent.OnCategoryFilterChanged(ProductCategory.DAIRY))
+            viewModel.onEvent(ProductListEvent.OnCategoryFilterChanged("dairy"))
             viewModel.onEvent(ProductListEvent.OnInventoryFilterChanged(InventoryFilter.LOW_STOCK))
             advanceUntilIdle()
 
             val state = assertIs<ProductListState.Content>(viewModel.viewState.value)
             assertEquals(listOf("milk"), state.visibleProducts.map { it.id })
-            assertEquals(ProductCategory.DAIRY, state.filters.category)
+            assertEquals("dairy", state.filters.categoryId)
             assertEquals(InventoryFilter.LOW_STOCK, state.filters.inventory)
         } finally {
             Dispatchers.resetMain()
@@ -127,6 +142,7 @@ class ProductListViewModelTest {
     ): ProductListViewModel =
         ProductListViewModel(
             getProductsUseCase = GetProductsUseCase(productRepository),
+            getProductCategoriesUseCase = GetProductCategoriesUseCase(FakeCategoryRepository()),
             deleteProductUseCase = DeleteProductUseCase(productRepository),
             applyRealtimeProductEventUseCase = ApplyRealtimeProductEventUseCase(productRepository),
             observeHouseholdEventsUseCase = ObserveHouseholdEventsUseCase(realtimeRepository)
@@ -147,9 +163,9 @@ class ProductListViewModelTest {
     ) : ProductRepository {
         var getProductsCalls = 0
 
-        override suspend fun getProducts(householdId: String): List<Product> {
+        override suspend fun getProducts(householdId: String, categoryId: String?): List<Product> {
             getProductsCalls += 1
-            return products
+            return categoryId?.let { id -> products.filter { it.categoryId == id } } ?: products
         }
 
         override suspend fun deleteProduct(householdId: String, productId: String) {
@@ -161,6 +177,7 @@ class ProductListViewModelTest {
             householdId: String,
             name: String,
             category: ProductCategory,
+            categoryId: String?,
             quantity: Double,
             quantityUnit: QuantityUnit,
             expirationDate: LocalDate?,
@@ -183,6 +200,7 @@ class ProductListViewModelTest {
             productId: String,
             name: String?,
             category: ProductCategory?,
+            categoryId: String?,
             quantity: Double?,
             quantityUnit: QuantityUnit?,
             expirationDate: LocalDate?,
@@ -201,6 +219,15 @@ class ProductListViewModelTest {
         ): Product = error("unused")
 
         override suspend fun getExpiringProducts(householdId: String, days: Int): List<Product> = emptyList()
+        override suspend fun suggestProductEnrichment(
+            householdId: String,
+            name: String?,
+            brand: String?,
+            barcode: String?,
+            ingredientsText: String?
+        ): com.android.rut.miit.productinventory.feature.products.api.models.ProductEnrichmentSuggestion =
+            error("unused")
+
         override suspend fun upsertCachedProduct(product: Product) {
             products = products.filterNot { it.id == product.id } + product
         }
@@ -213,6 +240,7 @@ class ProductListViewModelTest {
     private fun product(
         id: String,
         category: ProductCategory = ProductCategory.DAIRY,
+        categoryId: String? = category.name.lowercase(),
         remainingAmount: Double = 1.0,
         lowStockThreshold: Double? = null,
         expirationStatus: ExpirationStatus = ExpirationStatus.FRESH
@@ -221,6 +249,7 @@ class ProductListViewModelTest {
             id = id,
             name = id,
             category = category,
+            categoryId = categoryId,
             quantity = 10.0,
             quantityUnit = QuantityUnit.PIECES,
             remainingAmount = remainingAmount,
@@ -231,4 +260,17 @@ class ProductListViewModelTest {
             addedByUserId = "user-id",
             createdAt = "2026-05-14T00:00:00Z"
         )
+
+    private class FakeCategoryRepository : CategoryRepository {
+        override suspend fun getCategories(householdId: String, includeArchived: Boolean): List<ProductCategoryOption> =
+            ProductCategoryOption.systemDefaults()
+
+        override suspend fun createCategory(householdId: String, name: String): ProductCategoryOption =
+            error("unused")
+
+        override suspend fun updateCategory(householdId: String, categoryId: String, name: String): ProductCategoryOption =
+            error("unused")
+
+        override suspend fun archiveCategory(householdId: String, categoryId: String) = Unit
+    }
 }

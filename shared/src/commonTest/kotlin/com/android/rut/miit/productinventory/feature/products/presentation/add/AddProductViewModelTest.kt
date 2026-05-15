@@ -1,10 +1,17 @@
 package com.android.rut.miit.productinventory.feature.products.presentation.add
 
 import com.android.rut.miit.productinventory.feature.products.api.AddProductUseCase
+import com.android.rut.miit.productinventory.feature.products.api.CategoryRepository
+import com.android.rut.miit.productinventory.feature.products.api.CreateProductCategoryUseCase
+import com.android.rut.miit.productinventory.feature.products.api.GetProductCategoriesUseCase
 import com.android.rut.miit.productinventory.feature.products.api.ProductRepository
+import com.android.rut.miit.productinventory.feature.products.api.SuggestProductEnrichmentUseCase
 import com.android.rut.miit.productinventory.feature.products.api.models.ExpirationStatus
 import com.android.rut.miit.productinventory.feature.products.api.models.Product
 import com.android.rut.miit.productinventory.feature.products.api.models.ProductCategory
+import com.android.rut.miit.productinventory.feature.products.api.models.ProductCategoryOption
+import com.android.rut.miit.productinventory.feature.products.api.models.ProductEnrichmentSource
+import com.android.rut.miit.productinventory.feature.products.api.models.ProductEnrichmentSuggestion
 import com.android.rut.miit.productinventory.feature.products.api.models.QuantityUnit
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -25,7 +32,12 @@ class AddProductViewModelTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
         try {
             val repository = RecordingProductRepository()
-            val viewModel = AddProductViewModel(AddProductUseCase(repository))
+            val viewModel = AddProductViewModel(
+                AddProductUseCase(repository),
+                GetProductCategoriesUseCase(FakeCategoryRepository()),
+                CreateProductCategoryUseCase(FakeCategoryRepository()),
+                SuggestProductEnrichmentUseCase(repository)
+            )
             viewModel.householdId = "household-id"
 
             viewModel.onEvent(
@@ -66,6 +78,37 @@ class AddProductViewModelTest {
         }
     }
 
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    @Test
+    fun `applies product enrichment suggestion without overwriting entered name`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        try {
+            val repository = RecordingProductRepository()
+            val viewModel = AddProductViewModel(
+                AddProductUseCase(repository),
+                GetProductCategoriesUseCase(FakeCategoryRepository()),
+                CreateProductCategoryUseCase(FakeCategoryRepository()),
+                SuggestProductEnrichmentUseCase(repository)
+            )
+            viewModel.householdId = "household-id"
+            viewModel.onEvent(AddProductEvent.OnCreate("household-id"))
+            viewModel.onEvent(AddProductEvent.OnNameChanged("Milk"))
+            advanceUntilIdle()
+
+            viewModel.onEvent(AddProductEvent.OnSuggestProductClick)
+            advanceUntilIdle()
+
+            val state = viewModel.viewState.value
+            assertEquals("Milk", state.name)
+            assertEquals(ProductCategory.DAIRY, state.category)
+            assertEquals("system-dairy", state.categoryId)
+            assertEquals("60", state.calories)
+            assertTrue(state.suggestionMessage?.contains("Молочные") == true)
+        } finally {
+            Dispatchers.resetMain()
+        }
+    }
+
     private class RecordingProductRepository : ProductRepository {
         val requests = mutableListOf<Request>()
 
@@ -73,6 +116,7 @@ class AddProductViewModelTest {
             householdId: String,
             name: String,
             category: ProductCategory,
+            categoryId: String?,
             quantity: Double,
             quantityUnit: QuantityUnit,
             expirationDate: LocalDate?,
@@ -95,6 +139,7 @@ class AddProductViewModelTest {
                 brand = brand,
                 barcode = barcode,
                 category = category,
+                categoryId = categoryId,
                 quantity = quantity,
                 quantityUnit = quantityUnit,
                 expirationDate = expirationDate,
@@ -109,6 +154,7 @@ class AddProductViewModelTest {
                 brand = brand,
                 barcode = barcode,
                 category = category,
+                categoryId = categoryId,
                 quantity = quantity,
                 quantityUnit = quantityUnit,
                 remainingAmount = remainingAmount ?: quantity,
@@ -121,13 +167,14 @@ class AddProductViewModelTest {
             )
         }
 
-        override suspend fun getProducts(householdId: String): List<Product> = emptyList()
+        override suspend fun getProducts(householdId: String, categoryId: String?): List<Product> = emptyList()
         override suspend fun getProduct(householdId: String, productId: String): Product = error("unused")
         override suspend fun updateProduct(
             householdId: String,
             productId: String,
             name: String?,
             category: ProductCategory?,
+            categoryId: String?,
             quantity: Double?,
             quantityUnit: QuantityUnit?,
             expirationDate: LocalDate?,
@@ -147,6 +194,28 @@ class AddProductViewModelTest {
 
         override suspend fun deleteProduct(householdId: String, productId: String) = Unit
         override suspend fun getExpiringProducts(householdId: String, days: Int): List<Product> = emptyList()
+        override suspend fun suggestProductEnrichment(
+            householdId: String,
+            name: String?,
+            brand: String?,
+            barcode: String?,
+            ingredientsText: String?
+        ): ProductEnrichmentSuggestion =
+            ProductEnrichmentSuggestion(
+                categoryId = "system-dairy",
+                category = ProductCategory.DAIRY,
+                categoryName = "Молочные",
+                confidence = 0.82,
+                source = ProductEnrichmentSource.RULE_BASED,
+                suggestedName = "Milk normalized",
+                suggestedBrand = "Brand",
+                suggestedIngredientsText = "Milk",
+                calories = 60.0,
+                protein = 3.0,
+                fat = 2.5,
+                carbs = 4.7
+            )
+
         override suspend fun upsertCachedProduct(product: Product) = Unit
         override suspend fun deleteCachedProduct(productId: String) = Unit
     }
@@ -157,6 +226,7 @@ class AddProductViewModelTest {
         val brand: String?,
         val barcode: String?,
         val category: ProductCategory,
+        val categoryId: String?,
         val quantity: Double,
         val quantityUnit: QuantityUnit,
         val expirationDate: LocalDate?,
@@ -165,4 +235,23 @@ class AddProductViewModelTest {
         val remainingAmount: Double?,
         val lowStockThreshold: Double?
     )
+
+    private class FakeCategoryRepository : CategoryRepository {
+        override suspend fun getCategories(householdId: String, includeArchived: Boolean): List<ProductCategoryOption> =
+            ProductCategoryOption.systemDefaults()
+
+        override suspend fun createCategory(householdId: String, name: String): ProductCategoryOption =
+            ProductCategoryOption(
+                id = "custom-id",
+                householdId = householdId,
+                name = name,
+                system = false,
+                createdAt = "2026-05-14T00:00:00Z"
+            )
+
+        override suspend fun updateCategory(householdId: String, categoryId: String, name: String): ProductCategoryOption =
+            error("unused")
+
+        override suspend fun archiveCategory(householdId: String, categoryId: String) = Unit
+    }
 }

@@ -9,6 +9,7 @@ import java.util.UUID
 interface JpaNotificationRepository : JpaRepository<NotificationEntity, UUID> {
     fun findByUserIdOrderBySentAtDesc(userId: UUID): List<NotificationEntity>
     fun findByUserIdAndIsReadFalseOrderBySentAtDesc(userId: UUID): List<NotificationEntity>
+    fun existsByUserIdAndDedupeKey(userId: UUID, dedupeKey: String): Boolean
 
     @Modifying
     @Query("UPDATE NotificationEntity n SET n.isRead = true WHERE n.id = :id AND n.userId = :userId")

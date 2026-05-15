@@ -2,6 +2,8 @@ package com.android.rut.miit.productinventory.feature.products.data
 
 import com.android.rut.miit.productinventory.core.network.ApiConstants
 import com.android.rut.miit.productinventory.feature.products.data.models.CreateProductRequestDto
+import com.android.rut.miit.productinventory.feature.products.data.models.ProductEnrichmentSuggestionRequestDto
+import com.android.rut.miit.productinventory.feature.products.data.models.ProductEnrichmentSuggestionResponseDto
 import com.android.rut.miit.productinventory.feature.products.data.models.ProductResponseDto
 import com.android.rut.miit.productinventory.feature.products.data.models.UpdateProductRequestDto
 import io.ktor.client.*
@@ -11,8 +13,10 @@ import io.ktor.http.*
 
 class ProductRemoteDataSource(private val httpClient: HttpClient) {
 
-    suspend fun getProducts(householdId: String): List<ProductResponseDto> {
-        return httpClient.get("${ApiConstants.API_V1}/households/$householdId/products").body()
+    suspend fun getProducts(householdId: String, categoryId: String?): List<ProductResponseDto> {
+        return httpClient.get("${ApiConstants.API_V1}/households/$householdId/products") {
+            categoryId?.let { parameter("categoryId", it) }
+        }.body()
     }
 
     suspend fun getProduct(householdId: String, productId: String): ProductResponseDto {
@@ -38,6 +42,15 @@ class ProductRemoteDataSource(private val httpClient: HttpClient) {
     suspend fun getExpiringProducts(householdId: String, days: Int): List<ProductResponseDto> {
         return httpClient.get("${ApiConstants.API_V1}/households/$householdId/products/expiring") {
             parameter("days", days)
+        }.body()
+    }
+
+    suspend fun suggestProductEnrichment(
+        householdId: String,
+        request: ProductEnrichmentSuggestionRequestDto
+    ): ProductEnrichmentSuggestionResponseDto {
+        return httpClient.post("${ApiConstants.API_V1}/households/$householdId/products/enrichment/suggest") {
+            setBody(request)
         }.body()
     }
 }

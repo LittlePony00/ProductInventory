@@ -24,6 +24,7 @@ sealed interface Route {
         val carbs: String? = null
     ) : Route
     @Serializable data class Recipes(val householdId: String) : Route
+    @Serializable data class Categories(val householdId: String) : Route
     @Serializable data object Notifications : Route
     @Serializable data object Profile : Route
     @Serializable data class BarcodeScan(val householdId: String) : Route

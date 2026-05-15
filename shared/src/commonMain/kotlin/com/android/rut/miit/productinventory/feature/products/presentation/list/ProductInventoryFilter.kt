@@ -2,7 +2,6 @@ package com.android.rut.miit.productinventory.feature.products.presentation.list
 
 import com.android.rut.miit.productinventory.feature.products.api.models.ExpirationStatus
 import com.android.rut.miit.productinventory.feature.products.api.models.Product
-import com.android.rut.miit.productinventory.feature.products.api.models.ProductCategory
 
 enum class InventoryFilter {
     ALL,
@@ -12,7 +11,7 @@ enum class InventoryFilter {
 }
 
 data class ProductListFilters(
-    val category: ProductCategory? = null,
+    val categoryId: String? = null,
     val inventory: InventoryFilter = InventoryFilter.ALL
 )
 
@@ -21,7 +20,7 @@ val Product.isLowStock: Boolean
 
 fun List<Product>.applyFilters(filters: ProductListFilters): List<Product> =
     asSequence()
-        .filter { product -> filters.category == null || product.category == filters.category }
+        .filter { product -> filters.categoryId == null || product.categoryId == filters.categoryId }
         .filter { product ->
             when (filters.inventory) {
                 InventoryFilter.ALL -> true

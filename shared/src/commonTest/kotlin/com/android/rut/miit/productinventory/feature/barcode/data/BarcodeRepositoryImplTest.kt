@@ -28,7 +28,7 @@ class BarcodeRepositoryImplTest {
     @Test
     fun `lookup barcode returns draft from barcode draft endpoint`() = runTest {
         val engine = MockEngine { request ->
-            assertEquals("/api/v1/barcodes/4601234567890", request.url.encodedPath)
+            assertEquals("/api/v1/households/household-id/barcodes/4601234567890", request.url.encodedPath)
             respondJson(
                 content = """
                     {
@@ -51,7 +51,7 @@ class BarcodeRepositoryImplTest {
         }
         val localDataSource = FakeBarcodeLocalDataSource()
 
-        val result = repository(engine, localDataSource).lookupBarcode("4601234567890")
+        val result = repository(engine, localDataSource).lookupBarcode("household-id", "4601234567890")
 
         val found = assertIs<BarcodeLookupResult.DraftFound>(result)
         assertEquals("Milk", found.draft.name)
@@ -74,7 +74,7 @@ class BarcodeRepositoryImplTest {
             )
         }
 
-        val result = repository(engine).lookupBarcode("4601234567890")
+        val result = repository(engine).lookupBarcode("household-id", "4601234567890")
 
         val manualEntry = assertIs<BarcodeLookupResult.NeedsManualEntry>(result)
         assertEquals("4601234567890", manualEntry.barcode)

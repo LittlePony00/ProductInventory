@@ -1,10 +1,17 @@
 package com.android.rut.miit.productinventory.feature.products.presentation.add
 
 import com.android.rut.miit.productinventory.feature.products.api.AddProductUseCase
+import com.android.rut.miit.productinventory.feature.products.api.CategoryRepository
+import com.android.rut.miit.productinventory.feature.products.api.CreateProductCategoryUseCase
+import com.android.rut.miit.productinventory.feature.products.api.GetProductCategoriesUseCase
 import com.android.rut.miit.productinventory.feature.products.api.ProductRepository
+import com.android.rut.miit.productinventory.feature.products.api.SuggestProductEnrichmentUseCase
 import com.android.rut.miit.productinventory.feature.products.api.models.ExpirationStatus
 import com.android.rut.miit.productinventory.feature.products.api.models.Product
 import com.android.rut.miit.productinventory.feature.products.api.models.ProductCategory
+import com.android.rut.miit.productinventory.feature.products.api.models.ProductCategoryOption
+import com.android.rut.miit.productinventory.feature.products.api.models.ProductEnrichmentSource
+import com.android.rut.miit.productinventory.feature.products.api.models.ProductEnrichmentSuggestion
 import com.android.rut.miit.productinventory.feature.products.api.models.QuantityUnit
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
@@ -36,7 +43,12 @@ class AddProductViewModelDraftTest {
     @Test
     fun scannedDraftPrefillsFieldsAndIsSentToAddProductUseCase() = runTest {
         val repository = CapturingProductRepository()
-        val viewModel = AddProductViewModel(AddProductUseCase(repository))
+        val viewModel = AddProductViewModel(
+            AddProductUseCase(repository),
+            GetProductCategoriesUseCase(FakeCategoryRepository()),
+            CreateProductCategoryUseCase(FakeCategoryRepository()),
+            SuggestProductEnrichmentUseCase(repository)
+        )
         viewModel.householdId = "h1"
 
         viewModel.onEvent(
@@ -82,6 +94,7 @@ private data class CapturedAddProductRequest(
     val brand: String?,
     val barcode: String?,
     val category: ProductCategory,
+    val categoryId: String?,
     val quantity: Double,
     val packageAmount: Double?,
     val packageUnit: QuantityUnit?,
@@ -99,6 +112,7 @@ private class CapturingProductRepository : ProductRepository {
         householdId: String,
         name: String,
         category: ProductCategory,
+        categoryId: String?,
         quantity: Double,
         quantityUnit: QuantityUnit,
         expirationDate: LocalDate?,
@@ -121,6 +135,7 @@ private class CapturingProductRepository : ProductRepository {
             brand = brand,
             barcode = barcode,
             category = category,
+            categoryId = categoryId,
             quantity = quantity,
             packageAmount = packageAmount,
             packageUnit = packageUnit,
@@ -136,6 +151,7 @@ private class CapturingProductRepository : ProductRepository {
             brand = brand,
             barcode = barcode,
             category = category,
+            categoryId = categoryId,
             quantity = quantity,
             quantityUnit = quantityUnit,
             packageAmount = packageAmount,
@@ -153,10 +169,32 @@ private class CapturingProductRepository : ProductRepository {
         )
     }
 
-    override suspend fun getProducts(householdId: String): List<Product> = emptyList()
+    override suspend fun getProducts(householdId: String, categoryId: String?): List<Product> = emptyList()
     override suspend fun getProduct(householdId: String, productId: String): Product = error("Unused")
     override suspend fun deleteProduct(householdId: String, productId: String) = Unit
     override suspend fun getExpiringProducts(householdId: String, days: Int): List<Product> = emptyList()
+    override suspend fun suggestProductEnrichment(
+        householdId: String,
+        name: String?,
+        brand: String?,
+        barcode: String?,
+        ingredientsText: String?
+    ): ProductEnrichmentSuggestion =
+        ProductEnrichmentSuggestion(
+            categoryId = "system-other",
+            category = ProductCategory.OTHER,
+            categoryName = "Другое",
+            confidence = 0.2,
+            source = ProductEnrichmentSource.FALLBACK,
+            suggestedName = null,
+            suggestedBrand = null,
+            suggestedIngredientsText = null,
+            calories = null,
+            protein = null,
+            fat = null,
+            carbs = null
+        )
+
     override suspend fun upsertCachedProduct(product: Product) = Unit
     override suspend fun deleteCachedProduct(productId: String) = Unit
 
@@ -165,6 +203,7 @@ private class CapturingProductRepository : ProductRepository {
         productId: String,
         name: String?,
         category: ProductCategory?,
+        categoryId: String?,
         quantity: Double?,
         quantityUnit: QuantityUnit?,
         expirationDate: LocalDate?,
@@ -181,4 +220,23 @@ private class CapturingProductRepository : ProductRepository {
         remainingAmount: Double?,
         lowStockThreshold: Double?
     ): Product = error("Unused")
+}
+
+private class FakeCategoryRepository : CategoryRepository {
+    override suspend fun getCategories(householdId: String, includeArchived: Boolean): List<ProductCategoryOption> =
+        ProductCategoryOption.systemDefaults()
+
+    override suspend fun createCategory(householdId: String, name: String): ProductCategoryOption =
+        ProductCategoryOption(
+            id = "custom-id",
+            householdId = householdId,
+            name = name,
+            system = false,
+            createdAt = "2026-05-14T00:00:00Z"
+        )
+
+    override suspend fun updateCategory(householdId: String, categoryId: String, name: String): ProductCategoryOption =
+        error("Unused")
+
+    override suspend fun archiveCategory(householdId: String, categoryId: String) = Unit
 }

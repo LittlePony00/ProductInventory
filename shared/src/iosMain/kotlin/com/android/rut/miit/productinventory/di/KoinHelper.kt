@@ -1,11 +1,14 @@
 package com.android.rut.miit.productinventory.di
 
 import com.android.rut.miit.productinventory.core.di.appModules
+import com.android.rut.miit.productinventory.core.push.DeviceTokenRegistrar
+import com.android.rut.miit.productinventory.core.push.IosPushTokenBridge
 import com.android.rut.miit.productinventory.feature.auth.presentation.login.LoginViewModel
 import com.android.rut.miit.productinventory.feature.auth.presentation.register.RegisterViewModel
 import com.android.rut.miit.productinventory.feature.household.presentation.list.HouseholdListViewModel
 import com.android.rut.miit.productinventory.feature.notifications.presentation.NotificationListViewModel
 import com.android.rut.miit.productinventory.feature.products.presentation.add.AddProductViewModel
+import com.android.rut.miit.productinventory.feature.products.presentation.categories.CategoryManagementViewModel
 import com.android.rut.miit.productinventory.feature.products.presentation.list.ProductListViewModel
 import com.android.rut.miit.productinventory.feature.profile.presentation.ProfileViewModel
 import com.android.rut.miit.productinventory.feature.barcode.presentation.BarcodeScanViewModel
@@ -26,8 +29,16 @@ class KoinHelper : KoinComponent {
     fun householdListViewModel(): HouseholdListViewModel = get()
     fun productListViewModel(): ProductListViewModel = get()
     fun addProductViewModel(): AddProductViewModel = get()
+    fun categoryManagementViewModel(): CategoryManagementViewModel = get()
     fun profileViewModel(): ProfileViewModel = get()
     fun notificationListViewModel(): NotificationListViewModel = get()
     fun recipeListViewModel(): RecipeListViewModel = get()
     fun barcodeScanViewModel(): BarcodeScanViewModel = get()
+    fun cacheIosPushToken(token: String) {
+        IosPushTokenBridge.setCurrentToken(token)
+    }
+
+    suspend fun registerIosPushToken(token: String) {
+        get<DeviceTokenRegistrar>().registerToken(token)
+    }
 }

@@ -12,11 +12,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
+import androidx.lifecycle.Lifecycle
 import com.android.rut.miit.productinventory.R
 import com.android.rut.miit.productinventory.feature.products.api.models.ExpirationStatus
 import com.android.rut.miit.productinventory.feature.products.api.models.Product
 import com.android.rut.miit.productinventory.feature.products.api.models.ProductCategory
+import com.android.rut.miit.productinventory.feature.products.api.models.ProductCategoryOption
 import com.android.rut.miit.productinventory.feature.products.api.models.QuantityUnit
+import com.android.rut.miit.productinventory.feature.products.api.models.customCategoryNameForDisplay
 import com.android.rut.miit.productinventory.feature.products.presentation.list.*
 import org.koin.compose.viewmodel.koinViewModel
 
@@ -26,6 +30,7 @@ fun ProductListScreen(
     householdId: String,
     onAddProduct: () -> Unit = {},
     onBack: () -> Unit = {},
+    onManageCategories: () -> Unit = {},
     onNavigateToRecipes: () -> Unit = {},
     onNavigateToNotifications: () -> Unit = {},
     onNavigateToBarcodeScan: () -> Unit = {},
@@ -35,6 +40,10 @@ fun ProductListScreen(
 
     LaunchedEffect(householdId) {
         viewModel.onEvent(ProductListEvent.OnCreate(householdId))
+    }
+
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
+        viewModel.onEvent(ProductListEvent.OnResume)
     }
 
     LaunchedEffect(Unit) {
@@ -56,6 +65,7 @@ fun ProductListScreen(
                     }
                 },
                 actions = {
+                    TextButton(onClick = onManageCategories) { Text(stringResource(R.string.categories_title)) }
                     TextButton(onClick = onNavigateToRecipes) { Text(stringResource(R.string.recipes_title)) }
                     TextButton(onClick = onNavigateToNotifications) { Text(stringResource(R.string.notifications_title)) }
                 }
@@ -112,6 +122,7 @@ fun ProductListScreen(
                     Column(modifier = Modifier.fillMaxSize().padding(padding)) {
                         ProductFilters(
                             filters = currentState.filters,
+                            categories = currentState.categories,
                             isRealtimeActive = currentState.isRealtimeActive,
                             onCategorySelected = {
                                 viewModel.onEvent(ProductListEvent.OnCategoryFilterChanged(it))
@@ -175,8 +186,9 @@ fun ProductListScreen(
 @Composable
 private fun ProductFilters(
     filters: ProductListFilters,
+    categories: List<ProductCategoryOption>,
     isRealtimeActive: Boolean,
-    onCategorySelected: (ProductCategory?) -> Unit,
+    onCategorySelected: (String?) -> Unit,
     onInventoryFilterSelected: (InventoryFilter) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -189,15 +201,15 @@ private fun ProductFilters(
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             FilterChip(
-                selected = filters.category == null,
+                selected = filters.categoryId == null,
                 onClick = { onCategorySelected(null) },
                 label = { Text(stringResource(R.string.filter_all)) }
             )
-            ProductCategory.entries.forEach { category ->
+            categories.forEach { category ->
                 FilterChip(
-                    selected = filters.category == category,
-                    onClick = { onCategorySelected(category) },
-                    label = { Text(categoryDisplayName(category)) }
+                    selected = filters.categoryId == category.id,
+                    onClick = { onCategorySelected(category.id) },
+                    label = { Text(categoryOptionDisplayName(category)) }
                 )
             }
         }
@@ -246,7 +258,7 @@ private fun ProductCard(
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = categoryDisplayName(product.category),
+                    text = productCategoryDisplayName(product),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -297,6 +309,18 @@ private fun ProductCard(
         }
     }
 }
+
+@Composable
+private fun categoryOptionDisplayName(category: ProductCategoryOption): String =
+    category.code?.let { categoryDisplayName(it) } ?: category.name
+
+@Composable
+private fun productCategoryDisplayName(product: Product): String =
+    if (product.customCategoryNameForDisplay() != null) {
+        product.categoryName.orEmpty()
+    } else {
+        categoryDisplayName(product.category)
+    }
 
 @Composable
 private fun categoryDisplayName(category: ProductCategory): String = when (category) {

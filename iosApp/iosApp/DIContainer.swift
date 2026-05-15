@@ -15,8 +15,13 @@ final class DIContainer {
     func householdListViewModel() -> HouseholdListViewModel { koinHelper.householdListViewModel() }
     func productListViewModel() -> ProductListViewModel { koinHelper.productListViewModel() }
     func addProductViewModel() -> AddProductViewModel { koinHelper.addProductViewModel() }
+    func categoryManagementViewModel() -> CategoryManagementViewModel { koinHelper.categoryManagementViewModel() }
     func barcodeScanViewModel() -> BarcodeScanViewModel { koinHelper.barcodeScanViewModel() }
     func profileViewModel() -> ProfileViewModel { koinHelper.profileViewModel() }
     func notificationListViewModel() -> NotificationListViewModel { koinHelper.notificationListViewModel() }
     func recipeListViewModel() -> RecipeListViewModel { koinHelper.recipeListViewModel() }
+    func cacheIosPushToken(_ token: String) { koinHelper.cacheIosPushToken(token: token) }
+    func registerIosPushToken(_ token: String) async throws {
+        try await koinHelper.registerIosPushToken(token: token)
+    }
 }

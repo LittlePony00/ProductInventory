@@ -2,11 +2,13 @@ package com.android.rut.miit.productinventory.core.network
 
 import com.android.rut.miit.productinventory.core.storage.TokenStorage
 import io.ktor.client.*
+import io.ktor.client.engine.HttpClientEngine
 import io.ktor.client.plugins.*
 import io.ktor.client.plugins.auth.*
 import io.ktor.client.plugins.auth.providers.*
 import io.ktor.client.plugins.contentnegotiation.*
 import io.ktor.client.plugins.logging.*
+import io.ktor.client.plugins.sse.*
 import io.ktor.client.request.*
 import io.ktor.client.call.body
 import io.ktor.client.statement.*
@@ -17,6 +19,14 @@ import kotlinx.serialization.json.Json
 class HttpClientFactory(private val tokenStorage: TokenStorage) {
 
     fun create(): HttpClient = HttpClient {
+        configure()
+    }
+
+    internal fun create(engine: HttpClientEngine): HttpClient = HttpClient(engine) {
+        configure()
+    }
+
+    private fun HttpClientConfig<*>.configure() {
         install(ContentNegotiation) {
             json(Json {
                 ignoreUnknownKeys = true
@@ -29,8 +39,18 @@ class HttpClientFactory(private val tokenStorage: TokenStorage) {
             level = LogLevel.BODY
         }
 
+        install(SSE)
+
         install(Auth) {
             bearer {
+                val apiUrl = Url(ApiConstants.BASE_URL)
+                cacheTokens = false
+                sendWithoutRequest { request ->
+                    request.url.protocol == apiUrl.protocol &&
+                        request.url.host == apiUrl.host &&
+                        request.url.port == apiUrl.port
+                }
+
                 loadTokens {
                     val access = tokenStorage.getAccessToken()
                     val refresh = tokenStorage.getRefreshToken()

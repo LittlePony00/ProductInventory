@@ -2,10 +2,12 @@ import SwiftUI
 
 @main
 struct iOSApp: App {
+    @UIApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @StateObject private var router = AppRouter()
 
     init() {
         DIContainer.initKoin()
+        IOSRuntimeSmokeCoordinator.runIfRequested()
     }
 
     var body: some Scene {
@@ -30,14 +32,7 @@ struct RootView: View {
 
     @ViewBuilder
     private var rootScreen: some View {
-        switch router.root {
-        case .login:
-            LoginScreen()
-        case .householdList:
-            HouseholdListScreen()
-        default:
-            LoginScreen()
-        }
+        screenFor(router.root)
     }
 
     @ViewBuilder
@@ -55,6 +50,8 @@ struct RootView: View {
             AddProductScreen(householdId: id)
         case let .addProductFromDraft(id, draft):
             AddProductScreen(householdId: id, draft: draft)
+        case .categories(let id):
+            CategoryManagementScreen(householdId: id)
         case .barcodeScan(let id):
             BarcodeScannerScreen(householdId: id)
         case .recipes(let id):

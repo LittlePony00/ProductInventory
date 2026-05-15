@@ -12,7 +12,7 @@ import com.android.rut.miit.productinventory.data.local.adapter.RoomBarcodeLocal
 import com.android.rut.miit.productinventory.data.local.adapter.RoomHouseholdLocalDataSource
 import com.android.rut.miit.productinventory.data.local.adapter.RoomProductLocalDataSource
 import com.android.rut.miit.productinventory.data.local.adapter.RoomSyncQueue
-import com.android.rut.miit.productinventory.feature.realtime.data.AndroidSseRealtimeEventSource
+import com.android.rut.miit.productinventory.feature.realtime.data.KtorSseRealtimeEventSource
 import com.android.rut.miit.productinventory.feature.realtime.data.RealtimeEventSource
 import org.koin.dsl.module
 
@@ -30,7 +30,7 @@ val roomModule = module {
     single<HouseholdLocalDataSource> { RoomHouseholdLocalDataSource(get()) }
     single<BarcodeLocalDataSource> { RoomBarcodeLocalDataSource(get()) }
     single<SyncQueue> { RoomSyncQueue(get()) }
-    single<RealtimeEventSource> { AndroidSseRealtimeEventSource(get()) }
+    single<RealtimeEventSource> { KtorSseRealtimeEventSource(get()) }
 }
 
 private val MIGRATION_1_2 = object : Migration(1, 2) {

@@ -14,6 +14,7 @@ interface IProductService {
         brand: String?,
         barcode: String?,
         category: ProductCategory,
+        categoryId: UUID?,
         quantity: Double,
         quantityUnit: QuantityUnit,
         packageAmount: Double?,
@@ -36,6 +37,7 @@ interface IProductService {
         brand: String?,
         barcode: String?,
         category: ProductCategory?,
+        categoryId: UUID?,
         quantity: Double?,
         quantityUnit: QuantityUnit?,
         packageAmount: Double?,
@@ -52,7 +54,7 @@ interface IProductService {
     ): Product
 
     fun deleteProduct(userId: UUID, productId: UUID)
-    fun getProducts(userId: UUID, householdId: UUID): List<Product>
+    fun getProducts(userId: UUID, householdId: UUID, categoryId: UUID? = null): List<Product>
     fun getProduct(userId: UUID, productId: UUID): Product
     fun getExpiringProducts(userId: UUID, householdId: UUID, days: Int = 3): List<Product>
 }

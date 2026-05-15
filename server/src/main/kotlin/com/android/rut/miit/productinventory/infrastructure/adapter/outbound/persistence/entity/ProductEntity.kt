@@ -22,6 +22,9 @@ class ProductEntity(
     @Column(nullable = false)
     var category: String = "OTHER",
 
+    @Column(name = "category_id")
+    var categoryId: UUID? = null,
+
     @Column(nullable = false)
     var quantity: Double = 0.0,
 

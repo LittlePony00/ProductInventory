@@ -13,6 +13,7 @@ import com.android.rut.miit.productinventory.ui.screen.auth.RegisterScreen
 import com.android.rut.miit.productinventory.ui.screen.household.HouseholdListScreen
 import com.android.rut.miit.productinventory.ui.screen.notifications.NotificationListScreen
 import com.android.rut.miit.productinventory.ui.screen.products.AddProductScreen
+import com.android.rut.miit.productinventory.ui.screen.products.CategoryManagementScreen
 import com.android.rut.miit.productinventory.ui.screen.products.ProductListScreen
 import com.android.rut.miit.productinventory.ui.screen.profile.ProfileScreen
 import com.android.rut.miit.productinventory.ui.screen.barcode.BarcodeScannerScreen
@@ -59,6 +60,7 @@ fun App() {
                     householdId = route.householdId,
                     onAddProduct = { navController.navigate(Route.AddProduct(route.householdId)) },
                     onBack = { navController.popBackStack() },
+                    onManageCategories = { navController.navigate(Route.Categories(route.householdId)) },
                     onNavigateToRecipes = { navController.navigate(Route.Recipes(route.householdId)) },
                     onNavigateToNotifications = { navController.navigate(Route.Notifications) },
                     onNavigateToBarcodeScan = { navController.navigate(Route.BarcodeScan(route.householdId)) }
@@ -88,6 +90,14 @@ fun App() {
             composable<Route.Recipes> { entry ->
                 val route = entry.toRoute<Route.Recipes>()
                 RecipeListScreen(
+                    householdId = route.householdId,
+                    onBack = { navController.popBackStack() }
+                )
+            }
+
+            composable<Route.Categories> { entry ->
+                val route = entry.toRoute<Route.Categories>()
+                CategoryManagementScreen(
                     householdId = route.householdId,
                     onBack = { navController.popBackStack() }
                 )

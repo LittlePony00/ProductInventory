@@ -67,7 +67,7 @@ class HouseholdEventSseBroadcaster(
     }
 
     private fun handleDeadEmitter(householdId: UUID, emitter: SseEmitter, exception: Exception) {
-        logger.warn("Removing dead SSE emitter for household {}", householdId, exception)
+        logger.debug("Removing dead SSE emitter for household {}: {}", householdId, exception.message)
         remove(householdId, emitter)
     }
 

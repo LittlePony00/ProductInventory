@@ -1,6 +1,7 @@
 package com.android.rut.miit.productinventory.infrastructure.config
 
 import com.android.rut.miit.productinventory.infrastructure.security.JwtAuthenticationFilter
+import jakarta.servlet.DispatcherType
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.http.HttpMethod
@@ -25,6 +26,7 @@ class SecurityConfig(
             .sessionManagement { it.sessionCreationPolicy(SessionCreationPolicy.STATELESS) }
             .authorizeHttpRequests { auth ->
                 auth
+                    .dispatcherTypeMatchers(DispatcherType.ASYNC, DispatcherType.ERROR).permitAll()
                     .requestMatchers("/api/v1/auth/**").permitAll()
                     .requestMatchers(HttpMethod.GET, "/health").permitAll()
                     .requestMatchers("/h2-console/**").permitAll()

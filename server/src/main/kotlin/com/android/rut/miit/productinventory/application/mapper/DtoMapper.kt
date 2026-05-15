@@ -22,6 +22,8 @@ fun Product.toResponse() = ProductResponse(
     brand = brand,
     barcode = barcode,
     category = category,
+    categoryId = categoryId,
+    categoryName = categoryName,
     quantity = quantity.value,
     quantityUnit = quantity.unit,
     packageAmount = packageQuantity?.value,
@@ -41,6 +43,16 @@ fun Product.toResponse() = ProductResponse(
     createdAt = createdAt
 )
 
+fun Category.toResponse() = CategoryResponse(
+    id = id,
+    householdId = householdId,
+    code = code,
+    name = name,
+    system = system,
+    archived = archived,
+    createdAt = createdAt
+)
+
 fun Household.toResponse() = HouseholdResponse(
     id = id,
     name = name,
@@ -49,8 +61,11 @@ fun Household.toResponse() = HouseholdResponse(
 
 fun Notification.toResponse() = NotificationResponse(
     id = id,
+    type = type,
     title = title,
     message = message,
+    householdId = householdId,
+    productId = productId,
     sentAt = sentAt,
     isRead = isRead
 )
