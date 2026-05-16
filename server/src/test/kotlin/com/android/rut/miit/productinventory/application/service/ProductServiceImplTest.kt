@@ -1,5 +1,6 @@
 package com.android.rut.miit.productinventory.application.service
 
+import com.android.rut.miit.productinventory.domain.exception.AccessDeniedException
 import com.android.rut.miit.productinventory.domain.model.HouseholdEvent
 import com.android.rut.miit.productinventory.domain.model.HouseholdEventType
 import com.android.rut.miit.productinventory.domain.model.Category
@@ -20,6 +21,7 @@ import com.android.rut.miit.productinventory.domain.port.outbound.INotificationS
 import com.android.rut.miit.productinventory.domain.port.outbound.IProductRepository
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import java.time.LocalDate
 import java.util.UUID
 
@@ -537,6 +539,143 @@ class ProductServiceImplTest {
         assertEquals(HouseholdEventType.PRODUCT_DELETED, event.type)
         assertEquals(existing.id, event.productId)
         assertEquals(householdId, event.householdId)
+    }
+
+    @Test
+    fun `consume product decreases remaining amount and publishes quantity changed event`() {
+        val actorId = UUID.randomUUID()
+        val householdId = UUID.randomUUID()
+        val existing = Product(
+            id = UUID.randomUUID(),
+            name = "Milk",
+            category = ProductCategory.DAIRY,
+            quantity = Quantity(2.0, QuantityUnit.PIECES),
+            remainingAmount = 2.0,
+            householdId = householdId,
+            addedByUserId = actorId
+        )
+        val eventPublisher = RecordingHouseholdEventPublisher()
+        val service = ProductServiceImpl(
+            productRepository = InMemoryProductRepository(initialProducts = listOf(existing)),
+            membershipRepository = FakeMembershipRepository(
+                memberships = listOf(Membership(userId = actorId, householdId = householdId, role = MembershipRole.OWNER))
+            ),
+            notificationRepository = RecordingNotificationRepository(),
+            notificationSender = RecordingNotificationSender(),
+            householdEventPublisher = eventPublisher,
+            categoryRepository = FakeCategoryRepository()
+        )
+
+        val product = service.consumeProduct(actorId, existing.id, 0.75)
+
+        assertEquals(1.25, product.remainingAmount)
+        assertEquals(listOf(HouseholdEventType.PRODUCT_QUANTITY_CHANGED), eventPublisher.events.map { it.type })
+        assertEquals(existing.id, eventPublisher.events.single().productId)
+    }
+
+    @Test
+    fun `consume product publishes depleted event when remaining amount reaches zero`() {
+        val actorId = UUID.randomUUID()
+        val householdId = UUID.randomUUID()
+        val existing = Product(
+            id = UUID.randomUUID(),
+            name = "Yogurt",
+            category = ProductCategory.DAIRY,
+            quantity = Quantity(1.0, QuantityUnit.PIECES),
+            remainingAmount = 1.0,
+            householdId = householdId,
+            addedByUserId = actorId
+        )
+        val eventPublisher = RecordingHouseholdEventPublisher()
+        val service = ProductServiceImpl(
+            productRepository = InMemoryProductRepository(initialProducts = listOf(existing)),
+            membershipRepository = FakeMembershipRepository(
+                memberships = listOf(Membership(userId = actorId, householdId = householdId, role = MembershipRole.OWNER))
+            ),
+            notificationRepository = RecordingNotificationRepository(),
+            notificationSender = RecordingNotificationSender(),
+            householdEventPublisher = eventPublisher,
+            categoryRepository = FakeCategoryRepository()
+        )
+
+        val product = service.consumeProduct(actorId, existing.id, 1.0)
+
+        assertEquals(0.0, product.remainingAmount)
+        assertEquals(
+            listOf(HouseholdEventType.PRODUCT_QUANTITY_CHANGED, HouseholdEventType.PRODUCT_DEPLETED),
+            eventPublisher.events.map { it.type }
+        )
+    }
+
+    @Test
+    fun `consume product rejects amount above remaining amount`() {
+        val actorId = UUID.randomUUID()
+        val householdId = UUID.randomUUID()
+        val existing = Product(
+            id = UUID.randomUUID(),
+            name = "Rice",
+            category = ProductCategory.CEREALS,
+            quantity = Quantity(1.0, QuantityUnit.PIECES),
+            remainingAmount = 0.5,
+            householdId = householdId,
+            addedByUserId = actorId
+        )
+        val service = ProductServiceImpl(
+            productRepository = InMemoryProductRepository(initialProducts = listOf(existing)),
+            membershipRepository = FakeMembershipRepository(
+                memberships = listOf(Membership(userId = actorId, householdId = householdId, role = MembershipRole.OWNER))
+            ),
+            notificationRepository = RecordingNotificationRepository(),
+            notificationSender = RecordingNotificationSender(),
+            householdEventPublisher = RecordingHouseholdEventPublisher(),
+            categoryRepository = FakeCategoryRepository()
+        )
+
+        assertFailsWith<IllegalArgumentException> {
+            service.consumeProduct(actorId, existing.id, 0.75)
+        }
+    }
+
+    @Test
+    fun `product access rejects users outside household`() {
+        val actorId = UUID.randomUUID()
+        val nonMemberId = UUID.randomUUID()
+        val householdId = UUID.randomUUID()
+        val existing = Product(
+            id = UUID.randomUUID(),
+            name = "Rice",
+            category = ProductCategory.CEREALS,
+            quantity = Quantity(1.0, QuantityUnit.PIECES),
+            remainingAmount = 1.0,
+            householdId = householdId,
+            addedByUserId = actorId
+        )
+        val service = ProductServiceImpl(
+            productRepository = InMemoryProductRepository(initialProducts = listOf(existing)),
+            membershipRepository = FakeMembershipRepository(
+                memberships = listOf(Membership(userId = actorId, householdId = householdId, role = MembershipRole.OWNER))
+            ),
+            notificationRepository = RecordingNotificationRepository(),
+            notificationSender = RecordingNotificationSender(),
+            householdEventPublisher = RecordingHouseholdEventPublisher(),
+            categoryRepository = FakeCategoryRepository()
+        )
+
+        assertFailsWith<AccessDeniedException> {
+            service.getProducts(nonMemberId, householdId, null)
+        }
+        assertFailsWith<AccessDeniedException> {
+            service.getProduct(nonMemberId, existing.id)
+        }
+        assertFailsWith<AccessDeniedException> {
+            service.getExpiringProducts(nonMemberId, householdId, days = 3)
+        }
+        assertFailsWith<AccessDeniedException> {
+            service.consumeProduct(nonMemberId, existing.id, amount = 0.5)
+        }
+        assertFailsWith<AccessDeniedException> {
+            service.deleteProduct(nonMemberId, existing.id)
+        }
     }
 
     private class InMemoryProductRepository(

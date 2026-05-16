@@ -17,6 +17,9 @@ interface ProductDao {
     @Query("SELECT * FROM products WHERE id = :id LIMIT 1")
     suspend fun getById(id: String): ProductLocalEntity?
 
+    @Query("SELECT * FROM products WHERE householdId = :householdId AND id = :id LIMIT 1")
+    suspend fun getByHouseholdIdAndId(householdId: String, id: String): ProductLocalEntity?
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertAll(products: List<ProductLocalEntity>)
 

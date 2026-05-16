@@ -4,8 +4,10 @@ import com.android.rut.miit.productinventory.feature.products.api.AddProductUseC
 import com.android.rut.miit.productinventory.feature.products.api.CategoryRepository
 import com.android.rut.miit.productinventory.feature.products.api.CreateProductCategoryUseCase
 import com.android.rut.miit.productinventory.feature.products.api.GetProductCategoriesUseCase
+import com.android.rut.miit.productinventory.feature.products.api.GetProductUseCase
 import com.android.rut.miit.productinventory.feature.products.api.ProductRepository
 import com.android.rut.miit.productinventory.feature.products.api.SuggestProductEnrichmentUseCase
+import com.android.rut.miit.productinventory.feature.products.api.UpdateProductUseCase
 import com.android.rut.miit.productinventory.feature.products.api.models.ExpirationStatus
 import com.android.rut.miit.productinventory.feature.products.api.models.Product
 import com.android.rut.miit.productinventory.feature.products.api.models.ProductCategory
@@ -45,6 +47,8 @@ class AddProductViewModelDraftTest {
         val repository = CapturingProductRepository()
         val viewModel = AddProductViewModel(
             AddProductUseCase(repository),
+            UpdateProductUseCase(repository),
+            GetProductUseCase(repository),
             GetProductCategoriesUseCase(FakeCategoryRepository()),
             CreateProductCategoryUseCase(FakeCategoryRepository()),
             SuggestProductEnrichmentUseCase(repository)
@@ -171,6 +175,7 @@ private class CapturingProductRepository : ProductRepository {
 
     override suspend fun getProducts(householdId: String, categoryId: String?): List<Product> = emptyList()
     override suspend fun getProduct(householdId: String, productId: String): Product = error("Unused")
+    override suspend fun consumeProduct(householdId: String, productId: String, amount: Double): Product = error("Unused")
     override suspend fun deleteProduct(householdId: String, productId: String) = Unit
     override suspend fun getExpiringProducts(householdId: String, days: Int): List<Product> = emptyList()
     override suspend fun suggestProductEnrichment(

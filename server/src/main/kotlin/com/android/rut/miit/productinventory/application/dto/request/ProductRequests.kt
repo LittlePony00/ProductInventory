@@ -87,6 +87,11 @@ data class UpdateProductRequest(
     val expirationDate: LocalDate? = null
 )
 
+data class ConsumeProductRequest(
+    @field:Positive(message = "Amount must be positive")
+    val amount: Double
+)
+
 data class BarcodeLookupRequest(
     @field:NotBlank(message = "Barcode is required")
     val barcode: String

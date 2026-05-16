@@ -85,4 +85,11 @@ class ProductRequestValidationTest {
             violations.map { it.propertyPath.toString() }.toSet()
         )
     }
+
+    @Test
+    fun `consume request rejects non-positive amount`() {
+        val violations = validator.validate(ConsumeProductRequest(amount = 0.0))
+
+        assertEquals(setOf("amount"), violations.map { it.propertyPath.toString() }.toSet())
+    }
 }

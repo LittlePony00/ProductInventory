@@ -24,6 +24,18 @@ class PersistentProductLocalDataSource(
         }
     }
 
+    override suspend fun getProduct(householdId: String, id: String): Product? {
+        return mutex.withLock {
+            readCache()
+                .productsByHousehold
+                .get(householdId)
+                .orEmpty()
+                .asSequence()
+                .firstOrNull { it.id == id }
+                ?.toDomain()
+        }
+    }
+
     override suspend fun saveProducts(householdId: String, products: List<Product>) {
         mutex.withLock {
             val cache = readCache()

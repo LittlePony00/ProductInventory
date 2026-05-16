@@ -1,6 +1,5 @@
 package com.android.rut.miit.productinventory.ui.screen.household
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -28,6 +27,9 @@ fun HouseholdListScreen(
     var showJoinDialog by remember { mutableStateOf(false) }
     var createName by remember { mutableStateOf("") }
     var joinCode by remember { mutableStateOf("") }
+    var joinError by remember { mutableStateOf<String?>(null) }
+    var inviteCodeDialog by remember { mutableStateOf<InviteCodeDialogState?>(null) }
+    val snackbarHostState = remember { SnackbarHostState() }
 
     LaunchedEffect(Unit) { viewModel.onEvent(HouseholdListEvent.OnCreate) }
 
@@ -37,7 +39,20 @@ fun HouseholdListScreen(
                 is HouseholdListAction.OpenHousehold -> onNavigateToHousehold(action.householdId)
                 is HouseholdListAction.ShowCreateDialog -> showCreateDialog = true
                 is HouseholdListAction.ShowJoinDialog -> showJoinDialog = true
-                is HouseholdListAction.ShowMessage -> {}
+                is HouseholdListAction.CloseJoinDialog -> {
+                    showJoinDialog = false
+                    joinCode = ""
+                    joinError = null
+                }
+                is HouseholdListAction.ShowInviteCode -> {
+                    inviteCodeDialog = InviteCodeDialogState(action.code, action.expiresAt)
+                }
+                is HouseholdListAction.ShowMessage -> {
+                    if (showJoinDialog) {
+                        joinError = action.message
+                    }
+                    snackbarHostState.showSnackbar(action.message)
+                }
                 is HouseholdListAction.OpenProfile -> onNavigateToProfile()
             }
         }
@@ -54,6 +69,7 @@ fun HouseholdListScreen(
                 }
             )
         },
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         floatingActionButton = {
             Column(horizontalAlignment = Alignment.End) {
                 SmallFloatingActionButton(
@@ -97,9 +113,15 @@ fun HouseholdListScreen(
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         items(s.households) { household ->
-                            HouseholdCard(household) {
-                                viewModel.onEvent(HouseholdListEvent.OnHouseholdClick(household.id))
-                            }
+                            HouseholdCard(
+                                household = household,
+                                onOpen = {
+                                    viewModel.onEvent(HouseholdListEvent.OnHouseholdClick(household.id))
+                                },
+                                onGenerateInvite = {
+                                    viewModel.onEvent(HouseholdListEvent.OnGenerateInviteCodeClick(household.id))
+                                }
+                            )
                         }
                     }
                 }
@@ -151,30 +173,70 @@ fun HouseholdListScreen(
 
     if (showJoinDialog) {
         AlertDialog(
-            onDismissRequest = { showJoinDialog = false; joinCode = "" },
+            onDismissRequest = {
+                showJoinDialog = false
+                joinCode = ""
+                joinError = null
+            },
             title = { Text(stringResource(R.string.household_join_title)) },
             text = {
-                OutlinedTextField(
-                    value = joinCode,
-                    onValueChange = { joinCode = it },
-                    label = { Text(stringResource(R.string.household_invite_code_label)) },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
+                Column {
+                    OutlinedTextField(
+                        value = joinCode,
+                        onValueChange = {
+                            joinCode = it
+                            joinError = null
+                        },
+                        label = { Text(stringResource(R.string.household_invite_code_label)) },
+                        isError = joinError != null,
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    joinError?.let { error ->
+                        Spacer(Modifier.height(8.dp))
+                        Text(
+                            text = error,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error
+                        )
+                    }
+                }
             },
             confirmButton = {
                 TextButton(
                     onClick = {
+                        joinError = null
                         viewModel.onEvent(HouseholdListEvent.OnJoinHouseholdConfirm(joinCode))
-                        showJoinDialog = false
-                        joinCode = ""
                     },
                     enabled = joinCode.isNotBlank()
                 ) { Text(stringResource(R.string.household_join)) }
             },
             dismissButton = {
-                TextButton(onClick = { showJoinDialog = false; joinCode = "" }) {
+                TextButton(onClick = {
+                    showJoinDialog = false
+                    joinCode = ""
+                    joinError = null
+                }) {
                     Text(stringResource(R.string.cancel))
+                }
+            }
+        )
+    }
+
+    inviteCodeDialog?.let { invite ->
+        AlertDialog(
+            onDismissRequest = { inviteCodeDialog = null },
+            title = { Text(stringResource(R.string.household_invite_code_title)) },
+            text = {
+                Column {
+                    Text(invite.code, style = MaterialTheme.typography.headlineSmall)
+                    Spacer(Modifier.height(8.dp))
+                    Text(stringResource(R.string.household_invite_code_expires, invite.expiresAt.take(16)))
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { inviteCodeDialog = null }) {
+                    Text(stringResource(R.string.ok))
                 }
             }
         )
@@ -182,9 +244,13 @@ fun HouseholdListScreen(
 }
 
 @Composable
-private fun HouseholdCard(household: Household, onClick: () -> Unit) {
+private fun HouseholdCard(
+    household: Household,
+    onOpen: () -> Unit,
+    onGenerateInvite: () -> Unit
+) {
     Card(
-        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
+        modifier = Modifier.fillMaxWidth(),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
@@ -195,6 +261,24 @@ private fun HouseholdCard(household: Household, onClick: () -> Unit) {
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
+            Spacer(Modifier.height(8.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End
+            ) {
+                TextButton(onClick = onGenerateInvite) {
+                    Text(stringResource(R.string.household_invite))
+                }
+                Spacer(Modifier.width(8.dp))
+                TextButton(onClick = onOpen) {
+                    Text(stringResource(R.string.household_open))
+                }
+            }
         }
     }
 }
+
+private data class InviteCodeDialogState(
+    val code: String,
+    val expiresAt: String
+)

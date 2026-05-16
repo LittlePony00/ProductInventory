@@ -4,6 +4,7 @@ import com.android.rut.miit.productinventory.common.UiEvent
 
 sealed class RecipeListEvent : UiEvent {
     data class OnCreate(val householdId: String) : RecipeListEvent()
+    data object OnGenerateClick : RecipeListEvent()
     data object OnRetry : RecipeListEvent()
     data class OnRecipeClick(val recipeId: String) : RecipeListEvent()
     data object OnBackClick : RecipeListEvent()

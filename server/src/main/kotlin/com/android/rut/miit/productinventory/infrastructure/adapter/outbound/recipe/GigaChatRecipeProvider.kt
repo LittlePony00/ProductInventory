@@ -105,14 +105,15 @@ class GigaChatRecipeProvider(
 
     private fun buildPrompt(products: List<Product>, matches: List<RecipeDocumentMatch>): String =
         """
-        Return only valid JSON with exactly these fields: title, ingredients, steps, time, calories.
-        ingredients must be an array of objects with name and amount. steps must be an array of strings.
-        Use available inventory first. Prefer products that expire soon and consider stock levels and categories.
+        Верни только валидный JSON ровно с полями: title, ingredients, steps, time, calories.
+        title, ingredients.name, ingredients.amount, steps и time должны быть на русском языке.
+        ingredients должен быть массивом объектов с name и amount. steps должен быть массивом строк.
+        Сначала используй продукты из доступных запасов. Отдавай приоритет продуктам с близким сроком годности, остаткам и категориям.
 
-        Inventory:
+        Запасы:
         ${products.joinToString(separator = "\n") { it.toPromptLine() }}
 
-        Retrieved recipes and rules:
+        Найденные рецепты и правила:
         ${matches.joinToString(separator = "\n\n") { it.toPromptBlock() }}
         """.trimIndent()
 }
@@ -162,7 +163,7 @@ private data class GigaChatRecipeRequest(
                 messages = listOf(
                     GigaChatMessage(
                         role = "system",
-                        content = "You are a recipe generator. Output strictly valid JSON and no prose."
+                        content = "Ты генератор рецептов для русскоязычного приложения. Отвечай строго валидным JSON без пояснений, весь пользовательский текст в JSON пиши по-русски."
                     ),
                     GigaChatMessage(role = "user", content = prompt)
                 ),

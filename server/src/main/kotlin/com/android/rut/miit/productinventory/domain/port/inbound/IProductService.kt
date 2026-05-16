@@ -53,6 +53,8 @@ interface IProductService {
         expirationDate: LocalDate?
     ): Product
 
+    fun consumeProduct(userId: UUID, productId: UUID, amount: Double): Product
+
     fun deleteProduct(userId: UUID, productId: UUID)
     fun getProducts(userId: UUID, householdId: UUID, categoryId: UUID? = null): List<Product>
     fun getProduct(userId: UUID, productId: UUID): Product

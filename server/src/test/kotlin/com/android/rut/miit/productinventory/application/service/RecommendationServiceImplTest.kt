@@ -46,6 +46,30 @@ class RecommendationServiceImplTest {
     }
 
     @Test
+    fun `uses only remaining products for recipe provider context`() {
+        val userId = UUID.randomUUID()
+        val householdId = UUID.randomUUID()
+        val provider = RecordingRecipeProvider()
+        val service = RecommendationServiceImpl(
+            productRepository = FakeProductRepository(
+                listOf(
+                    product(name = "Rice", householdId = householdId, remainingAmount = 2.0),
+                    product(name = "Empty Yogurt", householdId = householdId, remainingAmount = 0.0)
+                )
+            ),
+            membershipRepository = FakeMembershipRepository(
+                listOf(Membership(userId = userId, householdId = householdId, role = MembershipRole.OWNER))
+            ),
+            recipeProvider = provider,
+            expirationCheckService = ExpirationCheckService()
+        )
+
+        service.getRecipes(userId, householdId)
+
+        assertEquals(listOf("Rice"), provider.requests.single().products.map { it.name })
+    }
+
+    @Test
     fun `rejects users outside household`() {
         val service = RecommendationServiceImpl(
             productRepository = FakeProductRepository(emptyList()),
@@ -59,11 +83,17 @@ class RecommendationServiceImplTest {
         }
     }
 
-    private fun product(name: String, householdId: UUID, expirationDate: LocalDate): Product =
+    private fun product(
+        name: String,
+        householdId: UUID,
+        expirationDate: LocalDate = LocalDate.now().plusDays(7),
+        remainingAmount: Double = 1.0
+    ): Product =
         Product(
             name = name,
             category = ProductCategory.OTHER,
             quantity = Quantity(1.0, QuantityUnit.PIECES),
+            remainingAmount = remainingAmount,
             expirationDate = com.android.rut.miit.productinventory.domain.model.ExpirationDate(expirationDate),
             householdId = householdId,
             addedByUserId = UUID.randomUUID()

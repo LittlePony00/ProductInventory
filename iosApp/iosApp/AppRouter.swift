@@ -63,6 +63,7 @@ enum AppRoute: Hashable {
     case householdList
     case productList(householdId: String)
     case addProduct(householdId: String)
+    case editProduct(householdId: String, productId: String)
     case addProductFromDraft(householdId: String, draft: ProductDraftInput)
     case categories(householdId: String)
     case barcodeScan(householdId: String)

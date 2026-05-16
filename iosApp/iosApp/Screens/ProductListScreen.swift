@@ -19,6 +19,8 @@ struct ProductListScreen: View {
                         switch action {
                         case is ProductListAction.OpenAddProduct:
                             router.push(.addProduct(householdId: householdId))
+                        case let action as ProductListAction.OpenProductDetail:
+                            router.push(.editProduct(householdId: householdId, productId: action.productId))
                         default:
                             break
                         }
@@ -83,9 +85,18 @@ struct ProductListScreen: View {
                         )
                             .padding(.horizontal)
                         List(products, id: \.id) { product in
-                            ProductRow(product: product) {
+                            ProductRow(
+                                product: product,
+                                onOpen: {
+                                    holder.sendEvent(ProductListEvent.OnProductClick(productId: product.id))
+                                },
+                                onConsume: { amount in
+                                    holder.sendEvent(ProductListEvent.OnConsumeProduct(productId: product.id, amount: amount))
+                                },
+                                onDelete: {
                                 holder.sendEvent(ProductListEvent.OnDeleteProduct(productId: product.id))
-                            }
+                                }
+                            )
                         }
                     }
                 }
@@ -117,7 +128,12 @@ struct ProductListScreen: View {
 
 struct ProductRow: View {
     let product: Product
+    let onOpen: () -> Void
+    let onConsume: (Double) -> Void
     let onDelete: () -> Void
+    @State private var isShowingConsumeDialog = false
+    @State private var consumeAmount = ""
+    @State private var consumeError: String?
 
     var body: some View {
         HStack {
@@ -135,10 +151,54 @@ struct ProductRow: View {
                 }
             }
             Spacer()
-            Button(action: onDelete) {
-                Image(systemName: "trash").foregroundColor(.red)
-            }.buttonStyle(.plain)
-        }.padding(.vertical, 4)
+            VStack(spacing: 12) {
+                Button(action: onOpen) {
+                    Image(systemName: "pencil").foregroundColor(.accentColor)
+                }.buttonStyle(.plain)
+
+                Button {
+                    consumeAmount = String(product.remainingAmount)
+                    consumeError = nil
+                    isShowingConsumeDialog = true
+                } label: {
+                    Image(systemName: "minus.circle")
+                        .foregroundColor(product.remainingAmount > 0 ? .accentColor : .secondary)
+                }
+                .disabled(product.remainingAmount <= 0)
+                .buttonStyle(.plain)
+
+                Button(action: onDelete) {
+                    Image(systemName: "trash").foregroundColor(.red)
+                }.buttonStyle(.plain)
+            }
+        }
+        .padding(.vertical, 4)
+        .alert("Списать продукт", isPresented: $isShowingConsumeDialog) {
+            TextField("Количество", text: $consumeAmount)
+                .keyboardType(.decimalPad)
+            Button("Отмена", role: .cancel) {
+                consumeError = nil
+            }
+            Button("Списать") {
+                guard let amount = Double(consumeAmount.replacingOccurrences(of: ",", with: ".")),
+                      amount > 0,
+                      amount <= product.remainingAmount
+                else {
+                    consumeError = "Введите количество больше 0 и не больше остатка"
+                    isShowingConsumeDialog = true
+                    return
+                }
+                consumeError = nil
+                onConsume(amount)
+            }
+        } message: {
+            VStack(alignment: .leading) {
+                Text("Доступно: \(String(format: "%.2f", product.remainingAmount)) \(unitName(product.quantityUnit))")
+                if let consumeError {
+                    Text(consumeError)
+                }
+            }
+        }
     }
 
     private func unitName(_ unit: QuantityUnit) -> String {

@@ -19,12 +19,14 @@ import kotlin.test.assertEquals
 import org.springframework.http.HttpMethod
 import org.springframework.http.MediaType
 import org.springframework.test.web.client.MockRestServiceServer
+import org.springframework.test.web.client.match.MockRestRequestMatchers.content
 import org.springframework.test.web.client.match.MockRestRequestMatchers.header
 import org.springframework.test.web.client.match.MockRestRequestMatchers.method
 import org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo
 import org.springframework.test.web.client.response.MockRestResponseCreators.withServerError
 import org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess
 import org.springframework.web.client.RestClient
+import org.hamcrest.Matchers.containsString
 
 class GigaChatRecipeProviderTest {
 
@@ -37,6 +39,8 @@ class GigaChatRecipeProviderTest {
         server.expect(requestTo("https://gigachat.test/chat/completions"))
             .andExpect(method(HttpMethod.POST))
             .andExpect(header("Authorization", "Bearer access-token"))
+            .andExpect(content().string(containsString("русскоязычного приложения")))
+            .andExpect(content().string(containsString("должны быть на русском языке")))
             .andRespond(
                 withSuccess(
                     """
@@ -44,7 +48,7 @@ class GigaChatRecipeProviderTest {
                       "choices": [
                         {
                           "message": {
-                            "content": "{\"title\":\"Rice Bowl\",\"ingredients\":[{\"name\":\"rice\",\"amount\":\"1 cup\"}],\"steps\":[\"Cook rice\"],\"time\":\"15 minutes\",\"calories\":300}"
+                            "content": "{\"title\":\"Рисовая тарелка\",\"ingredients\":[{\"name\":\"рис\",\"amount\":\"1 стакан\"}],\"steps\":[\"Отварите рис\"],\"time\":\"15 минут\",\"calories\":300}"
                           }
                         }
                       ]
@@ -56,10 +60,10 @@ class GigaChatRecipeProviderTest {
 
         val recipes = provider.findRecipes(RecipeGenerationRequest(listOf(product("Rice", ProductCategory.CEREALS))))
 
-        assertEquals("Rice Bowl", recipes.single().title)
-        assertEquals(listOf(RecipeIngredient("rice", "1 cup")), recipes.single().ingredients)
-        assertEquals(listOf("Cook rice"), recipes.single().steps)
-        assertEquals("15 minutes", recipes.single().time)
+        assertEquals("Рисовая тарелка", recipes.single().title)
+        assertEquals(listOf(RecipeIngredient("рис", "1 стакан")), recipes.single().ingredients)
+        assertEquals(listOf("Отварите рис"), recipes.single().steps)
+        assertEquals("15 минут", recipes.single().time)
         assertEquals(300, recipes.single().calories)
         server.verify()
     }

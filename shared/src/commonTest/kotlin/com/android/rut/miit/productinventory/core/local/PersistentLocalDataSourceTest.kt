@@ -24,6 +24,7 @@ class PersistentLocalDataSourceTest {
         val restored = PersistentProductLocalDataSource(store)
 
         assertEquals(listOf(product(id = "p1", barcode = "4607000000012")), restored.getProducts("h1"))
+        assertEquals("p1", restored.getProduct("h1", "p1")?.id)
         assertEquals("p1", restored.getProductByBarcode("4607000000012")?.id)
     }
 

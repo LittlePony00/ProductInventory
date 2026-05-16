@@ -8,6 +8,7 @@ sealed class ProductListEvent : UiEvent {
     data object OnRetry : ProductListEvent()
     data class OnProductClick(val productId: String) : ProductListEvent()
     data class OnDeleteProduct(val productId: String) : ProductListEvent()
+    data class OnConsumeProduct(val productId: String, val amount: Double) : ProductListEvent()
     data class OnCategoryFilterChanged(val categoryId: String?) : ProductListEvent()
     data class OnInventoryFilterChanged(val filter: InventoryFilter) : ProductListEvent()
     data object OnAddProductClick : ProductListEvent()

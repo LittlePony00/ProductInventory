@@ -1,6 +1,7 @@
 package com.android.rut.miit.productinventory.infrastructure.adapter.inbound.rest
 
 import com.android.rut.miit.productinventory.application.dto.request.CreateProductRequest
+import com.android.rut.miit.productinventory.application.dto.request.ConsumeProductRequest
 import com.android.rut.miit.productinventory.application.dto.request.UpdateProductRequest
 import com.android.rut.miit.productinventory.domain.model.Product
 import com.android.rut.miit.productinventory.domain.model.ProductCategory
@@ -145,6 +146,28 @@ class ProductControllerTest {
         assertEquals(categoryId, call.categoryId)
     }
 
+    @Test
+    fun `consume product forwards amount to service`() {
+        val userId = UUID.randomUUID()
+        val householdId = UUID.randomUUID()
+        val productId = UUID.randomUUID()
+        val service = RecordingProductService(productId = productId)
+        val controller = ProductController(service)
+        authenticate(userId)
+
+        val response = controller.consumeProduct(
+            householdId = householdId,
+            productId = productId,
+            request = ConsumeProductRequest(amount = 0.5)
+        )
+
+        val call = service.consumeCalls.single()
+        assertEquals(userId, call.userId)
+        assertEquals(productId, call.productId)
+        assertEquals(0.5, call.amount)
+        assertEquals(0.5, response.remainingAmount)
+    }
+
     private fun authenticate(userId: UUID) {
         SecurityContextHolder.getContext().authentication =
             UsernamePasswordAuthenticationToken(userId, null, emptyList())
@@ -155,6 +178,7 @@ class ProductControllerTest {
     ) : IProductService {
         val addCalls = mutableListOf<AddCall>()
         val updateCalls = mutableListOf<UpdateCall>()
+        val consumeCalls = mutableListOf<ConsumeCall>()
         val getProductsCalls = mutableListOf<GetProductsCall>()
 
         override fun addProduct(
@@ -279,6 +303,16 @@ class ProductControllerTest {
             )
         }
 
+        override fun consumeProduct(userId: UUID, productId: UUID, amount: Double): Product {
+            consumeCalls += ConsumeCall(userId, productId, amount)
+            return product(
+                id = productId,
+                remainingAmount = 1.0 - amount,
+                householdId = UUID.randomUUID(),
+                addedByUserId = userId
+            )
+        }
+
         override fun deleteProduct(userId: UUID, productId: UUID) = Unit
 
         override fun getProducts(userId: UUID, householdId: UUID, categoryId: UUID?): List<Product> {
@@ -329,6 +363,12 @@ class ProductControllerTest {
         val purchaseDate: LocalDate?,
         val remainingAmount: Double?,
         val lowStockThreshold: Double?
+    )
+
+    private data class ConsumeCall(
+        val userId: UUID,
+        val productId: UUID,
+        val amount: Double
     )
 
     private data class GetProductsCall(

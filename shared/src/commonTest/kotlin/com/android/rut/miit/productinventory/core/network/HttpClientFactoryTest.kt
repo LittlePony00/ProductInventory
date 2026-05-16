@@ -4,11 +4,13 @@ import com.android.rut.miit.productinventory.core.storage.InMemoryTokenStorage
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respond
 import io.ktor.client.request.get
+import io.ktor.client.statement.bodyAsText
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.headersOf
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlinx.coroutines.test.runTest
 
 class HttpClientFactoryTest {
@@ -37,5 +39,24 @@ class HttpClientFactoryTest {
             listOf("Bearer first-token", "Bearer second-token", null),
             authorizationHeaders
         )
+    }
+
+    @Test
+    fun `throws api exception with server error message for non success response`() = runTest {
+        val engine = MockEngine {
+            respond(
+                content = """{"message":"Invalid credentials","code":"UNAUTHORIZED"}""",
+                status = HttpStatusCode.Unauthorized,
+                headers = headersOf(HttpHeaders.ContentType, "application/json")
+            )
+        }
+        val client = HttpClientFactory(InMemoryTokenStorage()).create(engine)
+
+        val error = assertFailsWith<ApiException> {
+            client.get("${ApiConstants.API_V1}/auth/login").bodyAsText()
+        }
+
+        assertEquals(401, error.statusCode)
+        assertEquals("Invalid credentials", error.message)
     }
 }

@@ -13,12 +13,13 @@ data class PendingSyncAction(
 )
 
 enum class SyncActionType {
-    ADD_PRODUCT, UPDATE_PRODUCT, DELETE_PRODUCT
+    ADD_PRODUCT, UPDATE_PRODUCT, CONSUME_PRODUCT, DELETE_PRODUCT
 }
 
 interface SyncQueue {
     suspend fun addPendingAction(action: PendingSyncAction)
     suspend fun getPendingActions(): List<PendingSyncAction>
+    suspend fun updatePendingAction(action: PendingSyncAction)
     suspend fun removePendingAction(id: String)
     suspend fun clearAll()
 }

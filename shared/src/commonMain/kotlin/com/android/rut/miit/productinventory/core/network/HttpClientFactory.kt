@@ -14,9 +14,15 @@ import io.ktor.client.call.body
 import io.ktor.client.statement.*
 import io.ktor.http.*
 import io.ktor.serialization.kotlinx.json.*
+import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 
 class HttpClientFactory(private val tokenStorage: TokenStorage) {
+    private val json = Json {
+        ignoreUnknownKeys = true
+        isLenient = true
+        prettyPrint = false
+    }
 
     fun create(): HttpClient = HttpClient {
         configure()
@@ -28,11 +34,7 @@ class HttpClientFactory(private val tokenStorage: TokenStorage) {
 
     private fun HttpClientConfig<*>.configure() {
         install(ContentNegotiation) {
-            json(Json {
-                ignoreUnknownKeys = true
-                isLenient = true
-                prettyPrint = false
-            })
+            json(json)
         }
 
         install(Logging) {
@@ -61,10 +63,15 @@ class HttpClientFactory(private val tokenStorage: TokenStorage) {
 
                 refreshTokens {
                     val refresh = tokenStorage.getRefreshToken() ?: return@refreshTokens null
-                    val response = client.post("${ApiConstants.API_V1}/auth/refresh") {
-                        contentType(ContentType.Application.Json)
-                        setBody(mapOf("refreshToken" to refresh))
-                        markAsRefreshTokenRequest()
+                    val response = runCatching {
+                        client.post("${ApiConstants.API_V1}/auth/refresh") {
+                            contentType(ContentType.Application.Json)
+                            setBody(mapOf("refreshToken" to refresh))
+                            markAsRefreshTokenRequest()
+                        }
+                    }.getOrElse {
+                        tokenStorage.clearTokens()
+                        return@refreshTokens null
                     }
 
                     if (response.status == HttpStatusCode.OK) {
@@ -82,10 +89,35 @@ class HttpClientFactory(private val tokenStorage: TokenStorage) {
         defaultRequest {
             contentType(ContentType.Application.Json)
         }
+
+        HttpResponseValidator {
+            validateResponse { response ->
+                val statusCode = response.status.value
+                if (statusCode < 400) return@validateResponse
+
+                val message = runCatching {
+                    json.decodeFromString<ErrorResponseDto>(response.bodyAsText()).message
+                }.getOrNull()
+                    ?: response.status.description
+
+                throw ApiException(statusCode, message)
+            }
+        }
     }
 }
 
-@kotlinx.serialization.Serializable
+class ApiException(
+    val statusCode: Int,
+    override val message: String
+) : RuntimeException(message)
+
+@Serializable
+private data class ErrorResponseDto(
+    val message: String? = null,
+    val code: String? = null
+)
+
+@Serializable
 internal data class TokenRefreshResponse(
     val accessToken: String,
     val refreshToken: String,

@@ -1,11 +1,18 @@
 package com.android.rut.miit.productinventory
 
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.toRoute
+import com.android.rut.miit.productinventory.feature.auth.api.RestoreSessionUseCase
 import com.android.rut.miit.productinventory.navigation.Route
 import com.android.rut.miit.productinventory.ui.screen.auth.LoginScreen
 import com.android.rut.miit.productinventory.feature.barcode.api.models.BarcodeProductDraft
@@ -18,13 +25,29 @@ import com.android.rut.miit.productinventory.ui.screen.products.ProductListScree
 import com.android.rut.miit.productinventory.ui.screen.profile.ProfileScreen
 import com.android.rut.miit.productinventory.ui.screen.barcode.BarcodeScannerScreen
 import com.android.rut.miit.productinventory.ui.screen.recipes.RecipeListScreen
+import org.koin.compose.koinInject
 
 @Composable
 fun App() {
     MaterialTheme {
         val navController = rememberNavController()
 
-        NavHost(navController = navController, startDestination = Route.Login) {
+        NavHost(navController = navController, startDestination = Route.AuthBootstrap) {
+            composable<Route.AuthBootstrap> {
+                AuthBootstrapScreen(
+                    onAuthenticated = {
+                        navController.navigate(Route.HouseholdList) {
+                            popUpTo(Route.AuthBootstrap) { inclusive = true }
+                        }
+                    },
+                    onUnauthenticated = {
+                        navController.navigate(Route.Login) {
+                            popUpTo(Route.AuthBootstrap) { inclusive = true }
+                        }
+                    }
+                )
+            }
+
             composable<Route.Login> {
                 LoginScreen(
                     onNavigateToHome = {
@@ -59,6 +82,7 @@ fun App() {
                 ProductListScreen(
                     householdId = route.householdId,
                     onAddProduct = { navController.navigate(Route.AddProduct(route.householdId)) },
+                    onEditProduct = { productId -> navController.navigate(Route.AddProduct(route.householdId, productId = productId)) },
                     onBack = { navController.popBackStack() },
                     onManageCategories = { navController.navigate(Route.Categories(route.householdId)) },
                     onNavigateToRecipes = { navController.navigate(Route.Recipes(route.householdId)) },
@@ -71,6 +95,7 @@ fun App() {
                 val route = entry.toRoute<Route.AddProduct>()
                 AddProductScreen(
                     householdId = route.householdId,
+                    productId = route.productId,
                     barcode = route.barcode,
                     initialName = route.name,
                     initialBrand = route.brand,
@@ -140,6 +165,7 @@ fun App() {
 private fun BarcodeProductDraft.toAddProductRoute(householdId: String): Route.AddProduct =
     Route.AddProduct(
         householdId = householdId,
+        productId = null,
         barcode = barcode,
         name = name,
         brand = brand,
@@ -152,3 +178,25 @@ private fun BarcodeProductDraft.toAddProductRoute(householdId: String): Route.Ad
         fat = fatGrams?.toString(),
         carbs = carbohydratesGrams?.toString()
     )
+
+@Composable
+private fun AuthBootstrapScreen(
+    onAuthenticated: () -> Unit,
+    onUnauthenticated: () -> Unit,
+    restoreSessionUseCase: RestoreSessionUseCase = koinInject()
+) {
+    LaunchedEffect(restoreSessionUseCase) {
+        if (restoreSessionUseCase()) {
+            onAuthenticated()
+        } else {
+            onUnauthenticated()
+        }
+    }
+
+    Box(
+        modifier = Modifier.fillMaxSize(),
+        contentAlignment = Alignment.Center
+    ) {
+        CircularProgressIndicator()
+    }
+}

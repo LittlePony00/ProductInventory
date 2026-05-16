@@ -51,6 +51,13 @@ kotlin {
         commonTest.dependencies {
             implementation(libs.kotlin.test)
         }
+        androidUnitTest.dependencies {
+            implementation(libs.junit)
+            implementation("androidx.compose.ui:ui-test-junit4:1.10.5")
+            implementation("androidx.room:room-testing:2.7.1")
+            implementation("androidx.test:core:1.6.1")
+            implementation("org.robolectric:robolectric:4.13")
+        }
     }
 }
 
@@ -79,9 +86,15 @@ android {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
     }
+    testOptions {
+        unitTests {
+            isIncludeAndroidResources = true
+        }
+    }
 }
 
 dependencies {
     debugImplementation(libs.compose.uiTooling)
+    debugImplementation("androidx.compose.ui:ui-test-manifest:1.10.5")
     add("kspAndroid", libs.androidx.room.compiler)
 }

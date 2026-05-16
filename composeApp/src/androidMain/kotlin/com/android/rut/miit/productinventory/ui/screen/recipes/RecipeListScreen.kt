@@ -45,6 +45,11 @@ fun RecipeListScreen(
                     TextButton(onClick = { viewModel.onEvent(RecipeListEvent.OnBackClick) }) {
                         Text(stringResource(R.string.back))
                     }
+                },
+                actions = {
+                    TextButton(onClick = { viewModel.onEvent(RecipeListEvent.OnGenerateClick) }) {
+                        Text(stringResource(R.string.recipes_generate))
+                    }
                 }
             )
         }
@@ -58,7 +63,13 @@ fun RecipeListScreen(
             is RecipeListState.Content -> {
                 if (s.recipes.isEmpty()) {
                     Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
-                        Text(stringResource(R.string.recipes_empty), style = MaterialTheme.typography.bodyLarge)
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(stringResource(R.string.recipes_empty), style = MaterialTheme.typography.bodyLarge)
+                            Spacer(Modifier.height(8.dp))
+                            Button(onClick = { viewModel.onEvent(RecipeListEvent.OnGenerateClick) }) {
+                                Text(stringResource(R.string.recipes_generate))
+                            }
+                        }
                     }
                 } else {
                     LazyColumn(

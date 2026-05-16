@@ -75,6 +75,11 @@ data class UpdateProductRequestDto(
 )
 
 @Serializable
+data class ConsumeProductRequestDto(
+    val amount: Double
+)
+
+@Serializable
 data class ProductEnrichmentSuggestionRequestDto(
     val name: String? = null,
     val brand: String? = null,

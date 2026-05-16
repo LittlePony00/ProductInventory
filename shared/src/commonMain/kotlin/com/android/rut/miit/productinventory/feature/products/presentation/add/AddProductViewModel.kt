@@ -4,8 +4,11 @@ import androidx.lifecycle.viewModelScope
 import com.android.rut.miit.productinventory.common.SharedViewModel
 import com.android.rut.miit.productinventory.feature.products.api.AddProductUseCase
 import com.android.rut.miit.productinventory.feature.products.api.CreateProductCategoryUseCase
+import com.android.rut.miit.productinventory.feature.products.api.GetProductUseCase
 import com.android.rut.miit.productinventory.feature.products.api.GetProductCategoriesUseCase
 import com.android.rut.miit.productinventory.feature.products.api.SuggestProductEnrichmentUseCase
+import com.android.rut.miit.productinventory.feature.products.api.UpdateProductUseCase
+import com.android.rut.miit.productinventory.feature.products.api.models.Product
 import com.android.rut.miit.productinventory.feature.products.api.models.ProductEnrichmentSource
 import com.android.rut.miit.productinventory.feature.products.api.models.ProductEnrichmentSuggestion
 import com.android.rut.miit.productinventory.feature.products.api.models.ProductCategory
@@ -15,6 +18,8 @@ import kotlinx.datetime.LocalDate
 
 class AddProductViewModel(
     private val addProductUseCase: AddProductUseCase,
+    private val updateProductUseCase: UpdateProductUseCase,
+    private val getProductUseCase: GetProductUseCase,
     private val getProductCategoriesUseCase: GetProductCategoriesUseCase,
     private val createProductCategoryUseCase: CreateProductCategoryUseCase,
     private val suggestProductEnrichmentUseCase: SuggestProductEnrichmentUseCase
@@ -23,10 +28,12 @@ class AddProductViewModel(
 ) {
 
     var householdId: String = ""
+    private var productId: String? = null
 
     override suspend fun handleEvent(event: AddProductEvent) {
         when (event) {
             is AddProductEvent.OnCreate -> onCreate(event.householdId)
+            is AddProductEvent.OnLoadProduct -> loadProduct(event.productId)
             is AddProductEvent.OnPrefill -> prefill(event)
             is AddProductEvent.OnScannedDraftApplied -> applyScannedDraft(event)
             is AddProductEvent.OnNameChanged ->
@@ -109,6 +116,22 @@ class AddProductViewModel(
                 carbs = event.carbs ?: carbs,
                 isBarcodePrefilled = event.barcode != null || isBarcodePrefilled
             )
+        }
+    }
+
+    private fun loadProduct(productId: String) {
+        if (this.productId == productId) return
+        this.productId = productId
+        viewModelScope.launch {
+            updateState { copy(isLoading = true, error = null) }
+            runCatching { getProductUseCase(householdId, productId) }
+                .onSuccess { product ->
+                    updateState { fromProduct(product).copy(isLoading = false) }
+                }
+                .onFailure { error ->
+                    updateState { copy(isLoading = false, error = error.message) }
+                    sendAction(AddProductAction.ShowError(error.message ?: "Ошибка"))
+                }
         }
     }
 
@@ -256,26 +279,51 @@ class AddProductViewModel(
         viewModelScope.launch {
             updateState { copy(isLoading = true, error = null) }
             runCatching {
-                addProductUseCase(
-                    householdId = householdId,
-                    name = state.name,
-                    category = state.category,
-                    categoryId = state.categoryId,
-                    quantity = qty,
-                    quantityUnit = state.quantityUnit,
-                    expirationDate = expDate,
-                    brand = state.brand.trim().ifBlank { null },
-                    barcode = state.barcode.trim().ifBlank { null },
-                    packageAmount = packageAmount,
-                    packageUnit = state.packageUnit.takeIf { packageAmount != null },
-                    ingredientsText = state.ingredientsText.trim().ifBlank { null },
-                    calories = calories,
-                    protein = protein,
-                    fat = fat,
-                    carbs = carbs,
-                    remainingAmount = remainingAmount,
-                    lowStockThreshold = lowStockThreshold
-                )
+                val editingProductId = productId
+                if (editingProductId == null) {
+                    addProductUseCase(
+                        householdId = householdId,
+                        name = state.name,
+                        category = state.category,
+                        categoryId = state.categoryId,
+                        quantity = qty,
+                        quantityUnit = state.quantityUnit,
+                        expirationDate = expDate,
+                        brand = state.brand.trim().ifBlank { null },
+                        barcode = state.barcode.trim().ifBlank { null },
+                        packageAmount = packageAmount,
+                        packageUnit = state.packageUnit.takeIf { packageAmount != null },
+                        ingredientsText = state.ingredientsText.trim().ifBlank { null },
+                        calories = calories,
+                        protein = protein,
+                        fat = fat,
+                        carbs = carbs,
+                        remainingAmount = remainingAmount,
+                        lowStockThreshold = lowStockThreshold
+                    )
+                } else {
+                    updateProductUseCase(
+                        householdId = householdId,
+                        productId = editingProductId,
+                        name = state.name,
+                        category = state.category,
+                        categoryId = state.categoryId,
+                        quantity = qty,
+                        quantityUnit = state.quantityUnit,
+                        expirationDate = expDate,
+                        brand = state.brand.trim().ifBlank { null },
+                        barcode = state.barcode.trim().ifBlank { null },
+                        packageAmount = packageAmount,
+                        packageUnit = state.packageUnit.takeIf { packageAmount != null },
+                        ingredientsText = state.ingredientsText.trim().ifBlank { null },
+                        calories = calories,
+                        protein = protein,
+                        fat = fat,
+                        carbs = carbs,
+                        remainingAmount = remainingAmount,
+                        lowStockThreshold = lowStockThreshold
+                    )
+                }
             }.onSuccess {
                 updateState { copy(isLoading = false) }
                 sendAction(AddProductAction.ProductAdded)
@@ -322,4 +370,27 @@ class AddProductViewModel(
 
     private fun Double.formatNumber(): String =
         if (this % 1.0 == 0.0) toInt().toString() else toString()
+
+    private fun AddProductState.fromProduct(product: Product): AddProductState =
+        copy(
+            name = product.name,
+            brand = product.brand.orEmpty(),
+            barcode = product.barcode.orEmpty(),
+            category = product.category,
+            categoryId = product.categoryId ?: categories.idFor(product.category),
+            quantity = product.quantity.formatNumber(),
+            quantityUnit = product.quantityUnit,
+            remainingAmount = product.remainingAmount.formatNumber(),
+            lowStockThreshold = product.lowStockThreshold?.formatNumber().orEmpty(),
+            expirationDate = product.expirationDate?.toString().orEmpty(),
+            packageAmount = product.packageAmount?.formatNumber().orEmpty(),
+            packageUnit = product.packageUnit ?: product.quantityUnit,
+            ingredientsText = product.ingredientsText.orEmpty(),
+            calories = product.calories?.formatNumber().orEmpty(),
+            protein = product.protein?.formatNumber().orEmpty(),
+            fat = product.fat?.formatNumber().orEmpty(),
+            carbs = product.carbs?.formatNumber().orEmpty(),
+            isBarcodePrefilled = product.barcode != null,
+            error = null
+        )
 }

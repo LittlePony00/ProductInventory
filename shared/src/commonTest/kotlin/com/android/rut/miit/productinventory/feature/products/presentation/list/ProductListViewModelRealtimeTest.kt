@@ -1,6 +1,7 @@
 package com.android.rut.miit.productinventory.feature.products.presentation.list
 
 import com.android.rut.miit.productinventory.feature.products.api.DeleteProductUseCase
+import com.android.rut.miit.productinventory.feature.products.api.ConsumeProductUseCase
 import com.android.rut.miit.productinventory.feature.products.api.CategoryRepository
 import com.android.rut.miit.productinventory.feature.products.api.GetProductCategoriesUseCase
 import com.android.rut.miit.productinventory.feature.products.api.GetProductsUseCase
@@ -51,6 +52,7 @@ class ProductListViewModelRealtimeTest {
             getProductsUseCase = GetProductsUseCase(products),
             getProductCategoriesUseCase = GetProductCategoriesUseCase(FakeCategoryRepository()),
             deleteProductUseCase = DeleteProductUseCase(products),
+            consumeProductUseCase = ConsumeProductUseCase(products),
             applyRealtimeProductEventUseCase = ApplyRealtimeProductEventUseCase(products),
             observeHouseholdEventsUseCase = ObserveHouseholdEventsUseCase(realtime)
         )
@@ -84,6 +86,7 @@ class ProductListViewModelRealtimeTest {
             getProductsUseCase = GetProductsUseCase(products),
             getProductCategoriesUseCase = GetProductCategoriesUseCase(FakeCategoryRepository()),
             deleteProductUseCase = DeleteProductUseCase(products),
+            consumeProductUseCase = ConsumeProductUseCase(products),
             applyRealtimeProductEventUseCase = ApplyRealtimeProductEventUseCase(products),
             observeHouseholdEventsUseCase = ObserveHouseholdEventsUseCase(realtime)
         )
@@ -186,6 +189,14 @@ private class FakeProductRepository(
         remainingAmount: Double?,
         lowStockThreshold: Double?
     ): Product = error("Unused")
+
+    override suspend fun consumeProduct(householdId: String, productId: String, amount: Double): Product {
+        val existing = products.first { it.id == productId }
+        val updated = existing.copy(remainingAmount = existing.remainingAmount - amount)
+        products = products.map { if (it.id == productId) updated else it }
+        cachedProducts = cachedProducts.map { if (it.id == productId) updated else it }
+        return updated
+    }
 
     override suspend fun getExpiringProducts(householdId: String, days: Int): List<Product> =
         emptyList()

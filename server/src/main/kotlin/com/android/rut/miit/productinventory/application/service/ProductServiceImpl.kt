@@ -165,6 +165,30 @@ class ProductServiceImpl(
     }
 
     @Transactional
+    override fun consumeProduct(userId: UUID, productId: UUID, amount: Double): Product {
+        require(amount > 0) { "Consumption amount must be positive" }
+        val existing = productRepository.findById(productId)
+            ?: throw EntityNotFoundException("Product", productId)
+
+        requireMembership(userId, existing.householdId)
+        require(amount <= existing.remainingAmount) {
+            "Consumption amount cannot exceed remaining amount"
+        }
+
+        val saved = productRepository.save(
+            existing.copy(remainingAmount = existing.remainingAmount - amount)
+        )
+
+        publishProductEvent(HouseholdEventType.PRODUCT_QUANTITY_CHANGED, userId, saved)
+        if (existing.remainingAmount > 0.0 && saved.remainingAmount == 0.0) {
+            publishProductEvent(HouseholdEventType.PRODUCT_DEPLETED, userId, saved)
+        }
+        publishStateTransitionEvents(userId, existing, saved)
+
+        return saved.withCategoryDetails(saved.householdId)
+    }
+
+    @Transactional
     override fun deleteProduct(userId: UUID, productId: UUID) {
         val product = productRepository.findById(productId)
             ?: throw EntityNotFoundException("Product", productId)

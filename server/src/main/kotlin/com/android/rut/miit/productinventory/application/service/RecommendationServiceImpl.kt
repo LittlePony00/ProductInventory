@@ -26,6 +26,7 @@ class RecommendationServiceImpl(
             ?: throw AccessDeniedException("User is not a member of this household")
 
         val products = productRepository.findByHouseholdId(householdId)
+            .filter { it.remainingAmount > 0.0 }
         val sortedProducts = expirationCheckService.sortByExpirationPriority(products)
         return recipeProvider.findRecipes(RecipeGenerationRequest(sortedProducts))
     }

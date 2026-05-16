@@ -36,6 +36,7 @@ sealed class AddProductEvent : UiEvent {
     ) : AddProductEvent()
 
     data class OnCreate(val householdId: String) : AddProductEvent()
+    data class OnLoadProduct(val productId: String) : AddProductEvent()
     data class OnNameChanged(val name: String) : AddProductEvent()
     data class OnBrandChanged(val brand: String) : AddProductEvent()
     data class OnBarcodeChanged(val barcode: String) : AddProductEvent()

@@ -24,6 +24,13 @@ class PersistentSyncQueue(
         return mutex.withLock { readCache().actions }
     }
 
+    override suspend fun updatePendingAction(action: PendingSyncAction) {
+        mutex.withLock {
+            val cache = readCache()
+            writeCache(cache.copy(actions = cache.actions.map { if (it.id == action.id) action else it }))
+        }
+    }
+
     override suspend fun removePendingAction(id: String) {
         mutex.withLock {
             writeCache(readCache().let { it.copy(actions = it.actions.filterNot { action -> action.id == id }) })

@@ -20,6 +20,7 @@ import org.koin.compose.viewmodel.koinViewModel
 @Composable
 fun AddProductScreen(
     householdId: String,
+    productId: String? = null,
     barcode: String? = null,
     initialName: String? = null,
     initialBrand: String? = null,
@@ -42,6 +43,7 @@ fun AddProductScreen(
 
     LaunchedEffect(
         householdId,
+        productId,
         barcode,
         initialName,
         initialBrand,
@@ -55,6 +57,7 @@ fun AddProductScreen(
         initialCarbs
     ) {
         viewModel.onEvent(AddProductEvent.OnCreate(householdId))
+        productId?.let { viewModel.onEvent(AddProductEvent.OnLoadProduct(it)) }
         viewModel.onEvent(
             AddProductEvent.OnPrefill(
                 barcode = barcode,
@@ -85,7 +88,13 @@ fun AddProductScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(stringResource(R.string.product_add_title)) },
+                title = {
+                    Text(
+                        stringResource(
+                            if (productId == null) R.string.product_add_title else R.string.product_edit_title
+                        )
+                    )
+                },
                 navigationIcon = {
                     TextButton(onClick = { viewModel.onEvent(AddProductEvent.OnBackClick) }) {
                         Text(stringResource(R.string.back))

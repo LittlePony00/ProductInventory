@@ -17,6 +17,10 @@ class RoomProductLocalDataSource(
         return productDao.getByHouseholdId(householdId).map { it.toDomain() }
     }
 
+    override suspend fun getProduct(householdId: String, id: String): Product? {
+        return productDao.getByHouseholdIdAndId(householdId, id)?.toDomain()
+    }
+
     override suspend fun saveProducts(householdId: String, products: List<Product>) {
         productDao.deleteAllByHouseholdId(householdId)
         productDao.insertAll(products.map { it.toEntity() })
@@ -40,6 +44,8 @@ class RoomProductLocalDataSource(
         brand = brand,
         barcode = barcode,
         category = runCatching { ProductCategory.valueOf(category) }.getOrDefault(ProductCategory.OTHER),
+        categoryId = categoryId,
+        categoryName = categoryName,
         quantity = quantity,
         quantityUnit = runCatching { QuantityUnit.valueOf(quantityUnit) }.getOrDefault(QuantityUnit.PIECES),
         packageAmount = packageAmount,
@@ -65,6 +71,8 @@ class RoomProductLocalDataSource(
         brand = brand,
         barcode = barcode,
         category = category.name,
+        categoryId = categoryId,
+        categoryName = categoryName,
         quantity = quantity,
         quantityUnit = quantityUnit.name,
         packageAmount = packageAmount,

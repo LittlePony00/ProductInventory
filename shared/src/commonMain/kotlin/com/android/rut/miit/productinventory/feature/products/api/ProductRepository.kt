@@ -54,6 +54,8 @@ interface ProductRepository {
         lowStockThreshold: Double? = null
     ): Product
 
+    suspend fun consumeProduct(householdId: String, productId: String, amount: Double): Product
+
     suspend fun deleteProduct(householdId: String, productId: String)
     suspend fun getExpiringProducts(householdId: String, days: Int = 3): List<Product>
     suspend fun suggestProductEnrichment(

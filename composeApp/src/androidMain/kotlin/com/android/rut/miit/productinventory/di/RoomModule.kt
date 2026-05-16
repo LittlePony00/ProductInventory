@@ -19,7 +19,7 @@ import org.koin.dsl.module
 val roomModule = module {
     single {
         Room.databaseBuilder(get(), AppDatabase::class.java, "product_inventory_db")
-            .addMigrations(MIGRATION_1_2)
+            .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
             .build()
     }
     single { get<AppDatabase>().productDao() }
@@ -48,4 +48,23 @@ private val MIGRATION_1_2 = object : Migration(1, 2) {
         db.execSQL("UPDATE products SET remainingAmount = quantity WHERE remainingAmount = 0")
         db.execSQL("ALTER TABLE products ADD COLUMN lowStockThreshold REAL")
     }
+}
+
+internal val MIGRATION_2_3 = object : Migration(2, 3) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.addColumnIfMissing("products", "categoryId", "TEXT")
+        db.addColumnIfMissing("products", "categoryName", "TEXT")
+        db.addColumnIfMissing("products", "isPendingSync", "INTEGER NOT NULL DEFAULT 0")
+    }
+}
+
+private fun SupportSQLiteDatabase.addColumnIfMissing(table: String, column: String, definition: String) {
+    val cursor = query("PRAGMA table_info($table)")
+    cursor.use {
+        val nameIndex = it.getColumnIndex("name")
+        while (it.moveToNext()) {
+            if (it.getString(nameIndex) == column) return
+        }
+    }
+    execSQL("ALTER TABLE $table ADD COLUMN $column $definition")
 }

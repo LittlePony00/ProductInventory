@@ -1,6 +1,7 @@
 package com.android.rut.miit.productinventory.infrastructure.adapter.inbound.rest
 
 import com.android.rut.miit.productinventory.application.dto.request.CreateProductRequest
+import com.android.rut.miit.productinventory.application.dto.request.ConsumeProductRequest
 import com.android.rut.miit.productinventory.application.dto.request.UpdateProductRequest
 import com.android.rut.miit.productinventory.application.dto.response.ProductResponse
 import com.android.rut.miit.productinventory.application.mapper.toResponse
@@ -89,6 +90,19 @@ class ProductController(
             remainingAmount = request.remainingAmount,
             lowStockThreshold = request.lowStockThreshold,
             expirationDate = request.expirationDate
+        ).toResponse()
+    }
+
+    @PostMapping("/{productId}/consume")
+    fun consumeProduct(
+        @PathVariable householdId: UUID,
+        @PathVariable productId: UUID,
+        @Valid @RequestBody request: ConsumeProductRequest
+    ): ProductResponse {
+        return productService.consumeProduct(
+            userId = currentUserId(),
+            productId = productId,
+            amount = request.amount
         ).toResponse()
     }
 

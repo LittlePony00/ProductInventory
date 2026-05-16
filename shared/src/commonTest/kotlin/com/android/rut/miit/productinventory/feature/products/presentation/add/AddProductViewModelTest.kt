@@ -4,8 +4,10 @@ import com.android.rut.miit.productinventory.feature.products.api.AddProductUseC
 import com.android.rut.miit.productinventory.feature.products.api.CategoryRepository
 import com.android.rut.miit.productinventory.feature.products.api.CreateProductCategoryUseCase
 import com.android.rut.miit.productinventory.feature.products.api.GetProductCategoriesUseCase
+import com.android.rut.miit.productinventory.feature.products.api.GetProductUseCase
 import com.android.rut.miit.productinventory.feature.products.api.ProductRepository
 import com.android.rut.miit.productinventory.feature.products.api.SuggestProductEnrichmentUseCase
+import com.android.rut.miit.productinventory.feature.products.api.UpdateProductUseCase
 import com.android.rut.miit.productinventory.feature.products.api.models.ExpirationStatus
 import com.android.rut.miit.productinventory.feature.products.api.models.Product
 import com.android.rut.miit.productinventory.feature.products.api.models.ProductCategory
@@ -34,6 +36,8 @@ class AddProductViewModelTest {
             val repository = RecordingProductRepository()
             val viewModel = AddProductViewModel(
                 AddProductUseCase(repository),
+                UpdateProductUseCase(repository),
+                GetProductUseCase(repository),
                 GetProductCategoriesUseCase(FakeCategoryRepository()),
                 CreateProductCategoryUseCase(FakeCategoryRepository()),
                 SuggestProductEnrichmentUseCase(repository)
@@ -86,6 +90,8 @@ class AddProductViewModelTest {
             val repository = RecordingProductRepository()
             val viewModel = AddProductViewModel(
                 AddProductUseCase(repository),
+                UpdateProductUseCase(repository),
+                GetProductUseCase(repository),
                 GetProductCategoriesUseCase(FakeCategoryRepository()),
                 CreateProductCategoryUseCase(FakeCategoryRepository()),
                 SuggestProductEnrichmentUseCase(repository)
@@ -109,8 +115,51 @@ class AddProductViewModelTest {
         }
     }
 
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    @Test
+    fun `loads existing product and submits update`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        try {
+            val repository = RecordingProductRepository()
+            val viewModel = AddProductViewModel(
+                AddProductUseCase(repository),
+                UpdateProductUseCase(repository),
+                GetProductUseCase(repository),
+                GetProductCategoriesUseCase(FakeCategoryRepository()),
+                CreateProductCategoryUseCase(FakeCategoryRepository()),
+                SuggestProductEnrichmentUseCase(repository)
+            )
+
+            viewModel.onEvent(AddProductEvent.OnCreate("household-id"))
+            viewModel.onEvent(AddProductEvent.OnLoadProduct("product-id"))
+            advanceUntilIdle()
+            val loadedState = viewModel.viewState.value
+            assertEquals("Milk", loadedState.name)
+            assertEquals("Brand", loadedState.brand)
+            assertEquals("4601234567890", loadedState.barcode)
+            assertEquals(ProductCategory.DAIRY, loadedState.category)
+            assertEquals("system-dairy", loadedState.categoryId)
+            assertEquals("1", loadedState.quantity)
+            assertEquals("0.5", loadedState.remainingAmount)
+            assertEquals("2026-05-20", loadedState.expirationDate)
+
+            viewModel.onEvent(AddProductEvent.OnNameChanged("Updated milk"))
+            viewModel.onEvent(AddProductEvent.OnSaveClick)
+            advanceUntilIdle()
+
+            val request = repository.updateRequests.single()
+            assertEquals("product-id", request.productId)
+            assertEquals("Updated milk", request.name)
+            assertEquals(1.0, request.quantity)
+            assertEquals(0.5, request.remainingAmount)
+        } finally {
+            Dispatchers.resetMain()
+        }
+    }
+
     private class RecordingProductRepository : ProductRepository {
         val requests = mutableListOf<Request>()
+        val updateRequests = mutableListOf<UpdateRequest>()
 
         override suspend fun addProduct(
             householdId: String,
@@ -168,7 +217,27 @@ class AddProductViewModelTest {
         }
 
         override suspend fun getProducts(householdId: String, categoryId: String?): List<Product> = emptyList()
-        override suspend fun getProduct(householdId: String, productId: String): Product = error("unused")
+        override suspend fun getProduct(householdId: String, productId: String): Product =
+            Product(
+                id = productId,
+                name = "Milk",
+                brand = "Brand",
+                barcode = "4601234567890",
+                category = ProductCategory.DAIRY,
+                categoryId = "system-dairy",
+                quantity = 1.0,
+                quantityUnit = QuantityUnit.PIECES,
+                remainingAmount = 0.5,
+                lowStockThreshold = 0.25,
+                expirationDate = LocalDate.parse("2026-05-20"),
+                expirationStatus = ExpirationStatus.FRESH,
+                householdId = householdId,
+                addedByUserId = "user-id",
+                createdAt = "2026-05-14T00:00:00Z"
+            )
+
+        override suspend fun consumeProduct(householdId: String, productId: String, amount: Double): Product =
+            error("unused")
         override suspend fun updateProduct(
             householdId: String,
             productId: String,
@@ -190,7 +259,20 @@ class AddProductViewModelTest {
             purchaseDate: LocalDate?,
             remainingAmount: Double?,
             lowStockThreshold: Double?
-        ): Product = error("unused")
+        ): Product {
+            updateRequests += UpdateRequest(
+                householdId = householdId,
+                productId = productId,
+                name = name,
+                quantity = quantity,
+                remainingAmount = remainingAmount
+            )
+            return getProduct(householdId, productId).copy(
+                name = name ?: "Milk",
+                quantity = quantity ?: 1.0,
+                remainingAmount = remainingAmount ?: 0.5
+            )
+        }
 
         override suspend fun deleteProduct(householdId: String, productId: String) = Unit
         override suspend fun getExpiringProducts(householdId: String, days: Int): List<Product> = emptyList()
@@ -234,6 +316,14 @@ class AddProductViewModelTest {
         val packageUnit: QuantityUnit?,
         val remainingAmount: Double?,
         val lowStockThreshold: Double?
+    )
+
+    private data class UpdateRequest(
+        val householdId: String,
+        val productId: String,
+        val name: String?,
+        val quantity: Double?,
+        val remainingAmount: Double?
     )
 
     private class FakeCategoryRepository : CategoryRepository {

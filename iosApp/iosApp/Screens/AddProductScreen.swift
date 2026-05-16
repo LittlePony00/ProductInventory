@@ -3,6 +3,7 @@ import Shared
 
 struct AddProductScreen: View {
     let householdId: String
+    let productId: String?
     let draft: ProductDraftInput?
 
     @StateObject private var holder = SharedVMHolder<AddProductState, AddProductEvent, AddProductAction, AddProductViewModel>(
@@ -38,8 +39,9 @@ struct AddProductScreen: View {
     @EnvironmentObject private var router: AppRouter
     @State private var didApplyInitialDraft = false
 
-    init(householdId: String, draft: ProductDraftInput? = nil) {
+    init(householdId: String, productId: String? = nil, draft: ProductDraftInput? = nil) {
         self.householdId = householdId
+        self.productId = productId
         self.draft = draft
     }
 
@@ -71,9 +73,12 @@ struct AddProductScreen: View {
                     }
                 }
                 holder.sendEvent(AddProductEvent.OnCreate(householdId: householdId))
+                if let productId {
+                    holder.sendEvent(AddProductEvent.OnLoadProduct(productId: productId))
+                }
                 applyInitialDraftIfNeeded()
             }
-            .navigationTitle("Добавить продукт")
+            .navigationTitle(productId == nil ? "Добавить продукт" : "Редактировать продукт")
     }
 
     private var formContent: some View {

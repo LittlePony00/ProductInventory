@@ -11,6 +11,7 @@ struct HouseholdListScreen: View {
     @State private var showJoinDialog = false
     @State private var createName = ""
     @State private var joinCode = ""
+    @State private var inviteCodeDialog: InviteCodeDialogState?
 
     var body: some View {
         content
@@ -25,6 +26,8 @@ struct HouseholdListScreen: View {
                             showCreateDialog = true
                         case is HouseholdListAction.ShowJoinDialog:
                             showJoinDialog = true
+                        case let a as HouseholdListAction.ShowInviteCode:
+                            inviteCodeDialog = InviteCodeDialogState(code: a.code, expiresAt: a.expiresAt)
                         case is HouseholdListAction.OpenProfile:
                             router.push(.profile)
                         default:
@@ -58,6 +61,13 @@ struct HouseholdListScreen: View {
                 }
                 Button("Отмена", role: .cancel) { joinCode = "" }
             }
+            .alert(item: $inviteCodeDialog) { invite in
+                Alert(
+                    title: Text("Код приглашения"),
+                    message: Text("\(invite.code)\nДействует до: \(String(invite.expiresAt.prefix(16)))"),
+                    dismissButton: .default(Text("OK"))
+                )
+            }
     }
 
     @ViewBuilder
@@ -77,14 +87,21 @@ struct HouseholdListScreen: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                 } else {
                     List(state.households, id: \.id) { household in
-                        Button {
-                            holder.sendEvent(HouseholdListEvent.OnHouseholdClick(householdId: household.id))
-                        } label: {
+                        HStack(spacing: 12) {
                             VStack(alignment: .leading, spacing: 4) {
                                 Text(household.name).font(.headline)
                                 Text("Создано: \(String(household.createdAt.prefix(10)))")
                                     .font(.caption).foregroundColor(.secondary)
                             }
+                            Spacer()
+                            Button("Код") {
+                                holder.sendEvent(HouseholdListEvent.OnGenerateInviteCodeClick(householdId: household.id))
+                            }
+                            .buttonStyle(.bordered)
+                            Button("Открыть") {
+                                holder.sendEvent(HouseholdListEvent.OnHouseholdClick(householdId: household.id))
+                            }
+                            .buttonStyle(.borderedProminent)
                         }
                     }
                 }
@@ -111,4 +128,10 @@ struct HouseholdListScreen: View {
             }.padding()
         }
     }
+}
+
+private struct InviteCodeDialogState: Identifiable {
+    let id = UUID()
+    let code: String
+    let expiresAt: String
 }

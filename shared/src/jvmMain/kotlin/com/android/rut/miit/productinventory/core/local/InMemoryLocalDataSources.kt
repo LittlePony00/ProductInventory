@@ -6,6 +6,8 @@ import com.android.rut.miit.productinventory.feature.products.api.models.Product
 class JvmInMemoryProductLocalDataSource : ProductLocalDataSource {
     private val cache = mutableMapOf<String, List<Product>>()
     override suspend fun getProducts(householdId: String) = cache[householdId] ?: emptyList()
+    override suspend fun getProduct(householdId: String, id: String): Product? =
+        cache[householdId]?.firstOrNull { it.id == id }
     override suspend fun saveProducts(householdId: String, products: List<Product>) { cache[householdId] = products }
     override suspend fun getProductByBarcode(barcode: String): Product? = null
     override suspend fun deleteProduct(id: String) { cache.forEach { (k, v) -> cache[k] = v.filter { it.id != id } } }
@@ -34,6 +36,9 @@ class JvmInMemorySyncQueue : SyncQueue {
     private val queue = mutableListOf<PendingSyncAction>()
     override suspend fun addPendingAction(action: PendingSyncAction) { queue.add(action) }
     override suspend fun getPendingActions() = queue.toList()
+    override suspend fun updatePendingAction(action: PendingSyncAction) {
+        queue.replaceAll { if (it.id == action.id) action else it }
+    }
     override suspend fun removePendingAction(id: String) { queue.removeAll { it.id == id } }
     override suspend fun clearAll() { queue.clear() }
 }

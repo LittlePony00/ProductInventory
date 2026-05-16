@@ -10,6 +10,8 @@ data class ProductLocalEntity(
     val brand: String? = null,
     val barcode: String? = null,
     val category: String,
+    val categoryId: String? = null,
+    val categoryName: String? = null,
     val quantity: Double,
     val quantityUnit: String,
     val packageAmount: Double? = null,

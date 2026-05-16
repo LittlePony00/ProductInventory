@@ -4,6 +4,7 @@ import kotlinx.serialization.Serializable
 
 @Serializable
 sealed interface Route {
+    @Serializable data object AuthBootstrap : Route
     @Serializable data object Login : Route
     @Serializable data object Register : Route
     @Serializable data object HouseholdList : Route
@@ -11,6 +12,7 @@ sealed interface Route {
     @Serializable
     data class AddProduct(
         val householdId: String,
+        val productId: String? = null,
         val barcode: String? = null,
         val name: String? = null,
         val brand: String? = null,

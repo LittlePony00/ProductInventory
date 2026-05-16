@@ -23,6 +23,11 @@ fun RealtimeEventDto.toDomain(): HouseholdRealtimeEvent =
             occurredAt = occurredAt,
             productId = requireNotNull(productId) { "PRODUCT_DELETED event requires productId" }
         )
+        "PRODUCT_QUANTITY_CHANGED", "PRODUCT_DEPLETED" -> HouseholdRealtimeEvent.ResyncRequired(
+            householdId = householdId,
+            occurredAt = occurredAt,
+            reason = "$type event requires inventory resync"
+        )
         "RESYNC_REQUIRED" -> HouseholdRealtimeEvent.ResyncRequired(
             householdId = householdId,
             occurredAt = occurredAt,

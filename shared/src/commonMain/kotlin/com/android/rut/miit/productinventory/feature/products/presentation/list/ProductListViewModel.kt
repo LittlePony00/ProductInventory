@@ -3,6 +3,7 @@ package com.android.rut.miit.productinventory.feature.products.presentation.list
 import androidx.lifecycle.viewModelScope
 import com.android.rut.miit.productinventory.common.SharedViewModel
 import com.android.rut.miit.productinventory.feature.products.api.ApplyRealtimeProductEventUseCase
+import com.android.rut.miit.productinventory.feature.products.api.ConsumeProductUseCase
 import com.android.rut.miit.productinventory.feature.products.api.DeleteProductUseCase
 import com.android.rut.miit.productinventory.feature.products.api.GetProductCategoriesUseCase
 import com.android.rut.miit.productinventory.feature.products.api.GetProductsUseCase
@@ -21,6 +22,7 @@ class ProductListViewModel(
     private val getProductsUseCase: GetProductsUseCase,
     private val getProductCategoriesUseCase: GetProductCategoriesUseCase,
     private val deleteProductUseCase: DeleteProductUseCase,
+    private val consumeProductUseCase: ConsumeProductUseCase,
     private val applyRealtimeProductEventUseCase: ApplyRealtimeProductEventUseCase,
     private val observeHouseholdEventsUseCase: ObserveHouseholdEventsUseCase
 ) : SharedViewModel<ProductListState, ProductListEvent, ProductListAction>(
@@ -38,6 +40,7 @@ class ProductListViewModel(
             is ProductListEvent.OnRetry -> loadProducts()
             is ProductListEvent.OnProductClick -> onProductClick(event.productId)
             is ProductListEvent.OnDeleteProduct -> onDeleteProduct(event.productId)
+            is ProductListEvent.OnConsumeProduct -> onConsumeProduct(event.productId, event.amount)
             is ProductListEvent.OnCategoryFilterChanged -> updateFilters(filters.copy(categoryId = event.categoryId))
             is ProductListEvent.OnInventoryFilterChanged -> updateFilters(filters.copy(inventory = event.filter))
             is ProductListEvent.OnAddProductClick -> sendAction(ProductListAction.OpenAddProduct)
@@ -81,6 +84,14 @@ class ProductListViewModel(
         viewModelScope.launch {
             runCatching { deleteProductUseCase(householdId, productId) }
                 .onSuccess { loadProducts() }
+                .onFailure { /* silently fail, could show snackbar */ }
+        }
+    }
+
+    private fun onConsumeProduct(productId: String, amount: Double) {
+        viewModelScope.launch {
+            runCatching { consumeProductUseCase(householdId, productId, amount) }
+                .onSuccess { product -> upsertProduct(product) }
                 .onFailure { /* silently fail, could show snackbar */ }
         }
     }

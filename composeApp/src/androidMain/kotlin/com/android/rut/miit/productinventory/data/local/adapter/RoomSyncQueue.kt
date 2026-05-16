@@ -18,6 +18,10 @@ class RoomSyncQueue(
         return syncDao.getAll().map { it.toDomain() }
     }
 
+    override suspend fun updatePendingAction(action: PendingSyncAction) {
+        syncDao.insert(action.toEntity())
+    }
+
     override suspend fun removePendingAction(id: String) {
         syncDao.deleteById(id)
     }
@@ -28,7 +32,7 @@ class RoomSyncQueue(
 
     private fun PendingSyncActionEntity.toDomain() = PendingSyncAction(
         id = id,
-        type = runCatching { SyncActionType.valueOf(type) }.getOrDefault(SyncActionType.ADD_PRODUCT),
+        type = runCatching { SyncActionType.valueOf(type) }.getOrElse { SyncActionType.ADD_PRODUCT },
         entityId = entityId,
         householdId = householdId,
         payload = payload,

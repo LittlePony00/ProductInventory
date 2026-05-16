@@ -1,6 +1,7 @@
 package com.android.rut.miit.productinventory.feature.products.presentation.list
 
 import com.android.rut.miit.productinventory.feature.products.api.DeleteProductUseCase
+import com.android.rut.miit.productinventory.feature.products.api.ConsumeProductUseCase
 import com.android.rut.miit.productinventory.feature.products.api.CategoryRepository
 import com.android.rut.miit.productinventory.feature.products.api.GetProductCategoriesUseCase
 import com.android.rut.miit.productinventory.feature.products.api.GetProductsUseCase
@@ -64,6 +65,34 @@ class ProductListViewModelTest {
             assertEquals(listOf("milk"), state.visibleProducts.map { it.id })
             assertEquals("dairy", state.filters.categoryId)
             assertEquals(InventoryFilter.LOW_STOCK, state.filters.inventory)
+        } finally {
+            Dispatchers.resetMain()
+        }
+    }
+
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    @Test
+    fun `system category filter matches products without category id`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        try {
+            val repository = FakeProductRepository(
+                products = listOf(
+                    product(
+                        id = "milk",
+                        category = ProductCategory.DAIRY,
+                        categoryId = null
+                    )
+                )
+            )
+            val viewModel = viewModel(repository, FakeRealtimeRepository())
+
+            viewModel.onEvent(ProductListEvent.OnCreate("household-id"))
+            advanceUntilIdle()
+            viewModel.onEvent(ProductListEvent.OnCategoryFilterChanged(ProductCategoryOption.DAIRY_SYSTEM_ID))
+            advanceUntilIdle()
+
+            val state = assertIs<ProductListState.Content>(viewModel.viewState.value)
+            assertEquals(listOf("milk"), state.visibleProducts.map { it.id })
         } finally {
             Dispatchers.resetMain()
         }
@@ -136,6 +165,29 @@ class ProductListViewModelTest {
         }
     }
 
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    @Test
+    fun `consume product updates content without reloading full list`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        try {
+            val productRepository = FakeProductRepository(
+                products = listOf(product(id = "milk", remainingAmount = 2.0))
+            )
+            val viewModel = viewModel(productRepository, FakeRealtimeRepository())
+
+            viewModel.onEvent(ProductListEvent.OnCreate("household-id"))
+            advanceUntilIdle()
+            viewModel.onEvent(ProductListEvent.OnConsumeProduct(productId = "milk", amount = 0.75))
+            advanceUntilIdle()
+
+            val state = assertIs<ProductListState.Content>(viewModel.viewState.value)
+            assertEquals(1.25, state.products.single().remainingAmount)
+            assertEquals(1, productRepository.getProductsCalls)
+        } finally {
+            Dispatchers.resetMain()
+        }
+    }
+
     private fun viewModel(
         productRepository: ProductRepository,
         realtimeRepository: RealtimeRepository
@@ -144,6 +196,7 @@ class ProductListViewModelTest {
             getProductsUseCase = GetProductsUseCase(productRepository),
             getProductCategoriesUseCase = GetProductCategoriesUseCase(FakeCategoryRepository()),
             deleteProductUseCase = DeleteProductUseCase(productRepository),
+            consumeProductUseCase = ConsumeProductUseCase(productRepository),
             applyRealtimeProductEventUseCase = ApplyRealtimeProductEventUseCase(productRepository),
             observeHouseholdEventsUseCase = ObserveHouseholdEventsUseCase(realtimeRepository)
         )
@@ -217,6 +270,13 @@ class ProductListViewModelTest {
             remainingAmount: Double?,
             lowStockThreshold: Double?
         ): Product = error("unused")
+
+        override suspend fun consumeProduct(householdId: String, productId: String, amount: Double): Product {
+            val existing = products.first { it.id == productId }
+            val updated = existing.copy(remainingAmount = existing.remainingAmount - amount)
+            products = products.map { if (it.id == productId) updated else it }
+            return updated
+        }
 
         override suspend fun getExpiringProducts(householdId: String, days: Int): List<Product> = emptyList()
         override suspend fun suggestProductEnrichment(

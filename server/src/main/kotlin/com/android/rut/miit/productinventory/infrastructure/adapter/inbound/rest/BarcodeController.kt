@@ -1,12 +1,10 @@
 package com.android.rut.miit.productinventory.infrastructure.adapter.inbound.rest
 
 import com.android.rut.miit.productinventory.application.dto.request.BarcodeLookupRequest
-import com.android.rut.miit.productinventory.application.dto.response.BarcodeProductResponse
 import com.android.rut.miit.productinventory.application.dto.response.ProductResponse
 import com.android.rut.miit.productinventory.domain.port.inbound.IBarcodeService
 import jakarta.validation.Valid
 import org.springframework.http.HttpStatus
-import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.*
 import java.util.UUID
 
@@ -27,12 +25,5 @@ class BarcodeController(
             userId = currentUserId().toString(),
             barcode = request.barcode
         )
-    }
-
-    @GetMapping("/products/barcode/{barcode}")
-    fun lookupBarcode(@PathVariable barcode: String): ResponseEntity<BarcodeProductResponse> {
-        val result = barcodeService.lookupBarcode(barcode)
-            ?: return ResponseEntity.notFound().build()
-        return ResponseEntity.ok(result)
     }
 }

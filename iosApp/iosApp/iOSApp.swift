@@ -48,6 +48,8 @@ struct RootView: View {
             ProductListScreen(householdId: id)
         case .addProduct(let id):
             AddProductScreen(householdId: id)
+        case let .editProduct(id, productId):
+            AddProductScreen(householdId: id, productId: productId)
         case let .addProductFromDraft(id, draft):
             AddProductScreen(householdId: id, draft: draft)
         case .categories(let id):

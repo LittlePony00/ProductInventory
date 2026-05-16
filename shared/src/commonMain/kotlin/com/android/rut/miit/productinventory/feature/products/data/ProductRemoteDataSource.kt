@@ -2,6 +2,7 @@ package com.android.rut.miit.productinventory.feature.products.data
 
 import com.android.rut.miit.productinventory.core.network.ApiConstants
 import com.android.rut.miit.productinventory.feature.products.data.models.CreateProductRequestDto
+import com.android.rut.miit.productinventory.feature.products.data.models.ConsumeProductRequestDto
 import com.android.rut.miit.productinventory.feature.products.data.models.ProductEnrichmentSuggestionRequestDto
 import com.android.rut.miit.productinventory.feature.products.data.models.ProductEnrichmentSuggestionResponseDto
 import com.android.rut.miit.productinventory.feature.products.data.models.ProductResponseDto
@@ -31,6 +32,16 @@ class ProductRemoteDataSource(private val httpClient: HttpClient) {
 
     suspend fun updateProduct(householdId: String, productId: String, request: UpdateProductRequestDto): ProductResponseDto {
         return httpClient.put("${ApiConstants.API_V1}/households/$householdId/products/$productId") {
+            setBody(request)
+        }.body()
+    }
+
+    suspend fun consumeProduct(
+        householdId: String,
+        productId: String,
+        request: ConsumeProductRequestDto
+    ): ProductResponseDto {
+        return httpClient.post("${ApiConstants.API_V1}/households/$householdId/products/$productId/consume") {
             setBody(request)
         }.body()
     }

@@ -3,6 +3,7 @@ package com.android.rut.miit.productinventory.feature.household.presentation.lis
 import androidx.lifecycle.viewModelScope
 import com.android.rut.miit.productinventory.common.SharedViewModel
 import com.android.rut.miit.productinventory.feature.household.api.CreateHouseholdUseCase
+import com.android.rut.miit.productinventory.feature.household.api.GenerateInviteCodeUseCase
 import com.android.rut.miit.productinventory.feature.household.api.GetHouseholdsUseCase
 import com.android.rut.miit.productinventory.feature.household.api.JoinHouseholdUseCase
 import kotlinx.coroutines.launch
@@ -10,6 +11,7 @@ import kotlinx.coroutines.launch
 class HouseholdListViewModel(
     private val getHouseholdsUseCase: GetHouseholdsUseCase,
     private val createHouseholdUseCase: CreateHouseholdUseCase,
+    private val generateInviteCodeUseCase: GenerateInviteCodeUseCase,
     private val joinHouseholdUseCase: JoinHouseholdUseCase
 ) : SharedViewModel<HouseholdListState, HouseholdListEvent, HouseholdListAction>(
     initialState = HouseholdListState.Loading
@@ -25,6 +27,8 @@ class HouseholdListViewModel(
                 sendAction(HouseholdListAction.ShowCreateDialog)
             is HouseholdListEvent.OnJoinHouseholdClick ->
                 sendAction(HouseholdListAction.ShowJoinDialog)
+            is HouseholdListEvent.OnGenerateInviteCodeClick ->
+                generateInviteCode(event.householdId)
             is HouseholdListEvent.OnCreateHouseholdConfirm -> createHousehold(event.name)
             is HouseholdListEvent.OnJoinHouseholdConfirm -> joinHousehold(event.inviteCode)
             is HouseholdListEvent.OnProfileClick ->
@@ -41,6 +45,23 @@ class HouseholdListViewModel(
                 }
                 .onFailure { error ->
                     updateState { HouseholdListState.Error(error.message) }
+                }
+        }
+    }
+
+    private fun generateInviteCode(householdId: String) {
+        viewModelScope.launch {
+            runCatching { generateInviteCodeUseCase(householdId) }
+                .onSuccess { inviteCode ->
+                    sendAction(
+                        HouseholdListAction.ShowInviteCode(
+                            code = inviteCode.code,
+                            expiresAt = inviteCode.expiresAt
+                        )
+                    )
+                }
+                .onFailure { error ->
+                    sendAction(HouseholdListAction.ShowMessage(error.message ?: "Ошибка приглашения"))
                 }
         }
     }
@@ -62,6 +83,7 @@ class HouseholdListViewModel(
         viewModelScope.launch {
             runCatching { joinHouseholdUseCase(inviteCode) }
                 .onSuccess {
+                    sendAction(HouseholdListAction.CloseJoinDialog)
                     sendAction(HouseholdListAction.ShowMessage("Вы присоединились"))
                     loadHouseholds()
                 }

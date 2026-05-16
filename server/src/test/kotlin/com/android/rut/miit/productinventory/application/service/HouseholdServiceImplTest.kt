@@ -1,5 +1,6 @@
 package com.android.rut.miit.productinventory.application.service
 
+import com.android.rut.miit.productinventory.domain.exception.AccessDeniedException
 import com.android.rut.miit.productinventory.domain.model.Household
 import com.android.rut.miit.productinventory.domain.model.HouseholdEvent
 import com.android.rut.miit.productinventory.domain.model.HouseholdEventType
@@ -17,6 +18,7 @@ import java.time.Instant
 import java.util.UUID
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 
 class HouseholdServiceImplTest {
 
@@ -78,6 +80,76 @@ class HouseholdServiceImplTest {
         service.joinByInviteCode(userId, inviteCode.code)
 
         assertEquals(emptyList(), eventPublisher.events)
+    }
+
+    @Test
+    fun `member cannot generate invite code`() {
+        val ownerId = UUID.randomUUID()
+        val memberId = UUID.randomUUID()
+        val household = Household(name = "Home")
+        val service = HouseholdServiceImpl(
+            householdRepository = InMemoryHouseholdRepository(listOf(household)),
+            membershipRepository = InMemoryMembershipRepository(
+                listOf(
+                    Membership(userId = ownerId, householdId = household.id, role = MembershipRole.OWNER),
+                    Membership(userId = memberId, householdId = household.id, role = MembershipRole.MEMBER)
+                )
+            ),
+            inviteCodeRepository = InMemoryInviteCodeRepository(emptyList()),
+            notificationRepository = RecordingNotificationRepository(),
+            notificationSender = RecordingNotificationSender(),
+            householdEventPublisher = RecordingHouseholdEventPublisher()
+        )
+
+        assertFailsWith<AccessDeniedException> {
+            service.generateInviteCode(memberId, household.id)
+        }
+    }
+
+    @Test
+    fun `member cannot remove another member`() {
+        val ownerId = UUID.randomUUID()
+        val memberId = UUID.randomUUID()
+        val otherMemberId = UUID.randomUUID()
+        val household = Household(name = "Home")
+        val service = HouseholdServiceImpl(
+            householdRepository = InMemoryHouseholdRepository(listOf(household)),
+            membershipRepository = InMemoryMembershipRepository(
+                listOf(
+                    Membership(userId = ownerId, householdId = household.id, role = MembershipRole.OWNER),
+                    Membership(userId = memberId, householdId = household.id, role = MembershipRole.MEMBER),
+                    Membership(userId = otherMemberId, householdId = household.id, role = MembershipRole.MEMBER)
+                )
+            ),
+            inviteCodeRepository = InMemoryInviteCodeRepository(emptyList()),
+            notificationRepository = RecordingNotificationRepository(),
+            notificationSender = RecordingNotificationSender(),
+            householdEventPublisher = RecordingHouseholdEventPublisher()
+        )
+
+        assertFailsWith<AccessDeniedException> {
+            service.removeMember(memberId, household.id, otherMemberId)
+        }
+    }
+
+    @Test
+    fun `owner cannot remove themselves while managing members`() {
+        val ownerId = UUID.randomUUID()
+        val household = Household(name = "Home")
+        val service = HouseholdServiceImpl(
+            householdRepository = InMemoryHouseholdRepository(listOf(household)),
+            membershipRepository = InMemoryMembershipRepository(
+                listOf(Membership(userId = ownerId, householdId = household.id, role = MembershipRole.OWNER))
+            ),
+            inviteCodeRepository = InMemoryInviteCodeRepository(emptyList()),
+            notificationRepository = RecordingNotificationRepository(),
+            notificationSender = RecordingNotificationSender(),
+            householdEventPublisher = RecordingHouseholdEventPublisher()
+        )
+
+        assertFailsWith<AccessDeniedException> {
+            service.removeMember(ownerId, household.id, ownerId)
+        }
     }
 
     private class InMemoryHouseholdRepository(initialHouseholds: List<Household>) : IHouseholdRepository {

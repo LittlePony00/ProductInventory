@@ -8,6 +8,7 @@ sealed class HouseholdListEvent : UiEvent {
     data class OnHouseholdClick(val householdId: String) : HouseholdListEvent()
     data object OnCreateHouseholdClick : HouseholdListEvent()
     data object OnJoinHouseholdClick : HouseholdListEvent()
+    data class OnGenerateInviteCodeClick(val householdId: String) : HouseholdListEvent()
     data class OnCreateHouseholdConfirm(val name: String) : HouseholdListEvent()
     data class OnJoinHouseholdConfirm(val inviteCode: String) : HouseholdListEvent()
     data object OnProfileClick : HouseholdListEvent()

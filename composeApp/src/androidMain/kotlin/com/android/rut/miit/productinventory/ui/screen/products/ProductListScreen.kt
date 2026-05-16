@@ -29,6 +29,7 @@ import org.koin.compose.viewmodel.koinViewModel
 fun ProductListScreen(
     householdId: String,
     onAddProduct: () -> Unit = {},
+    onEditProduct: (String) -> Unit = {},
     onBack: () -> Unit = {},
     onManageCategories: () -> Unit = {},
     onNavigateToRecipes: () -> Unit = {},
@@ -37,6 +38,9 @@ fun ProductListScreen(
     viewModel: ProductListViewModel = koinViewModel()
 ) {
     val state by viewModel.viewState.collectAsStateWithLifecycle()
+    var consumingProduct by remember { mutableStateOf<Product?>(null) }
+    var consumeAmount by remember { mutableStateOf("") }
+    var consumeError by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(householdId) {
         viewModel.onEvent(ProductListEvent.OnCreate(householdId))
@@ -50,7 +54,7 @@ fun ProductListScreen(
         viewModel.viewAction.collect { action ->
             when (action) {
                 is ProductListAction.OpenAddProduct -> onAddProduct()
-                is ProductListAction.OpenProductDetail -> {}
+                is ProductListAction.OpenProductDetail -> onEditProduct(action.productId)
             }
         }
     }
@@ -153,6 +157,11 @@ fun ProductListScreen(
                                     ProductCard(
                                         product = product,
                                         onClick = { viewModel.onEvent(ProductListEvent.OnProductClick(product.id)) },
+                                        onConsume = {
+                                            consumingProduct = product
+                                            consumeAmount = product.remainingAmount.toString()
+                                            consumeError = null
+                                        },
                                         onDelete = { viewModel.onEvent(ProductListEvent.OnDeleteProduct(product.id)) }
                                     )
                                 }
@@ -180,6 +189,74 @@ fun ProductListScreen(
                 }
             }
         }
+    }
+
+    consumingProduct?.let { product ->
+        val invalidConsumeMessage = stringResource(R.string.product_consume_error)
+        AlertDialog(
+            onDismissRequest = {
+                consumingProduct = null
+                consumeError = null
+            },
+            title = { Text(stringResource(R.string.product_consume_title)) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(product.name)
+                    Text(
+                        text = stringResource(
+                            R.string.product_consume_remaining,
+                            product.remainingAmount,
+                            unitShortName(product.quantityUnit)
+                        ),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    OutlinedTextField(
+                        value = consumeAmount,
+                        onValueChange = {
+                            consumeAmount = it
+                            consumeError = null
+                        },
+                        label = { Text(stringResource(R.string.product_consume_amount_label)) },
+                        isError = consumeError != null,
+                        singleLine = true
+                    )
+                    consumeError?.let {
+                        Text(
+                            text = it,
+                            color = MaterialTheme.colorScheme.error,
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        val amount = consumeAmount.toDoubleOrNull()
+                        if (amount == null || amount <= 0.0 || amount > product.remainingAmount) {
+                            consumeError = invalidConsumeMessage
+                            return@TextButton
+                        }
+                        viewModel.onEvent(ProductListEvent.OnConsumeProduct(product.id, amount))
+                        consumingProduct = null
+                        consumeError = null
+                    }
+                ) {
+                    Text(stringResource(R.string.product_consume))
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        consumingProduct = null
+                        consumeError = null
+                    }
+                ) {
+                    Text(stringResource(R.string.cancel))
+                }
+            }
+        )
     }
 }
 
@@ -241,6 +318,7 @@ private fun ProductFilters(
 private fun ProductCard(
     product: Product,
     onClick: () -> Unit,
+    onConsume: () -> Unit,
     onDelete: () -> Unit
 ) {
     Card(
@@ -299,12 +377,23 @@ private fun ProductCard(
                 }
             }
 
-            TextButton(onClick = onDelete) {
-                Text(
-                    stringResource(R.string.delete),
-                    color = MaterialTheme.colorScheme.error,
-                    style = MaterialTheme.typography.labelMedium
-                )
+            Column(horizontalAlignment = Alignment.End) {
+                TextButton(
+                    onClick = onConsume,
+                    enabled = product.remainingAmount > 0.0
+                ) {
+                    Text(
+                        stringResource(R.string.product_consume),
+                        style = MaterialTheme.typography.labelMedium
+                    )
+                }
+                TextButton(onClick = onDelete) {
+                    Text(
+                        stringResource(R.string.delete),
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.labelMedium
+                    )
+                }
             }
         }
     }
