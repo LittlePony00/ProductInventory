@@ -7,6 +7,7 @@ struct ProfileScreen: View {
         initialState: ProfileState.Loading()
     )
     @EnvironmentObject private var router: AppRouter
+    @State private var showLogoutConfirmation = false
 
     var body: some View {
         content
@@ -36,6 +37,24 @@ struct ProfileScreen: View {
             ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
         case let state as ProfileState.Content:
             Form {
+                Section {
+                    VStack(spacing: 12) {
+                        Circle()
+                            .fill(Color.green.opacity(0.16))
+                            .frame(width: 96, height: 96)
+                            .overlay {
+                                Text(String(state.profile.name.prefix(1)).uppercased())
+                                    .font(.largeTitle.weight(.semibold))
+                                    .foregroundStyle(.green)
+                            }
+                            .accessibilityHidden(true)
+                        Text(state.profile.name)
+                            .font(.title2.weight(.semibold))
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 20)
+                    .listRowBackground(Color.clear)
+                }
                 Section("Email") { Text(state.profile.email) }
                 Section("Имя") {
                     if state.isEditing {
@@ -59,9 +78,17 @@ struct ProfileScreen: View {
                 }
                 Section {
                     Button("Выйти из аккаунта", role: .destructive) {
-                        holder.sendEvent(ProfileEvent.OnLogoutClick())
+                        showLogoutConfirmation = true
                     }
                 }
+            }
+            .confirmationDialog("Выйти из аккаунта?", isPresented: $showLogoutConfirmation, titleVisibility: .visible) {
+                Button("Выйти из аккаунта", role: .destructive) {
+                    holder.sendEvent(ProfileEvent.OnLogoutClick())
+                }
+                Button("Отмена", role: .cancel) { }
+            } message: {
+                Text("Для работы с домохозяйствами и запасами потребуется снова войти.")
             }
         case let state as ProfileState.Error:
             VStack(spacing: 8) {

@@ -57,11 +57,15 @@ struct ProductListScreen: View {
             case let state as ProductListState.Content:
                 let products = state.visibleProducts
                 if state.products.isEmpty {
-                    VStack(spacing: 8) {
-                        Text("Нет продуктов").font(.headline)
-                        Text("Сканируйте штрихкод или нажмите + чтобы добавить вручную")
-                            .font(.subheadline).foregroundColor(.secondary)
-                    }.frame(maxWidth: .infinity, maxHeight: .infinity)
+                    InventoryEmptyState(
+                        title: "Нет продуктов",
+                        message: "Добавьте продукт вручную или отсканируйте штрихкод.",
+                        systemImage: "basket",
+                        primaryTitle: "Добавить продукт",
+                        primaryAction: { holder.sendEvent(ProductListEvent.OnAddProductClick()) },
+                        secondaryTitle: "Сканировать",
+                        secondaryAction: { router.push(.barcodeScan(householdId: householdId)) }
+                    )
                 } else if products.isEmpty {
                     VStack(spacing: 8) {
                         ProductFilters(
@@ -71,7 +75,16 @@ struct ProductListScreen: View {
                             onInventoryChanged: { holder.sendEvent(ProductListEvent.OnInventoryFilterChanged(filter: $0)) }
                         )
                         Spacer()
-                        Text("Нет продуктов по выбранным фильтрам").font(.headline)
+                        InventoryEmptyState(
+                            title: "Нет продуктов по выбранным фильтрам",
+                            message: "Сбросьте фильтры, чтобы увидеть весь список запасов.",
+                            systemImage: "line.3.horizontal.decrease.circle",
+                            primaryTitle: "Сбросить фильтры",
+                            primaryAction: {
+                                holder.sendEvent(ProductListEvent.OnCategoryFilterChanged(categoryId: nil))
+                                holder.sendEvent(ProductListEvent.OnInventoryFilterChanged(filter: .all))
+                            }
+                        )
                         Spacer()
                     }
                     .padding()
@@ -111,15 +124,19 @@ struct ProductListScreen: View {
             }
 
             VStack(spacing: 12) {
-                Button { router.push(.barcodeScan(householdId: householdId)) } label: {
-                    Image(systemName: "barcode.viewfinder").font(.title2).padding(14)
-                        .background(Color.secondary.opacity(0.18)).foregroundColor(.primary).clipShape(Circle())
-                }
+                InventoryFloatingButton(
+                    systemImage: "barcode.viewfinder",
+                    label: "Сканировать штрихкод",
+                    prominent: false,
+                    action: { router.push(.barcodeScan(householdId: householdId)) }
+                )
                 .accessibilityIdentifier("productList.scanBarcode")
-                Button { holder.sendEvent(ProductListEvent.OnAddProductClick()) } label: {
-                    Image(systemName: "plus").font(.title2).padding(16)
-                        .background(Color.accentColor).foregroundColor(.white).clipShape(Circle())
-                }
+                InventoryFloatingButton(
+                    systemImage: "plus",
+                    label: "Добавить продукт",
+                    prominent: true,
+                    action: { holder.sendEvent(ProductListEvent.OnAddProductClick()) }
+                )
                 .accessibilityIdentifier("productList.addProduct")
             }.padding()
         }
@@ -132,6 +149,7 @@ struct ProductRow: View {
     let onConsume: (Double) -> Void
     let onDelete: () -> Void
     @State private var isShowingConsumeDialog = false
+    @State private var isShowingDeleteConfirmation = false
     @State private var consumeAmount = ""
     @State private var consumeError: String?
 
@@ -142,12 +160,15 @@ struct ProductRow: View {
                 Text("\(product.categoryName ?? categoryName(product.category)) • \(String(format: "%.0f", product.quantity)) \(unitName(product.quantityUnit))")
                     .font(.subheadline).foregroundColor(.secondary)
                 if product.remainingAmount <= (product.lowStockThreshold?.doubleValue ?? 0) {
-                    Text("Низкий остаток")
-                        .font(.caption).foregroundColor(.orange)
+                    InventoryStatusBadge(text: "Низкий остаток", tone: .warning)
                 }
                 if let date = product.expirationDate {
-                    Text("Годен до: \(date)")
-                        .font(.caption).foregroundColor(statusColor(product.expirationStatus))
+                    HStack(spacing: 6) {
+                        InventoryStatusBadge(text: statusText(product.expirationStatus), tone: statusTone(product.expirationStatus))
+                        Text("до \(date)")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
                 }
             }
             Spacer()
@@ -155,6 +176,7 @@ struct ProductRow: View {
                 Button(action: onOpen) {
                     Image(systemName: "pencil").foregroundColor(.accentColor)
                 }.buttonStyle(.plain)
+                    .accessibilityLabel("Редактировать \(product.name)")
 
                 Button {
                     consumeAmount = String(product.remainingAmount)
@@ -166,10 +188,12 @@ struct ProductRow: View {
                 }
                 .disabled(product.remainingAmount <= 0)
                 .buttonStyle(.plain)
+                .accessibilityLabel("Списать \(product.name)")
 
-                Button(action: onDelete) {
+                Button(action: { isShowingDeleteConfirmation = true }) {
                     Image(systemName: "trash").foregroundColor(.red)
                 }.buttonStyle(.plain)
+                    .accessibilityLabel("Удалить \(product.name)")
             }
         }
         .padding(.vertical, 4)
@@ -199,6 +223,12 @@ struct ProductRow: View {
                 }
             }
         }
+        .confirmationDialog("Удалить продукт?", isPresented: $isShowingDeleteConfirmation, titleVisibility: .visible) {
+            Button("Удалить", role: .destructive, action: onDelete)
+            Button("Отмена", role: .cancel) { }
+        } message: {
+            Text("«\(product.name)» исчезнет из списка запасов.")
+        }
     }
 
     private func unitName(_ unit: QuantityUnit) -> String {
@@ -217,10 +247,18 @@ struct ProductRow: View {
         else { return "Другое" }
     }
 
-    private func statusColor(_ status: ExpirationStatus) -> Color {
-        if status == .expired { return .red }
-        else if status == .expiringSoon { return .orange }
-        else { return .secondary }
+    private func statusText(_ status: ExpirationStatus) -> String {
+        if status == .expired { return "Просрочен" }
+        else if status == .expiringSoon { return "Скоро истекает" }
+        else if status == .fresh { return "Свежий" }
+        else { return "Без срока" }
+    }
+
+    private func statusTone(_ status: ExpirationStatus) -> InventoryTone {
+        if status == .expired { return .danger }
+        else if status == .expiringSoon { return .warning }
+        else if status == .fresh { return .success }
+        else { return .neutral }
     }
 }
 

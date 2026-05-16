@@ -163,11 +163,15 @@ struct AddProductScreen: View {
                     }
                 }
             }
-            Section("Срок годности") {
+            Section {
                 TextField("ГГГГ-ММ-ДД", text: Binding(
                     get: { state.expirationDate },
                     set: { holder.sendEvent(AddProductEvent.OnExpirationDateChanged(date: $0)) }
                 ))
+            } header: {
+                Text("Срок годности")
+            } footer: {
+                Text("Используйте формат 2026-05-30. Статус срока годности появится в карточке продукта.")
             }
             Section("AI-подсказки") {
                 Button(action: { holder.sendEvent(AddProductEvent.OnSuggestProductClick()) }) {
@@ -213,7 +217,14 @@ struct AddProductScreen: View {
                         if state.isLoading { ProgressView() } else { Text("Сохранить") }
                         Spacer()
                     }
-                }.disabled(state.isLoading)
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(
+                    state.isLoading ||
+                    state.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ||
+                    state.quantity.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                )
+                .accessibilityHint("Сохранение доступно после ввода названия и количества")
             }
         }
     }

@@ -79,9 +79,10 @@ struct LoginScreen: View {
                 }
             }
             .buttonStyle(.borderedProminent)
-            .disabled(inputState?.isLoading == true)
+            .disabled(inputState?.isLoading == true || inputState?.email.isEmpty != false || inputState?.password.isEmpty != false)
             .padding(.horizontal)
             .accessibilityIdentifier("login.submit")
+            .accessibilityHint("Вход доступен после ввода email и пароля")
 
             Button("Нет аккаунта? Зарегистрироваться") {
                 holder.sendEvent(LoginEvent.OnRegisterClick())

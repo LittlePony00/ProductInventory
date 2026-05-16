@@ -38,9 +38,19 @@ cleanup() {
 trap cleanup EXIT
 
 cd "$ROOT_DIR"
+: "${POSTGRES_JDBC_URL:?Set POSTGRES_JDBC_URL, for example jdbc:postgresql://localhost:5432/product_inventory}"
+: "${POSTGRES_USERNAME:?Set POSTGRES_USERNAME}"
+: "${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}"
+: "${JWT_SECRET:?Set JWT_SECRET}"
+
 ./gradlew :composeApp:assembleDebug
 
-SPRING_PROFILES_ACTIVE=dev ./gradlew :server:bootRun >/tmp/product-inventory-server.log 2>&1 &
+SPRING_PROFILES_ACTIVE=prod \
+POSTGRES_JDBC_URL="$POSTGRES_JDBC_URL" \
+POSTGRES_USERNAME="$POSTGRES_USERNAME" \
+POSTGRES_PASSWORD="$POSTGRES_PASSWORD" \
+JWT_SECRET="$JWT_SECRET" \
+./gradlew :server:bootRun >/tmp/product-inventory-server.log 2>&1 &
 SERVER_PID="$!"
 for _ in {1..60}; do
   if curl -fsS http://localhost:8080/health >/dev/null 2>&1; then
@@ -75,7 +85,7 @@ if layout | grep -F "Save password to Google Password Manager?" >/dev/null; then
 fi
 assert_layout_contains "Нет домохозяйств"
 
-tap 1965 1966
+tap 1038 1291
 assert_layout_contains "Новое домохозяйство"
 tap 1037 1075
 text Home
@@ -85,17 +95,17 @@ assert_layout_contains "Home"
 
 tap 1897 557
 assert_layout_contains "Нет продуктов"
-tap 1965 1966
+tap 1038 1291
 assert_layout_contains "Добавить продукт"
-tap 1038 409
+tap 1038 575
 text Milk
-tap 533 1417
+tap 553 1710
 text 2
-tap 1038 1977
+tap 1038 2055
 sleep 1
 assert_layout_contains "Остаток: 2.00 / 2.00 шт"
 
-tap 1907 723
+tap 1657 992
 assert_layout_contains "Списать продукт"
 tap 1037 1139
 "$ADB" -s "$DEVICE" shell input keyevent 67
@@ -106,7 +116,7 @@ tap 1282 1336
 sleep 1
 assert_layout_contains "Остаток: 1.25 / 2.00 шт"
 
-tap 1907 723
+tap 1657 992
 assert_layout_contains "Доступно: 1.25 шт"
 tap 1282 1336
 sleep 1

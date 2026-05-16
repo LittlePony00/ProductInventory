@@ -2,11 +2,13 @@ package com.android.rut.miit.productinventory.ui.screen.products
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.android.rut.miit.productinventory.R
@@ -14,6 +16,7 @@ import com.android.rut.miit.productinventory.feature.products.api.models.Product
 import com.android.rut.miit.productinventory.feature.products.api.models.ProductCategoryOption
 import com.android.rut.miit.productinventory.feature.products.api.models.QuantityUnit
 import com.android.rut.miit.productinventory.feature.products.presentation.add.*
+import com.android.rut.miit.productinventory.ui.design.SectionCard
 import org.koin.compose.viewmodel.koinViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -101,6 +104,21 @@ fun AddProductScreen(
                     }
                 }
             )
+        },
+        bottomBar = {
+            Surface(shadowElevation = 8.dp) {
+                Button(
+                    onClick = { viewModel.onEvent(AddProductEvent.OnSaveClick) },
+                    modifier = Modifier.fillMaxWidth().padding(16.dp),
+                    enabled = !state.isLoading
+                ) {
+                    if (state.isLoading) {
+                        CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                    } else {
+                        Text(stringResource(R.string.save))
+                    }
+                }
+            }
         }
     ) { padding ->
         Column(
@@ -111,6 +129,10 @@ fun AddProductScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
+            SectionCard(
+                title = stringResource(R.string.product_main_section),
+                subtitle = stringResource(R.string.product_main_section_hint)
+            ) {
             OutlinedTextField(
                 value = state.name,
                 onValueChange = { viewModel.onEvent(AddProductEvent.OnNameChanged(it)) },
@@ -196,17 +218,19 @@ fun AddProductScreen(
                     }
                 }
             }
+            }
 
-            Text(
-                text = stringResource(R.string.product_inventory_section),
-                style = MaterialTheme.typography.titleSmall
-            )
+            SectionCard(
+                title = stringResource(R.string.product_inventory_section),
+                subtitle = stringResource(R.string.product_inventory_section_hint)
+            ) {
 
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedTextField(
                     value = state.quantity,
                     onValueChange = { viewModel.onEvent(AddProductEvent.OnQuantityChanged(it)) },
                     label = { Text(stringResource(R.string.product_quantity_label)) },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                     singleLine = true,
                     modifier = Modifier.weight(1f)
                 )
@@ -246,6 +270,7 @@ fun AddProductScreen(
                     value = state.remainingAmount,
                     onValueChange = { viewModel.onEvent(AddProductEvent.OnRemainingAmountChanged(it)) },
                     label = { Text(stringResource(R.string.product_remaining_label)) },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                     singleLine = true,
                     modifier = Modifier.weight(1f)
                 )
@@ -254,11 +279,17 @@ fun AddProductScreen(
                     value = state.lowStockThreshold,
                     onValueChange = { viewModel.onEvent(AddProductEvent.OnLowStockThresholdChanged(it)) },
                     label = { Text(stringResource(R.string.product_low_stock_threshold_label)) },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                     singleLine = true,
                     modifier = Modifier.weight(1f)
                 )
             }
+            }
 
+            SectionCard(
+                title = stringResource(R.string.product_expiration_section),
+                subtitle = stringResource(R.string.product_expiration_section_hint)
+            ) {
             OutlinedTextField(
                 value = state.expirationDate,
                 onValueChange = { viewModel.onEvent(AddProductEvent.OnExpirationDateChanged(it)) },
@@ -266,11 +297,12 @@ fun AddProductScreen(
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth()
             )
+            }
 
-            Text(
-                text = stringResource(R.string.product_ai_suggestions_section),
-                style = MaterialTheme.typography.titleSmall
-            )
+            SectionCard(
+                title = stringResource(R.string.product_ai_suggestions_section),
+                subtitle = stringResource(R.string.product_ai_suggestions_section_hint)
+            ) {
 
             Button(
                 onClick = { viewModel.onEvent(AddProductEvent.OnSuggestProductClick) },
@@ -297,6 +329,7 @@ fun AddProductScreen(
                     value = state.packageAmount,
                     onValueChange = { viewModel.onEvent(AddProductEvent.OnPackageAmountChanged(it)) },
                     label = { Text(stringResource(R.string.product_package_amount_label)) },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                     singleLine = true,
                     modifier = Modifier.weight(1f)
                 )
@@ -344,6 +377,7 @@ fun AddProductScreen(
                     value = state.calories,
                     onValueChange = { viewModel.onEvent(AddProductEvent.OnCaloriesChanged(it)) },
                     label = { Text(stringResource(R.string.product_calories_label)) },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                     singleLine = true,
                     modifier = Modifier.weight(1f)
                 )
@@ -351,6 +385,7 @@ fun AddProductScreen(
                     value = state.protein,
                     onValueChange = { viewModel.onEvent(AddProductEvent.OnProteinChanged(it)) },
                     label = { Text(stringResource(R.string.product_protein_label)) },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                     singleLine = true,
                     modifier = Modifier.weight(1f)
                 )
@@ -361,6 +396,7 @@ fun AddProductScreen(
                     value = state.fat,
                     onValueChange = { viewModel.onEvent(AddProductEvent.OnFatChanged(it)) },
                     label = { Text(stringResource(R.string.product_fat_label)) },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                     singleLine = true,
                     modifier = Modifier.weight(1f)
                 )
@@ -368,27 +404,15 @@ fun AddProductScreen(
                     value = state.carbs,
                     onValueChange = { viewModel.onEvent(AddProductEvent.OnCarbsChanged(it)) },
                     label = { Text(stringResource(R.string.product_carbs_label)) },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                     singleLine = true,
                     modifier = Modifier.weight(1f)
                 )
             }
+            }
 
             state.error?.let { error ->
                 Text(error, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
-            }
-
-            Spacer(Modifier.height(8.dp))
-
-            Button(
-                onClick = { viewModel.onEvent(AddProductEvent.OnSaveClick) },
-                modifier = Modifier.fillMaxWidth(),
-                enabled = !state.isLoading
-            ) {
-                if (state.isLoading) {
-                    CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
-                } else {
-                    Text(stringResource(R.string.save))
-                }
             }
         }
     }

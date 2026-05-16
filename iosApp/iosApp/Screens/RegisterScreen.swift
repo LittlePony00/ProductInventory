@@ -79,8 +79,14 @@ struct RegisterScreen: View {
                 }
             }
             .buttonStyle(.borderedProminent)
-            .disabled(inputState?.isLoading == true)
+            .disabled(
+                inputState?.isLoading == true ||
+                inputState?.name.isEmpty != false ||
+                inputState?.email.isEmpty != false ||
+                inputState?.password.isEmpty != false
+            )
             .padding(.horizontal)
+            .accessibilityHint("Регистрация доступна после заполнения имени, email и пароля")
 
             Button("Уже есть аккаунт? Войти") {
                 holder.sendEvent(RegisterEvent.OnBackToLogin())

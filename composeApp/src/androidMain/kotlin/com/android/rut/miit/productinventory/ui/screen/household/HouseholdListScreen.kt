@@ -1,5 +1,6 @@
 package com.android.rut.miit.productinventory.ui.screen.household
 
+import android.content.ClipData
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -7,13 +8,19 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.platform.toClipEntry
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.android.rut.miit.productinventory.R
 import com.android.rut.miit.productinventory.feature.household.api.models.Household
 import com.android.rut.miit.productinventory.feature.household.presentation.list.*
+import com.android.rut.miit.productinventory.ui.design.ScreenError
+import com.android.rut.miit.productinventory.ui.design.ScreenLoading
+import com.android.rut.miit.productinventory.ui.design.ScreenMessage
 import org.koin.compose.viewmodel.koinViewModel
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -30,6 +37,8 @@ fun HouseholdListScreen(
     var joinError by remember { mutableStateOf<String?>(null) }
     var inviteCodeDialog by remember { mutableStateOf<InviteCodeDialogState?>(null) }
     val snackbarHostState = remember { SnackbarHostState() }
+    val clipboard = LocalClipboard.current
+    val scope = rememberCoroutineScope()
 
     LaunchedEffect(Unit) { viewModel.onEvent(HouseholdListEvent.OnCreate) }
 
@@ -71,41 +80,41 @@ fun HouseholdListScreen(
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },
         floatingActionButton = {
+            val hasHouseholds = (state as? HouseholdListState.Content)?.households?.isNotEmpty() == true
+            if (hasHouseholds) {
             Column(horizontalAlignment = Alignment.End) {
-                SmallFloatingActionButton(
+                ExtendedFloatingActionButton(
                     onClick = { viewModel.onEvent(HouseholdListEvent.OnJoinHouseholdClick) },
                     containerColor = MaterialTheme.colorScheme.secondaryContainer
                 ) {
-                    Text(stringResource(R.string.join), style = MaterialTheme.typography.labelMedium)
+                    Text("#  ${stringResource(R.string.join)}", style = MaterialTheme.typography.labelMedium)
                 }
                 Spacer(Modifier.height(12.dp))
-                FloatingActionButton(
+                ExtendedFloatingActionButton(
                     onClick = { viewModel.onEvent(HouseholdListEvent.OnCreateHouseholdClick) }
                 ) {
-                    Text(stringResource(R.string.add), style = MaterialTheme.typography.labelMedium)
+                    Text("+  ${stringResource(R.string.add)}", style = MaterialTheme.typography.labelMedium)
                 }
+            }
             }
         }
     ) { padding ->
         when (val s = state) {
             is HouseholdListState.Loading -> {
-                Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator()
-                }
+                ScreenLoading(modifier = Modifier.fillMaxSize().padding(padding))
             }
             is HouseholdListState.Content -> {
                 if (s.households.isEmpty()) {
-                    Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(stringResource(R.string.households_empty), style = MaterialTheme.typography.titleMedium)
-                            Spacer(Modifier.height(8.dp))
-                            Text(
-                                stringResource(R.string.households_empty_hint),
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
+                    ScreenMessage(
+                        title = stringResource(R.string.households_empty),
+                        message = stringResource(R.string.households_empty_hint),
+                        iconText = "+",
+                        primaryActionLabel = stringResource(R.string.household_create),
+                        onPrimaryAction = { viewModel.onEvent(HouseholdListEvent.OnCreateHouseholdClick) },
+                        secondaryActionLabel = stringResource(R.string.household_join),
+                        onSecondaryAction = { viewModel.onEvent(HouseholdListEvent.OnJoinHouseholdClick) },
+                        modifier = Modifier.fillMaxSize().padding(padding)
+                    )
                 } else {
                     LazyColumn(
                         modifier = Modifier.fillMaxSize().padding(padding),
@@ -127,15 +136,12 @@ fun HouseholdListScreen(
                 }
             }
             is HouseholdListState.Error -> {
-                Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(s.message ?: stringResource(R.string.error_loading))
-                        Spacer(Modifier.height(8.dp))
-                        Button(onClick = { viewModel.onEvent(HouseholdListEvent.OnRetry) }) {
-                            Text(stringResource(R.string.retry))
-                        }
-                    }
-                }
+                ScreenError(
+                    message = s.message ?: stringResource(R.string.error_loading),
+                    retryLabel = stringResource(R.string.retry),
+                    onRetry = { viewModel.onEvent(HouseholdListEvent.OnRetry) },
+                    modifier = Modifier.fillMaxSize().padding(padding)
+                )
             }
         }
     }
@@ -224,17 +230,44 @@ fun HouseholdListScreen(
     }
 
     inviteCodeDialog?.let { invite ->
+        val inviteCopiedMessage = stringResource(R.string.household_invite_code_copied)
         AlertDialog(
             onDismissRequest = { inviteCodeDialog = null },
             title = { Text(stringResource(R.string.household_invite_code_title)) },
             text = {
-                Column {
-                    Text(invite.code, style = MaterialTheme.typography.headlineSmall)
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)) {
+                        Text(
+                            invite.code,
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                            style = MaterialTheme.typography.headlineSmall,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer
+                        )
+                    }
                     Spacer(Modifier.height(8.dp))
                     Text(stringResource(R.string.household_invite_code_expires, invite.expiresAt.take(16)))
+                    Text(
+                        stringResource(R.string.household_invite_code_hint),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
             },
             confirmButton = {
+                TextButton(
+                    onClick = {
+                        scope.launch {
+                            clipboard.setClipEntry(
+                                ClipData.newPlainText("invite code", invite.code).toClipEntry()
+                            )
+                            snackbarHostState.showSnackbar(message = inviteCopiedMessage)
+                        }
+                    }
+                ) {
+                    Text(stringResource(R.string.copy))
+                }
+            },
+            dismissButton = {
                 TextButton(onClick = { inviteCodeDialog = null }) {
                     Text(stringResource(R.string.ok))
                 }

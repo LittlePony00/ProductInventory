@@ -72,7 +72,7 @@ Expected behavior:
 - [x] Android CLI install/run/runtime verification captured.
   - `android emulator start Pixel_9_Pro_Fold_API_35`: PASS, device `emulator-5554`.
   - `android run --apks composeApp/build/outputs/apk/debug/composeApp-debug.apk --device emulator-5554`: PASS.
-  - `SPRING_PROFILES_ACTIVE=dev ./gradlew :server:bootRun`: PASS, H2-backed local server started on `8080`.
+  - `SPRING_PROFILES_ACTIVE=prod POSTGRES_JDBC_URL=... POSTGRES_USERNAME=... POSTGRES_PASSWORD=... JWT_SECRET=... ./gradlew :server:bootRun`: PASS, PostgreSQL-backed server on `8080`.
   - `android layout --device emulator-5554 --pretty`: PASS through runtime flow:
     - registered a user;
     - created household `Home`;

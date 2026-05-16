@@ -13,6 +13,9 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.android.rut.miit.productinventory.R
 import com.android.rut.miit.productinventory.feature.recommendations.api.models.Recipe
 import com.android.rut.miit.productinventory.feature.recommendations.presentation.*
+import com.android.rut.miit.productinventory.ui.design.ScreenError
+import com.android.rut.miit.productinventory.ui.design.ScreenLoading
+import com.android.rut.miit.productinventory.ui.design.ScreenMessage
 import org.koin.compose.viewmodel.koinViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -56,21 +59,18 @@ fun RecipeListScreen(
     ) { padding ->
         when (val s = state) {
             is RecipeListState.Loading -> {
-                Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator()
-                }
+                ScreenLoading(modifier = Modifier.fillMaxSize().padding(padding))
             }
             is RecipeListState.Content -> {
                 if (s.recipes.isEmpty()) {
-                    Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(stringResource(R.string.recipes_empty), style = MaterialTheme.typography.bodyLarge)
-                            Spacer(Modifier.height(8.dp))
-                            Button(onClick = { viewModel.onEvent(RecipeListEvent.OnGenerateClick) }) {
-                                Text(stringResource(R.string.recipes_generate))
-                            }
-                        }
-                    }
+                    ScreenMessage(
+                        title = stringResource(R.string.recipes_empty),
+                        message = stringResource(R.string.recipes_empty_hint),
+                        iconText = "*",
+                        primaryActionLabel = stringResource(R.string.recipes_generate),
+                        onPrimaryAction = { viewModel.onEvent(RecipeListEvent.OnGenerateClick) },
+                        modifier = Modifier.fillMaxSize().padding(padding)
+                    )
                 } else {
                     LazyColumn(
                         modifier = Modifier.fillMaxSize().padding(padding),
@@ -84,15 +84,12 @@ fun RecipeListScreen(
                 }
             }
             is RecipeListState.Error -> {
-                Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(s.message ?: stringResource(R.string.error_loading))
-                        Spacer(Modifier.height(8.dp))
-                        Button(onClick = { viewModel.onEvent(RecipeListEvent.OnRetry) }) {
-                            Text(stringResource(R.string.retry))
-                        }
-                    }
-                }
+                ScreenError(
+                    message = s.message ?: stringResource(R.string.error_loading),
+                    retryLabel = stringResource(R.string.retry),
+                    onRetry = { viewModel.onEvent(RecipeListEvent.OnRetry) },
+                    modifier = Modifier.fillMaxSize().padding(padding)
+                )
             }
         }
     }

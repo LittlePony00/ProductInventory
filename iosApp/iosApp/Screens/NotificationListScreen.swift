@@ -61,7 +61,12 @@ struct NotificationListScreen: View {
 
                 Section("История") {
                     if state.notifications.isEmpty {
-                        Text("Нет уведомлений").foregroundColor(.secondary)
+                        InventoryEmptyState(
+                            title: "Нет уведомлений",
+                            message: "Здесь появятся напоминания о сроках годности и низком запасе.",
+                            systemImage: "bell"
+                        )
+                        .listRowInsets(EdgeInsets())
                     } else {
                         ForEach(state.notifications, id: \.id) { notification in
                             NotificationRow(notification: notification) {
@@ -91,11 +96,17 @@ struct NotificationListScreen: View {
                 if granted {
                     DispatchQueue.main.async {
                         UIApplication.shared.registerForRemoteNotifications()
+                        holder.sendEvent(NotificationListEvent.OnPushEnabledChange(enabled: true))
+                    }
+                } else {
+                    DispatchQueue.main.async {
+                        holder.sendEvent(NotificationListEvent.OnPushEnabledChange(enabled: false))
                     }
                 }
             }
+        } else {
+            holder.sendEvent(NotificationListEvent.OnPushEnabledChange(enabled: false))
         }
-        holder.sendEvent(NotificationListEvent.OnPushEnabledChange(enabled: enabled))
     }
 }
 
@@ -154,7 +165,7 @@ struct NotificationRow: View {
                     .fontWeight(notification.isRead ? .regular : .bold)
                 Spacer()
                 if !notification.isRead {
-                    Button("Прочитано", action: onMarkRead).font(.caption)
+                    InventoryStatusBadge(text: "Новое", tone: .warning)
                 }
             }
             Text(notification.message).font(.subheadline)
@@ -163,5 +174,13 @@ struct NotificationRow: View {
         }
         .padding(.vertical, 4)
         .opacity(notification.isRead ? 0.6 : 1.0)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(notification.isRead ? "Прочитано" : "Новое"), \(notification.title), \(notification.message)")
+        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+            if !notification.isRead {
+                Button("Прочитано", action: onMarkRead)
+                    .tint(.green)
+            }
+        }
     }
 }

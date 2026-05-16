@@ -3,7 +3,6 @@ package com.android.rut.miit.productinventory
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
@@ -25,11 +24,12 @@ import com.android.rut.miit.productinventory.ui.screen.products.ProductListScree
 import com.android.rut.miit.productinventory.ui.screen.profile.ProfileScreen
 import com.android.rut.miit.productinventory.ui.screen.barcode.BarcodeScannerScreen
 import com.android.rut.miit.productinventory.ui.screen.recipes.RecipeListScreen
+import com.android.rut.miit.productinventory.ui.design.ProductInventoryTheme
 import org.koin.compose.koinInject
 
 @Composable
 fun App() {
-    MaterialTheme {
+    ProductInventoryTheme {
         val navController = rememberNavController()
 
         NavHost(navController = navController, startDestination = Route.AuthBootstrap) {

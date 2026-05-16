@@ -10,6 +10,8 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
@@ -22,6 +24,12 @@ import com.android.rut.miit.productinventory.feature.products.api.models.Product
 import com.android.rut.miit.productinventory.feature.products.api.models.QuantityUnit
 import com.android.rut.miit.productinventory.feature.products.api.models.customCategoryNameForDisplay
 import com.android.rut.miit.productinventory.feature.products.presentation.list.*
+import com.android.rut.miit.productinventory.ui.design.DestructiveTextButton
+import com.android.rut.miit.productinventory.ui.design.ScreenError
+import com.android.rut.miit.productinventory.ui.design.ScreenLoading
+import com.android.rut.miit.productinventory.ui.design.ScreenMessage
+import com.android.rut.miit.productinventory.ui.design.StatusPill
+import com.android.rut.miit.productinventory.ui.design.UiTone
 import org.koin.compose.viewmodel.koinViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -77,51 +85,38 @@ fun ProductListScreen(
         },
         floatingActionButton = {
             Column(horizontalAlignment = Alignment.End) {
-                SmallFloatingActionButton(
+                ExtendedFloatingActionButton(
                     onClick = onNavigateToBarcodeScan,
                     containerColor = MaterialTheme.colorScheme.secondaryContainer
                 ) {
                     Text(stringResource(R.string.scan), style = MaterialTheme.typography.labelMedium)
                 }
                 Spacer(Modifier.height(12.dp))
-                FloatingActionButton(
+                ExtendedFloatingActionButton(
                     onClick = { viewModel.onEvent(ProductListEvent.OnAddProductClick) }
                 ) {
-                    Text(stringResource(R.string.add), style = MaterialTheme.typography.labelMedium)
+                    Text("+  ${stringResource(R.string.add)}", style = MaterialTheme.typography.labelMedium)
                 }
             }
         }
     ) { padding ->
         when (val currentState = state) {
             is ProductListState.Loading -> {
-                Box(
-                    modifier = Modifier.fillMaxSize().padding(padding),
-                    contentAlignment = Alignment.Center
-                ) {
-                    CircularProgressIndicator()
-                }
+                ScreenLoading(modifier = Modifier.fillMaxSize().padding(padding))
             }
 
             is ProductListState.Content -> {
                 if (currentState.products.isEmpty()) {
-                    Box(
+                    ScreenMessage(
+                        title = stringResource(R.string.products_empty),
+                        message = stringResource(R.string.products_empty_hint),
+                        iconText = "+",
+                        primaryActionLabel = stringResource(R.string.add),
+                        onPrimaryAction = { viewModel.onEvent(ProductListEvent.OnAddProductClick) },
+                        secondaryActionLabel = stringResource(R.string.scan),
+                        onSecondaryAction = onNavigateToBarcodeScan,
                         modifier = Modifier.fillMaxSize().padding(padding),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(
-                                text = stringResource(R.string.products_empty),
-                                style = MaterialTheme.typography.titleMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Text(
-                                text = stringResource(R.string.products_empty_hint),
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
+                    )
                 } else {
                     Column(modifier = Modifier.fillMaxSize().padding(padding)) {
                         ProductFilters(
@@ -137,16 +132,17 @@ fun ProductListScreen(
                             modifier = Modifier.fillMaxWidth()
                         )
                         if (currentState.visibleProducts.isEmpty()) {
-                            Box(
+                            ScreenMessage(
+                                title = stringResource(R.string.products_no_filter_results),
+                                message = stringResource(R.string.products_no_filter_results_hint),
+                                iconText = "0",
+                                primaryActionLabel = stringResource(R.string.filter_clear),
+                                onPrimaryAction = {
+                                    viewModel.onEvent(ProductListEvent.OnCategoryFilterChanged(null))
+                                    viewModel.onEvent(ProductListEvent.OnInventoryFilterChanged(InventoryFilter.ALL))
+                                },
                                 modifier = Modifier.fillMaxSize(),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(
-                                    text = stringResource(R.string.products_no_filter_results),
-                                    style = MaterialTheme.typography.bodyLarge,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
+                            )
                         } else {
                             LazyColumn(
                                 modifier = Modifier.fillMaxSize(),
@@ -172,21 +168,12 @@ fun ProductListScreen(
             }
 
             is ProductListState.Error -> {
-                Box(
+                ScreenError(
+                    message = currentState.message ?: stringResource(R.string.error_generic),
+                    retryLabel = stringResource(R.string.retry),
+                    onRetry = { viewModel.onEvent(ProductListEvent.OnRetry) },
                     modifier = Modifier.fillMaxSize().padding(padding),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(
-                            text = currentState.message ?: stringResource(R.string.error_generic),
-                            color = MaterialTheme.colorScheme.error
-                        )
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Button(onClick = { viewModel.onEvent(ProductListEvent.OnRetry) }) {
-                            Text(stringResource(R.string.retry))
-                        }
-                    }
-                }
+                )
             }
         }
     }
@@ -321,26 +308,68 @@ private fun ProductCard(
     onConsume: () -> Unit,
     onDelete: () -> Unit
 ) {
+    var showDeleteConfirm by remember { mutableStateOf(false) }
+    val categoryName = productCategoryDisplayName(product)
+
     Card(
         onClick = onClick,
-        modifier = Modifier.fillMaxWidth()
+        modifier = Modifier
+            .fillMaxWidth()
+            .semantics {
+                contentDescription = "${product.name}, $categoryName"
+            },
+        colors = CardDefaults.cardColors(
+            containerColor = when (product.expirationStatus) {
+                ExpirationStatus.EXPIRED -> MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.36f)
+                ExpirationStatus.EXPIRING_SOON -> MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.42f)
+                else -> MaterialTheme.colorScheme.surface
+            }
+        )
     ) {
-        Row(
+        Column(
             modifier = Modifier.padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = product.name,
-                    style = MaterialTheme.typography.titleMedium
+            Row(verticalAlignment = Alignment.Top) {
+                Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(
+                        text = product.name,
+                        style = MaterialTheme.typography.titleMedium
+                    )
+                    product.brand?.takeIf { it.isNotBlank() }?.let { brand ->
+                        Text(
+                            text = brand,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Text(
+                        text = categoryName,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                StatusPill(
+                    text = expirationStatusLabel(product.expirationStatus),
+                    tone = expirationStatusTone(product.expirationStatus)
                 )
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = productCategoryDisplayName(product),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+            }
+
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                val progress = if (product.quantity <= 0.0) {
+                    0f
+                } else {
+                    (product.remainingAmount / product.quantity).toFloat().coerceIn(0f, 1f)
+                }
+                LinearProgressIndicator(
+                    progress = { progress },
+                    modifier = Modifier.fillMaxWidth(),
+                    color = if (product.isLowStock) {
+                        MaterialTheme.colorScheme.error
+                    } else {
+                        MaterialTheme.colorScheme.primary
+                    }
                 )
-                Spacer(modifier = Modifier.height(4.dp))
                 Text(
                     text = stringResource(
                         R.string.products_inventory_level,
@@ -351,51 +380,71 @@ private fun ProductCard(
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+            }
+
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 if (product.isLowStock) {
-                    Spacer(modifier = Modifier.height(6.dp))
-                    AssistChip(
-                        onClick = {},
-                        enabled = false,
-                        label = { Text(stringResource(R.string.products_low_stock_badge)) },
-                        colors = AssistChipDefaults.assistChipColors(
-                            disabledLabelColor = MaterialTheme.colorScheme.error
-                        )
+                    StatusPill(
+                        text = stringResource(R.string.products_low_stock_badge),
+                        tone = UiTone.Error
                     )
                 }
                 product.expirationDate?.let { date ->
-                    Spacer(modifier = Modifier.height(4.dp))
-                    val statusColor = when (product.expirationStatus) {
-                        ExpirationStatus.EXPIRED -> MaterialTheme.colorScheme.error
-                        ExpirationStatus.EXPIRING_SOON -> MaterialTheme.colorScheme.tertiary
-                        else -> MaterialTheme.colorScheme.onSurfaceVariant
-                    }
                     Text(
                         text = stringResource(R.string.products_expiration, date),
                         style = MaterialTheme.typography.bodySmall,
-                        color = statusColor
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }
 
-            Column(horizontalAlignment = Alignment.End) {
-                TextButton(
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                OutlinedButton(
                     onClick = onConsume,
                     enabled = product.remainingAmount > 0.0
                 ) {
-                    Text(
-                        stringResource(R.string.product_consume),
-                        style = MaterialTheme.typography.labelMedium
-                    )
+                    Text(stringResource(R.string.product_consume))
                 }
-                TextButton(onClick = onDelete) {
-                    Text(
-                        stringResource(R.string.delete),
-                        color = MaterialTheme.colorScheme.error,
-                        style = MaterialTheme.typography.labelMedium
-                    )
-                }
+                Spacer(Modifier.width(8.dp))
+                DestructiveTextButton(
+                    text = stringResource(R.string.delete),
+                    onClick = { showDeleteConfirm = true }
+                )
             }
         }
+    }
+
+    if (showDeleteConfirm) {
+        AlertDialog(
+            onDismissRequest = { showDeleteConfirm = false },
+            title = { Text(stringResource(R.string.product_delete_confirm_title)) },
+            text = { Text(stringResource(R.string.product_delete_confirm_message, product.name)) },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showDeleteConfirm = false
+                        onDelete()
+                    }
+                ) {
+                    Text(
+                        text = stringResource(R.string.delete),
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteConfirm = false }) {
+                    Text(stringResource(R.string.cancel))
+                }
+            }
+        )
     }
 }
 
@@ -427,6 +476,21 @@ private fun inventoryFilterName(filter: InventoryFilter): String = when (filter)
     InventoryFilter.LOW_STOCK -> stringResource(R.string.filter_low_stock)
     InventoryFilter.EXPIRING_SOON -> stringResource(R.string.filter_expiring_soon)
     InventoryFilter.EXPIRED -> stringResource(R.string.filter_expired)
+}
+
+@Composable
+private fun expirationStatusLabel(status: ExpirationStatus): String = when (status) {
+    ExpirationStatus.FRESH -> stringResource(R.string.expiration_fresh)
+    ExpirationStatus.EXPIRING_SOON -> stringResource(R.string.expiration_soon)
+    ExpirationStatus.EXPIRED -> stringResource(R.string.expiration_expired)
+    ExpirationStatus.UNKNOWN -> stringResource(R.string.expiration_unknown)
+}
+
+private fun expirationStatusTone(status: ExpirationStatus): UiTone = when (status) {
+    ExpirationStatus.FRESH -> UiTone.Success
+    ExpirationStatus.EXPIRING_SOON -> UiTone.Warning
+    ExpirationStatus.EXPIRED -> UiTone.Error
+    ExpirationStatus.UNKNOWN -> UiTone.Neutral
 }
 
 @Composable

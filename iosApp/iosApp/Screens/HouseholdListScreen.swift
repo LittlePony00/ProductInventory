@@ -1,5 +1,6 @@
 import SwiftUI
 import Shared
+import UIKit
 
 struct HouseholdListScreen: View {
     @StateObject private var holder = SharedVMHolder<HouseholdListState, HouseholdListEvent, HouseholdListAction, HouseholdListViewModel>(
@@ -65,7 +66,10 @@ struct HouseholdListScreen: View {
                 Alert(
                     title: Text("Код приглашения"),
                     message: Text("\(invite.code)\nДействует до: \(String(invite.expiresAt.prefix(16)))"),
-                    dismissButton: .default(Text("OK"))
+                    primaryButton: .default(Text("Копировать")) {
+                        UIPasteboard.general.string = invite.code
+                    },
+                    secondaryButton: .default(Text("OK"))
                 )
             }
     }
@@ -79,12 +83,15 @@ struct HouseholdListScreen: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             case let state as HouseholdListState.Content:
                 if state.households.isEmpty {
-                    VStack(spacing: 8) {
-                        Text("Нет домохозяйств").font(.headline)
-                        Text("Создайте новое или присоединитесь по коду")
-                            .font(.subheadline).foregroundColor(.secondary)
-                    }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    InventoryEmptyState(
+                        title: "Нет домохозяйств",
+                        message: "Создайте домохозяйство для своих запасов или присоединитесь по коду приглашения.",
+                        systemImage: "house",
+                        primaryTitle: "Создать",
+                        primaryAction: { holder.sendEvent(HouseholdListEvent.OnCreateHouseholdClick()) },
+                        secondaryTitle: "Вступить по коду",
+                        secondaryAction: { holder.sendEvent(HouseholdListEvent.OnJoinHouseholdClick()) }
+                    )
                 } else {
                     List(state.households, id: \.id) { household in
                         HStack(spacing: 12) {
@@ -98,10 +105,12 @@ struct HouseholdListScreen: View {
                                 holder.sendEvent(HouseholdListEvent.OnGenerateInviteCodeClick(householdId: household.id))
                             }
                             .buttonStyle(.bordered)
+                            .accessibilityLabel("Показать код приглашения для \(household.name)")
                             Button("Открыть") {
                                 holder.sendEvent(HouseholdListEvent.OnHouseholdClick(householdId: household.id))
                             }
                             .buttonStyle(.borderedProminent)
+                            .accessibilityLabel("Открыть домохозяйство \(household.name)")
                         }
                     }
                 }
@@ -117,14 +126,18 @@ struct HouseholdListScreen: View {
             }
 
             VStack(spacing: 12) {
-                Button { holder.sendEvent(HouseholdListEvent.OnJoinHouseholdClick()) } label: {
-                    Image(systemName: "arrow.up.right").padding(12)
-                        .background(Color.gray.opacity(0.2)).clipShape(Circle())
-                }
-                Button { holder.sendEvent(HouseholdListEvent.OnCreateHouseholdClick()) } label: {
-                    Image(systemName: "plus").font(.title2).padding(16)
-                        .background(Color.accentColor).foregroundColor(.white).clipShape(Circle())
-                }
+                InventoryFloatingButton(
+                    systemImage: "arrow.up.right",
+                    label: "Вступить по коду",
+                    prominent: false,
+                    action: { holder.sendEvent(HouseholdListEvent.OnJoinHouseholdClick()) }
+                )
+                InventoryFloatingButton(
+                    systemImage: "plus",
+                    label: "Создать домохозяйство",
+                    prominent: true,
+                    action: { holder.sendEvent(HouseholdListEvent.OnCreateHouseholdClick()) }
+                )
             }.padding()
         }
     }

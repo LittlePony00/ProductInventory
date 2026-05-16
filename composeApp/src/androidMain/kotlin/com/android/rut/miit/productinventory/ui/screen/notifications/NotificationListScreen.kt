@@ -28,6 +28,11 @@ import com.android.rut.miit.productinventory.R
 import com.android.rut.miit.productinventory.feature.notifications.api.models.Notification
 import com.android.rut.miit.productinventory.feature.notifications.api.models.NotificationSettings
 import com.android.rut.miit.productinventory.feature.notifications.presentation.*
+import com.android.rut.miit.productinventory.ui.design.ScreenError
+import com.android.rut.miit.productinventory.ui.design.ScreenLoading
+import com.android.rut.miit.productinventory.ui.design.ScreenMessage
+import com.android.rut.miit.productinventory.ui.design.StatusPill
+import com.android.rut.miit.productinventory.ui.design.UiTone
 import org.koin.compose.viewmodel.koinViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -107,9 +112,7 @@ fun NotificationListScreen(
     ) { padding ->
         when (val s = state) {
             is NotificationListState.Loading -> {
-                Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator()
-                }
+                ScreenLoading(modifier = Modifier.fillMaxSize().padding(padding))
             }
             is NotificationListState.Content -> {
                 LazyColumn(
@@ -154,14 +157,21 @@ fun NotificationListScreen(
                     }
                     if (s.notifications.isEmpty()) {
                         item {
-                            Box(
-                                modifier = Modifier.fillMaxWidth().padding(vertical = 32.dp),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(
-                                    stringResource(R.string.notifications_empty),
-                                    style = MaterialTheme.typography.bodyLarge
-                                )
+                            Card(modifier = Modifier.fillMaxWidth()) {
+                                Column(
+                                    modifier = Modifier.padding(16.dp),
+                                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    Text(
+                                        stringResource(R.string.notifications_empty),
+                                        style = MaterialTheme.typography.titleMedium
+                                    )
+                                    Text(
+                                        stringResource(R.string.notifications_empty_hint),
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
                             }
                         }
                     } else {
@@ -174,15 +184,12 @@ fun NotificationListScreen(
                 }
             }
             is NotificationListState.Error -> {
-                Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(s.message ?: stringResource(R.string.error_loading))
-                        Spacer(Modifier.height(8.dp))
-                        Button(onClick = { viewModel.onEvent(NotificationListEvent.OnRetry) }) {
-                            Text(stringResource(R.string.retry))
-                        }
-                    }
-                }
+                ScreenError(
+                    message = s.message ?: stringResource(R.string.error_loading),
+                    retryLabel = stringResource(R.string.retry),
+                    onRetry = { viewModel.onEvent(NotificationListEvent.OnRetry) },
+                    modifier = Modifier.fillMaxSize().padding(padding)
+                )
             }
         }
     }
@@ -418,9 +425,7 @@ private fun NotificationCard(notification: Notification, onMarkRead: () -> Unit)
                     fontWeight = if (notification.isRead) FontWeight.Normal else FontWeight.Bold
                 )
                 if (!notification.isRead) {
-                    TextButton(onClick = onMarkRead) {
-                        Text(stringResource(R.string.notifications_mark_read), style = MaterialTheme.typography.labelSmall)
-                    }
+                    StatusPill(text = stringResource(R.string.notifications_unread_badge), tone = UiTone.Warning)
                 }
             }
             Spacer(Modifier.height(4.dp))
@@ -431,6 +436,12 @@ private fun NotificationCard(notification: Notification, onMarkRead: () -> Unit)
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
+            if (!notification.isRead) {
+                Spacer(Modifier.height(8.dp))
+                OutlinedButton(onClick = onMarkRead) {
+                    Text(stringResource(R.string.notifications_mark_read))
+                }
+            }
         }
     }
 }

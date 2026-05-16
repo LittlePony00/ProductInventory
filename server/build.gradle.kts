@@ -26,7 +26,6 @@ dependencies {
     implementation(libs.kotlin.reflect)
 
     runtimeOnly(libs.postgresql)
-    runtimeOnly("com.h2database:h2")
 
     implementation(libs.jjwt.api)
     runtimeOnly(libs.jjwt.impl)
@@ -35,6 +34,7 @@ dependencies {
     testImplementation(libs.spring.boot.starter.test)
     testImplementation(libs.spring.security.test)
     testImplementation(libs.kotlin.test)
+    testRuntimeOnly("com.h2database:h2")
 }
 
 tasks.withType<Test> {

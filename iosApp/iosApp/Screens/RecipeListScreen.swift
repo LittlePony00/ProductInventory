@@ -36,10 +36,15 @@ struct RecipeListScreen: View {
             ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
         case let state as RecipeListState.Content:
             if state.recipes.isEmpty {
-                Text("Нет рецептов").font(.headline)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                InventoryEmptyState(
+                    title: "Нет рецептов",
+                    message: "Сгенерируйте рекомендации из текущих запасов домохозяйства.",
+                    systemImage: "sparkles",
+                    primaryTitle: "Сгенерировать",
+                    primaryAction: { holder.sendEvent(RecipeListEvent.OnGenerateClick()) }
+                )
             } else {
-                List(Array(state.recipes.enumerated()), id: \.offset) { _, recipe in
+                List(state.recipes, id: \.identityKey) { recipe in
                     RecipeRow(recipe: recipe)
                 }
             }
@@ -71,5 +76,13 @@ struct RecipeRow: View {
                 Text("\(index + 1). \(step)").font(.caption)
             }
         }.padding(.vertical, 4)
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel("\(recipe.title), \(recipe.time), \(recipe.calories) килокалорий")
+    }
+}
+
+private extension Recipe {
+    var identityKey: String {
+        "\(title)|\(time)|\(calories)|\(ingredients.map(\.name).joined(separator: ","))|\(steps.joined(separator: ","))"
     }
 }
