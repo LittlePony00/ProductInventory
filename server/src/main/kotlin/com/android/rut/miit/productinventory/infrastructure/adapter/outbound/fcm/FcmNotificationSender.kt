@@ -1,9 +1,11 @@
 package com.android.rut.miit.productinventory.infrastructure.adapter.outbound.fcm
 
 import com.android.rut.miit.productinventory.domain.model.NotificationDeviceToken
+import com.android.rut.miit.productinventory.domain.model.NotificationPlatform
 import com.android.rut.miit.productinventory.domain.port.outbound.INotificationDeviceTokenRepository
 import com.android.rut.miit.productinventory.domain.port.outbound.INotificationSender
 import com.fasterxml.jackson.annotation.JsonProperty
+import com.fasterxml.jackson.annotation.JsonInclude
 import com.fasterxml.jackson.databind.ObjectMapper
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
@@ -37,7 +39,7 @@ class FcmNotificationSender(
     private val restClient = restClientBuilder.build()
     private val cachedAccessToken = AtomicReference<FirebaseAccessToken?>(null)
 
-    override fun sendPush(userId: UUID, title: String, message: String) {
+    override fun sendPush(userId: UUID, title: String, message: String, notificationId: UUID?) {
         val tokens = tokenRepository.findActiveByUserId(userId)
         if (tokens.isEmpty()) {
             log.debug("FCM push skipped: no active device tokens for user={}", userId)
@@ -54,7 +56,7 @@ class FcmNotificationSender(
         }
         val accessToken = getAccessToken(credentials) ?: return
         tokens.forEach { token ->
-            sendToToken(token, title, message, accessToken)
+            sendToToken(token, title, message, notificationId, accessToken)
         }
     }
 
@@ -62,6 +64,7 @@ class FcmNotificationSender(
         token: NotificationDeviceToken,
         title: String,
         message: String,
+        notificationId: UUID?,
         accessToken: String
     ) {
         try {
@@ -69,7 +72,7 @@ class FcmNotificationSender(
                 .uri("https://fcm.googleapis.com/v1/projects/$projectId/messages:send")
                 .header("Authorization", "Bearer $accessToken")
                 .contentType(MediaType.APPLICATION_JSON)
-                .body(FcmSendRequest.from(token.token, title, message))
+                .body(FcmSendRequest.from(token, title, message, notificationId))
                 .retrieve()
                 .toBodilessEntity()
             log.debug("FCM push sent [user={}, tokenId={}]", token.userId, token.id)
@@ -128,19 +131,44 @@ private data class FcmSendRequest(
     val message: FcmMessage
 ) {
     companion object {
-        fun from(token: String, title: String, body: String): FcmSendRequest =
-            FcmSendRequest(
-                FcmMessage(
-                    token = token,
-                    notification = FcmNotification(title = title, body = body)
+        fun from(token: NotificationDeviceToken, title: String, body: String, notificationId: UUID?): FcmSendRequest {
+            val data = buildMap {
+                put("title", title)
+                put("body", body)
+                notificationId?.let { put("notificationId", it.toString()) }
+            }
+            val notification = FcmNotification(title = title, body = body)
+            return if (token.platform == NotificationPlatform.ANDROID) {
+                FcmSendRequest(
+                    FcmMessage(
+                        token = token.token,
+                        data = data,
+                        android = FcmAndroidConfig(priority = "HIGH")
+                    )
                 )
-            )
+            } else {
+                FcmSendRequest(
+                    FcmMessage(
+                        token = token.token,
+                        notification = notification,
+                        data = data
+                    )
+                )
+            }
+        }
     }
 }
 
+@JsonInclude(JsonInclude.Include.NON_NULL)
 private data class FcmMessage(
     val token: String,
-    val notification: FcmNotification
+    val notification: FcmNotification? = null,
+    val data: Map<String, String>? = null,
+    val android: FcmAndroidConfig? = null
+)
+
+private data class FcmAndroidConfig(
+    val priority: String
 )
 
 private data class FcmNotification(

@@ -1,6 +1,7 @@
 package com.android.rut.miit.productinventory.core.push
 
 import com.google.firebase.messaging.FirebaseMessagingService
+import com.google.firebase.messaging.RemoteMessage
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -16,5 +17,22 @@ class ProductInventoryFirebaseMessagingService : FirebaseMessagingService() {
         scope.launch {
             runCatching { registrar.registerToken(token) }
         }
+    }
+
+    override fun onMessageReceived(message: RemoteMessage) {
+        val title = message.notification?.title
+            ?: message.data["title"]
+            ?: return
+        val body = message.notification?.body
+            ?: message.data["body"]
+            ?: message.data["message"]
+            ?: return
+
+        showProductInventoryNotification(
+            notificationId = message.messageId?.hashCode() ?: body.hashCode(),
+            title = title,
+            message = body,
+            backendNotificationId = message.data["notificationId"]
+        )
     }
 }

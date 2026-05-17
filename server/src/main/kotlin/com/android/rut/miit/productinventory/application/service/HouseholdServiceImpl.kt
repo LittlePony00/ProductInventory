@@ -98,7 +98,12 @@ class HouseholdServiceImpl(
         val household = householdRepository.findById(inviteCode.householdId)
             ?: throw EntityNotFoundException("Household", inviteCode.householdId)
 
-        notifyOtherMembers(userId, inviteCode.householdId, "New member", "A new member joined ${household.name}")
+        notifyOtherMembers(
+            actorId = userId,
+            householdId = inviteCode.householdId,
+            title = "Новый участник",
+            message = "К семье «${household.name}» присоединился новый участник"
+        )
         householdEventPublisher.publish(
             HouseholdEvent(
                 type = HouseholdEventType.MEMBER_JOINED,
@@ -153,8 +158,8 @@ class HouseholdServiceImpl(
     private fun notifyOtherMembers(actorId: UUID, householdId: UUID, title: String, message: String) {
         val members = membershipRepository.findByHouseholdId(householdId)
         members.filter { it.userId != actorId }.forEach { m ->
-            notificationRepository.save(Notification(userId = m.userId, title = title, message = message))
-            notificationSender.sendPush(m.userId, title, message)
+            val notification = notificationRepository.save(Notification(userId = m.userId, title = title, message = message))
+            notificationSender.sendPush(m.userId, title, message, notification.id)
         }
     }
 }

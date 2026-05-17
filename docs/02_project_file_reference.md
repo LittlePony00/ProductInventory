@@ -1,0 +1,634 @@
+# ProductInventory: подробный пофайловый справочник проекта
+
+Этот документ описывает осмысленные файлы проекта: исходный код, конфигурации, ресурсы, тесты, документацию и текущие локальные неотслеживаемые source/test файлы, которые входят в рабочее состояние проекта. Исключены сгенерированные каталоги сборки и кеши: `build/`, `.gradle/`, `.idea/`, `.kotlin/`, `.tmp/`, `iosApp/build/`. Локальные секреты вроде Firebase service account, `google-services.json` и `GoogleService-Info.plist` не раскрываются: в документации упоминается только сам механизм конфигурации.
+
+Важно: в рабочей области есть локальные notification-изменения, которые пока не закоммичены. Они описаны как текущая реализация, потому что именно это состояние проекта нужно защищать и демонстрировать.
+
+## Ключ
+- `Kotlin` / `Swift` — исходный код (выделены важные верхнеуровневые сущности).
+- `XML` / `Конфиг/текст` — конфигурации и ресурсы.
+- `-` — нет явных верхнеуровневых объявлений.
+- `(неотслеживаемый)` — файл пока не добавлен в git.
+
+## Самые важные файлы и методы
+
+### Отслеживаемые legacy/generated mirrors
+
+- `server/bin/main/com/android/rut/miit/productinventory/Application.kt` - отслеживаемое Git зеркало/копия backend entrypoint, которое выглядит как legacy или сгенерированный файл из старой layout сборки. Это не авторитетный исходник: основной backend entrypoint находится в `server/src/main/kotlin/com/android/rut/miit/productinventory/Application.kt`. Файл упомянут, потому что он присутствует в Git, но поведение проекта нужно объяснять через `server/src/main`.
+- `server/bin/test/com/android/rut/miit/productinventory/ApplicationTest.kt` - отслеживаемое Git зеркало/копия backend smoke test из legacy/generated layout. Это не основная директория тестов: основные backend tests находятся в `server/src/test/kotlin`.
+
+### Backend application services
+
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/application/service/AuthServiceImpl.kt` - центральный сервис авторизации. `register` проверяет уникальность email, нормализует email/name, хеширует пароль через `PasswordEncoder` и вызывает `generateTokens`. `login` ищет пользователя и проверяет BCrypt hash. `refreshToken` валидирует refresh token, запрещает revoked/expired token, отзывает старые refresh tokens пользователя и выдает новую пару. `generateTokens` создает JWT access token через `JwtTokenProvider` и сохраняет refresh token в PostgreSQL.
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/application/service/HouseholdServiceImpl.kt` - сервис домохозяйств. `createHousehold` сохраняет household и сразу делает создателя `OWNER`. `generateInviteCode` доступен только owner и создает 8-символьный код на 7 дней. `joinByInviteCode` проверяет used/expired code, предотвращает дубль membership, создает `MEMBER`, отправляет уведомления другим участникам и публикует `MEMBER_JOINED`. `removeMember` и `leaveHousehold` защищают owner-инварианты.
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/application/service/ProductServiceImpl.kt` - главный сервис инвентаря. `addProduct` проверяет membership, разрешает category/categoryId, сохраняет продукт, публикует `PRODUCT_CREATED`, создает state events, создает notification для участников и сохраняет barcode metadata. `updateProduct` применяет частичный update, публикует `PRODUCT_UPDATED`, `CATEGORY_CHANGED` и transition events. `consumeProduct` валидирует amount, уменьшает `remainingAmount`, публикует `PRODUCT_QUANTITY_CHANGED` и при нуле `PRODUCT_DEPLETED`. `notifyHouseholdMembers` в текущей рабочей области включает actor user, чтобы same-account multi-device получал push.
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/application/service/barcode/BarcodeProductServiceImpl.kt` - новый barcode draft use case. `getProductDraft` проверяет membership, ищет глобальный cache, затем проходит provider chain, создает empty draft при miss и добирает категорию через `CategorySuggestionService`. `CategorySuggestionService.suggestCategory` сначала использует rules, затем GigaChat, затем fallback `OTHER`.
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/application/service/ProductEnrichmentServiceImpl.kt` - обогащение формы продукта. `suggestProduct` передает AI доступные категории, валидирует возвращенную категорию по id/code/name, затем делает rule-based и fallback ветки. Это защищает сценарий добавления от отказа GigaChat.
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/application/service/ReminderServiceImpl.kt` - напоминания. `runDueReminders` и `runHouseholdDueReminders` собирают expiring/low-stock продукты. `createNotificationIfAbsent` применяет user settings, проверяет `dedupeKey`, сохраняет notification и вызывает `sendPush` с backend notification id.
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/application/service/RecommendationServiceImpl.kt` - соединяет продукты household с `IRecipeProvider`. Важен тем, что depleted продукты фильтруются на уровне retrieval/provider логики.
+
+### Backend infrastructure
+
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/infrastructure/security/JwtTokenProvider.kt` - создает и валидирует signed JWT. `generateAccessToken` пишет `subject=userId`, `email`, `issuedAt`, `expiration`. `getUserIdFromToken` достает UUID из subject.
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/infrastructure/security/JwtAuthenticationFilter.kt` - `OncePerRequestFilter`, который извлекает bearer token, валидирует его и кладет `UsernamePasswordAuthenticationToken(userId)` в `SecurityContext`.
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/infrastructure/config/SecurityConfig.kt` - stateless security chain: public `/api/v1/auth/**`, `/health`, `/h2-console/**`, остальные endpoints authenticated.
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/infrastructure/adapter/inbound/realtime/HouseholdEventSseBroadcaster.kt` - держит подписки SSE по household, хранит последние 512 events, replay-ит missed events по `Last-Event-ID`, удаляет dead emitters.
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/infrastructure/adapter/outbound/fcm/FcmNotificationSender.kt` - FCM HTTP v1 sender. Загружает credentials из env/path, получает OAuth token, кеширует access token, отправляет Android high-priority data message с `notificationId`, деактивирует invalid tokens на 400/404.
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/infrastructure/adapter/outbound/recipe/GigaChatRecipeProvider.kt` - recipe provider. `findRecipes` сначала получает ranked documents через `RecipeRetriever`, затем пытается сгенерировать JSON recipe в GigaChat, а при ошибке возвращает deterministic document fallback.
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/infrastructure/adapter/outbound/persistence/adapter/EntityMapper.kt` - граница между JPA entities и domain models. Важно, что доменные модели не зависят от JPA annotations.
+
+### Shared KMP core
+
+- `shared/src/commonMain/kotlin/com/android/rut/miit/productinventory/core/network/HttpClientFactory.kt` - Ktor client с JSON, logging, SSE, bearer auth, refresh-token flow и `ApiException`. `refreshTokens` вызывает `/auth/refresh`, сохраняет новую пару токенов или очищает storage.
+- `shared/src/commonMain/kotlin/com/android/rut/miit/productinventory/common/SharedViewModel.kt` - базовая модель presentation слоя. Она объединяет state, events и one-shot actions для Android Compose и SwiftUI.
+- `shared/src/commonMain/kotlin/com/android/rut/miit/productinventory/common/FlowWatchUtils.kt` - bridge для iOS: подписывает Swift-код на KMP flows и возвращает disposable handle.
+- `shared/src/commonMain/kotlin/com/android/rut/miit/productinventory/feature/products/data/ProductRepositoryImpl.kt` - наиболее сложный shared repository. Он синхронизирует pending actions, работает с remote API, local cache и queue. `syncPendingActions` выполняет действия по времени, `executePendingAction` отправляет add/update/consume/delete, `remapQueuedProductId` заменяет временный local id на server id, `mergeRemoteWithPendingLocal` не дает pending локальным изменениям исчезнуть после remote refresh.
+- `shared/src/commonMain/kotlin/com/android/rut/miit/productinventory/feature/products/presentation/list/ProductListViewModel.kt` - экранный state machine списка продуктов. `observeRealtimeEvents` слушает SSE, `handleRealtimeEvent` применяет create/update/delete или вызывает resync, `updateFilters` пересчитывает видимый список.
+- `shared/src/commonMain/kotlin/com/android/rut/miit/productinventory/feature/products/presentation/add/AddProductViewModel.kt` - state machine добавления/редактирования. Обрабатывает route draft из barcode, validation, category loading, enrichment suggestion и save.
+- `shared/src/commonMain/kotlin/com/android/rut/miit/productinventory/feature/realtime/data/KtorSseRealtimeEventSource.kt` - SSE client с reconnect, missed-event poller и дедупликацией через `RealtimeEventCursor`.
+- `shared/src/commonMain/kotlin/com/android/rut/miit/productinventory/feature/realtime/data/mappers/RealtimeEventMapper.kt` - безопасно маппит server event DTO в sealed `HouseholdRealtimeEvent`; неполные или неизвестные события превращает в `ResyncRequired`.
+
+### Android shell
+
+- `composeApp/src/androidMain/kotlin/com/android/rut/miit/productinventory/App.kt` - корень Compose-приложения. Создает theme, nav controller, validated auth bootstrap, монтирует `AndroidNotificationBootstrap` и описывает typed navigation graph.
+- `composeApp/src/androidMain/kotlin/com/android/rut/miit/productinventory/MainActivity.kt` - Android `Application` запускает Koin, `MainActivity` хостит Compose.
+- `composeApp/src/androidMain/kotlin/com/android/rut/miit/productinventory/data/local/AppDatabase.kt` - Room database с `ProductLocalEntity`, `HouseholdLocalEntity`, `BarcodeEntity`, `PendingSyncActionEntity`, версия 3.
+- `composeApp/src/androidMain/kotlin/com/android/rut/miit/productinventory/di/RoomModule.kt` - создает Room database, DAO-backed adapters и migrations `MIGRATION_1_2`, `MIGRATION_2_3`.
+- `composeApp/src/androidMain/kotlin/com/android/rut/miit/productinventory/ui/notification/AndroidNotificationBootstrap.kt` - текущий root-level notification bootstrap: регистрация FCM token, запрос permission и foreground polling fallback только в `RESUMED`.
+- `shared/src/androidMain/kotlin/com/android/rut/miit/productinventory/core/push/ProductInventoryFirebaseMessagingService.kt` - Android background entry для FCM. `onNewToken` регистрирует token, `onMessageReceived` извлекает title/body/notificationId и показывает локальное уведомление.
+- `shared/src/androidMain/kotlin/com/android/rut/miit/productinventory/core/push/AndroidNotificationPresenter.kt` - helper для notification channel, permission check, показ/дедупликация локальных уведомлений.
+- `composeApp/src/androidMain/kotlin/com/android/rut/miit/productinventory/ui/screen/barcode/BarcodeScannerScreen.kt` - CameraX preview и ML Kit barcode detection, переход в add product по найденному draft.
+
+### iOS shell
+
+- `iosApp/iosApp/iOSApp.swift` - SwiftUI entry point, Koin init, startup session restore и `NavigationStack`.
+- `iosApp/iosApp/DIContainer.swift` - Swift фасад над `KoinHelper`, выдает shared ViewModels и bridge-методы push/session.
+- `iosApp/iosApp/SharedVMHolder.swift` - ObservableObject wrapper для shared ViewModel. Подписывает SwiftUI на KMP state/action и отправляет events обратно.
+- `iosApp/iosApp/AppRouter.swift` - root route и navigation path; также содержит `ProductDraftInput` для перехода из barcode в add product.
+- `iosApp/iosApp/PushNotificationBridge.swift` - iOS push bridge между APNs/FCM token и shared registrar.
+- `iosApp/iosApp/Screens/*.swift` - нативные SwiftUI экраны, которые используют shared ViewModels и сохраняют iOS UX без дублирования бизнес-логики.
+
+
+## Корень проекта
+
+- `.gitignore` — Конфиг/текст; Без явных верхнеуровневых объявлений;
+- `build.gradle.kts` — Kotlin; Без явных верхнеуровневых объявлений;
+- `gradle.properties` — Конфиг/текст; Без явных верхнеуровневых объявлений;
+- `gradlew` — Ресурс/другое; Без явных верхнеуровневых объявлений;
+- `gradlew.bat` — Конфиг/текст; Без явных верхнеуровневых объявлений;
+- `settings.gradle.kts` — Kotlin; Без явных верхнеуровневых объявлений;
+
+## composeApp
+
+- `composeApp/build.gradle.kts` — Kotlin; Без явных верхнеуровневых объявлений;
+- `composeApp/src/androidMain/AndroidManifest.xml` — XML; Без явных верхнеуровневых объявлений;
+- `composeApp/src/androidMain/composeResources/drawable/compose-multiplatform.xml` — XML; Без явных верхнеуровневых объявлений;
+- `composeApp/src/androidMain/kotlin/com/android/rut/miit/productinventory/App.kt` — Kotlin; Ключевые сущности: App BarcodeProductDraft AuthBootstrapScreen;
+- `composeApp/src/androidMain/kotlin/com/android/rut/miit/productinventory/data/local/adapter/RoomBarcodeLocalDataSource.kt` — Kotlin; Ключевые сущности: RoomBarcodeLocalDataSource;
+- `composeApp/src/androidMain/kotlin/com/android/rut/miit/productinventory/data/local/adapter/RoomHouseholdLocalDataSource.kt` — Kotlin; Ключевые сущности: RoomHouseholdLocalDataSource;
+- `composeApp/src/androidMain/kotlin/com/android/rut/miit/productinventory/data/local/adapter/RoomProductLocalDataSource.kt` — Kotlin; Ключевые сущности: RoomProductLocalDataSource;
+- `composeApp/src/androidMain/kotlin/com/android/rut/miit/productinventory/data/local/adapter/RoomSyncQueue.kt` — Kotlin; Ключевые сущности: RoomSyncQueue;
+- `composeApp/src/androidMain/kotlin/com/android/rut/miit/productinventory/data/local/AppDatabase.kt` — Kotlin; Ключевые сущности: AppDatabase;
+- `composeApp/src/androidMain/kotlin/com/android/rut/miit/productinventory/data/local/dao/BarcodeDao.kt` — Kotlin; Ключевые сущности: BarcodeDao;
+- `composeApp/src/androidMain/kotlin/com/android/rut/miit/productinventory/data/local/dao/HouseholdDao.kt` — Kotlin; Ключевые сущности: HouseholdDao;
+- `composeApp/src/androidMain/kotlin/com/android/rut/miit/productinventory/data/local/dao/ProductDao.kt` — Kotlin; Ключевые сущности: ProductDao;
+- `composeApp/src/androidMain/kotlin/com/android/rut/miit/productinventory/data/local/dao/SyncDao.kt` — Kotlin; Ключевые сущности: SyncDao;
+- `composeApp/src/androidMain/kotlin/com/android/rut/miit/productinventory/data/local/entity/BarcodeEntity.kt` — Kotlin; Ключевые сущности: BarcodeEntity;
+- `composeApp/src/androidMain/kotlin/com/android/rut/miit/productinventory/data/local/entity/HouseholdLocalEntity.kt` — Kotlin; Ключевые сущности: HouseholdLocalEntity;
+- `composeApp/src/androidMain/kotlin/com/android/rut/miit/productinventory/data/local/entity/PendingSyncActionEntity.kt` — Kotlin; Ключевые сущности: PendingSyncActionEntity;
+- `composeApp/src/androidMain/kotlin/com/android/rut/miit/productinventory/data/local/entity/ProductLocalEntity.kt` — Kotlin; Ключевые сущности: ProductLocalEntity;
+- `composeApp/src/androidMain/kotlin/com/android/rut/miit/productinventory/di/RoomModule.kt` — Kotlin; Ключевые сущности: roomModule MIGRATION_1_2 MIGRATION_2_3 SupportSQLiteDatabase;
+- `composeApp/src/androidMain/kotlin/com/android/rut/miit/productinventory/MainActivity.kt` — Kotlin; Ключевые сущности: ProductInventoryApp MainActivity;
+- `composeApp/src/androidMain/kotlin/com/android/rut/miit/productinventory/navigation/Routes.kt` — Kotlin; Ключевые сущности: Route;
+- `composeApp/src/androidMain/kotlin/com/android/rut/miit/productinventory/ui/design/ProductInventoryDesign.kt` — Kotlin; Ключевые сущности: LightColors DarkColors ProductInventoryTheme ScreenLoading ScreenMessage ScreenError SectionCard UiTone StatusPill DestructiveTextButton;
+- `composeApp/src/androidMain/kotlin/com/android/rut/miit/productinventory/ui/notification/AndroidNotificationBootstrap.kt` — Kotlin (неотслеживаемый); Ключевые сущности: AndroidNotificationBootstrap NOTIFICATION_SYNC_INTERVAL;
+- `composeApp/src/androidMain/kotlin/com/android/rut/miit/productinventory/ui/screen/auth/LoginScreen.kt` — Kotlin; Ключевые сущности: LoginScreen LoginContent;
+- `composeApp/src/androidMain/kotlin/com/android/rut/miit/productinventory/ui/screen/auth/RegisterScreen.kt` — Kotlin; Ключевые сущности: RegisterScreen RegisterContent;
+- `composeApp/src/androidMain/kotlin/com/android/rut/miit/productinventory/ui/screen/barcode/BarcodeScannerScreen.kt` — Kotlin; Ключевые сущности: BarcodeScannerScreen CameraPreview;
+- `composeApp/src/androidMain/kotlin/com/android/rut/miit/productinventory/ui/screen/household/HouseholdListScreen.kt` — Kotlin; Ключевые сущности: HouseholdListScreen HouseholdCard InviteCodeDialogState;
+- `composeApp/src/androidMain/kotlin/com/android/rut/miit/productinventory/ui/screen/notifications/NotificationListScreen.kt` — Kotlin; Ключевые сущности: NotificationListScreen NotificationSettingsCard NotificationSwitchRow ExpirationDaysRow NotificationCard;
+- `composeApp/src/androidMain/kotlin/com/android/rut/miit/productinventory/ui/screen/products/AddProductScreen.kt` — Kotlin; Ключевые сущности: AddProductScreen categoryOptionDisplayName categoryDisplayName unitDisplayName;
+- `composeApp/src/androidMain/kotlin/com/android/rut/miit/productinventory/ui/screen/products/CategoryManagementScreen.kt` — Kotlin; Ключевые сущности: CategoryManagementScreen NewCategoryCard CategoryRow categoryDisplayName;
+- `composeApp/src/androidMain/kotlin/com/android/rut/miit/productinventory/ui/screen/products/ProductListScreen.kt` — Kotlin; Ключевые сущности: ProductListScreen ProductQuickActions ProductFilters ProductCard categoryOptionDisplayName productCategoryDisplayName categoryDisplayName inventoryFilterName expirationStatusLabel expirationStatusTone unitShortName;
+- `composeApp/src/androidMain/kotlin/com/android/rut/miit/productinventory/ui/screen/profile/ProfileScreen.kt` — Kotlin; Ключевые сущности: ProfileScreen;
+- `composeApp/src/androidMain/kotlin/com/android/rut/miit/productinventory/ui/screen/recipes/RecipeListScreen.kt` — Kotlin; Ключевые сущности: RecipeListScreen RecipeCard;
+- `composeApp/src/androidMain/res/drawable-v24/ic_launcher_foreground.xml` — XML; Без явных верхнеуровневых объявлений;
+- `composeApp/src/androidMain/res/drawable/ic_launcher_background.xml` — XML; Без явных верхнеуровневых объявлений;
+- `composeApp/src/androidMain/res/mipmap-anydpi-v26/ic_launcher_round.xml` — XML; Без явных верхнеуровневых объявлений;
+- `composeApp/src/androidMain/res/mipmap-anydpi-v26/ic_launcher.xml` — XML; Без явных верхнеуровневых объявлений;
+- `composeApp/src/androidMain/res/mipmap-hdpi/ic_launcher_round.png` — Конфиг/текст; Без явных верхнеуровневых объявлений;
+- `composeApp/src/androidMain/res/mipmap-hdpi/ic_launcher.png` — Конфиг/текст; Без явных верхнеуровневых объявлений;
+- `composeApp/src/androidMain/res/mipmap-mdpi/ic_launcher_round.png` — Конфиг/текст; Без явных верхнеуровневых объявлений;
+- `composeApp/src/androidMain/res/mipmap-mdpi/ic_launcher.png` — Конфиг/текст; Без явных верхнеуровневых объявлений;
+- `composeApp/src/androidMain/res/mipmap-xhdpi/ic_launcher_round.png` — Конфиг/текст; Без явных верхнеуровневых объявлений;
+- `composeApp/src/androidMain/res/mipmap-xhdpi/ic_launcher.png` — Конфиг/текст; Без явных верхнеуровневых объявлений;
+- `composeApp/src/androidMain/res/mipmap-xxhdpi/ic_launcher_round.png` — Конфиг/текст; Без явных верхнеуровневых объявлений;
+- `composeApp/src/androidMain/res/mipmap-xxhdpi/ic_launcher.png` — Конфиг/текст; Без явных верхнеуровневых объявлений;
+- `composeApp/src/androidMain/res/mipmap-xxxhdpi/ic_launcher_round.png` — Конфиг/текст; Без явных верхнеуровневых объявлений;
+- `composeApp/src/androidMain/res/mipmap-xxxhdpi/ic_launcher.png` — Конфиг/текст; Без явных верхнеуровневых объявлений;
+- `composeApp/src/androidMain/res/values/strings.xml` — XML; Без явных верхнеуровневых объявлений;
+- `composeApp/src/androidMain/res/xml/network_security_config.xml` — XML; Без явных верхнеуровневых объявлений;
+- `composeApp/src/androidUnitTest/kotlin/com/android/rut/miit/productinventory/ComposeAppAndroidUnitTest.kt` — Kotlin; Ключевые сущности: ComposeAppAndroidUnitTest;
+- `composeApp/src/androidUnitTest/kotlin/com/android/rut/miit/productinventory/data/local/AppDatabaseMigrationTest.kt` — Kotlin; Ключевые сущности: AppDatabaseMigrationTest;
+- `composeApp/src/androidUnitTest/kotlin/com/android/rut/miit/productinventory/ui/notification/AndroidNotificationBootstrapTest.kt` — Kotlin (неотслеживаемый); Ключевые сущности: AndroidNotificationBootstrapTest;
+- `composeApp/src/androidUnitTest/kotlin/com/android/rut/miit/productinventory/ui/notification/AndroidNotificationPresenterTest.kt` — Kotlin (неотслеживаемый); Ключевые сущности: AndroidNotificationPresenterTest;
+- `composeApp/src/androidUnitTest/kotlin/com/android/rut/miit/productinventory/ui/screen/PlatformScreenSmokeTest.kt` — Kotlin; Ключевые сущности: PlatformScreenSmokeTest;
+- `composeApp/src/debug/res/xml/network_security_config.xml` — XML; Без явных верхнеуровневых объявлений;
+
+## iosApp
+
+- `iosApp/Configuration/Config.xcconfig` — Ресурс/другое; Без явных верхнеуровневых объявлений;
+- `iosApp/iosApp.xcodeproj/project.pbxproj` — Ресурс/другое; Без явных верхнеуровневых объявлений;
+- `iosApp/iosApp.xcodeproj/project.xcworkspace/contents.xcworkspacedata` — Ресурс/другое; Без явных верхнеуровневых объявлений;
+- `iosApp/iosApp.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved` — Ресурс/другое; Без явных верхнеуровневых объявлений;
+- `iosApp/iosApp.xcodeproj/xcshareddata/xcschemes/iosApp.xcscheme` — Ресурс/другое; Без явных верхнеуровневых объявлений;
+- `iosApp/iosApp/AppDelegate.swift` — Swift; Ключевые сущности: AppDelegate;
+- `iosApp/iosApp/AppRouter.swift` — Swift; Ключевые сущности: ProductDraftInput AppRoute AppRouter;
+- `iosApp/iosApp/Assets.xcassets/AccentColor.colorset/Contents.json` — Конфиг/текст; Без явных верхнеуровневых объявлений;
+- `iosApp/iosApp/Assets.xcassets/AppIcon.appiconset/Contents.json` — Конфиг/текст; Без явных верхнеуровневых объявлений;
+- `iosApp/iosApp/Assets.xcassets/Contents.json` — Конфиг/текст; Без явных верхнеуровневых объявлений;
+- `iosApp/iosApp/DIContainer.swift` — Swift; Ключевые сущности: DIContainer;
+- `iosApp/iosApp/Info.plist` — Конфиг/текст; Без явных верхнеуровневых объявлений;
+- `iosApp/iosApp/iosApp.entitlements` — Конфиг/текст; Без явных верхнеуровневых объявлений;
+- `iosApp/iosApp/iOSApp.swift` — Swift; Ключевые сущности: iOSApp RootView ProcessInfo;
+- `iosApp/iosApp/IOSRuntimeSmokeCoordinator.swift` — Swift; Ключевые сущности: IOSRuntimeSmokeCoordinator;
+- `iosApp/iosApp/Preview Content/Preview Assets.xcassets/Contents.json` — Конфиг/текст; Без явных верхнеуровневых объявлений;
+- `iosApp/iosApp/ProductInventoryDesign.swift` — Swift; Ключевые сущности: InventoryTone InventoryEmptyState InventoryStatusBadge InventoryFloatingButton;
+- `iosApp/iosApp/PushNotificationBridge.swift` — Swift; Ключевые сущности: PushNotificationBridge;
+- `iosApp/iosApp/Screens/AddProductScreen.swift` — Swift; Ключевые сущности: AddProductScreen;
+- `iosApp/iosApp/Screens/BarcodeCameraModel.swift` — Swift; Ключевые сущности: CameraAuthorizationState BarcodeCameraModel BarcodeCameraPreview PreviewView;
+- `iosApp/iosApp/Screens/BarcodeScannerScreen.swift` — Swift; Ключевые сущности: BarcodeScannerScreen DraftFoundView ProductFoundView ManualBarcodeView;
+- `iosApp/iosApp/Screens/CategoryManagementScreen.swift` — Swift; Ключевые сущности: CategoryManagementScreen CustomCategoryRow;
+- `iosApp/iosApp/Screens/HouseholdListScreen.swift` — Swift; Ключевые сущности: HouseholdListScreen InviteCodeDialogState;
+- `iosApp/iosApp/Screens/LoginScreen.swift` — Swift; Ключевые сущности: LoginScreen;
+- `iosApp/iosApp/Screens/NotificationListScreen.swift` — Swift; Ключевые сущности: NotificationListScreen NotificationSettingsSection NotificationRow;
+- `iosApp/iosApp/Screens/ProductListScreen.swift` — Swift; Ключевые сущности: ProductListScreen ProductRow ProductFilters categoryDisplayName;
+- `iosApp/iosApp/Screens/ProfileScreen.swift` — Swift; Ключевые сущности: ProfileScreen;
+- `iosApp/iosApp/Screens/RecipeListScreen.swift` — Swift; Ключевые сущности: RecipeListScreen RecipeRow Recipe;
+- `iosApp/iosApp/Screens/RegisterScreen.swift` — Swift; Ключевые сущности: RegisterScreen;
+- `iosApp/iosApp/SharedVMHolder.swift` — Swift; Ключевые сущности: SharedVMHolder;
+- `iosApp/iosAppUITests/ProductInventoryUITests.swift` — Swift; Ключевые сущности: ProductInventoryUITests;
+
+## shared
+
+- `shared/build.gradle.kts` — Kotlin; Без явных верхнеуровневых объявлений;
+- `shared/src/androidMain/AndroidManifest.xml` — XML; Без явных верхнеуровневых объявлений;
+- `shared/src/androidMain/kotlin/com/android/rut/miit/productinventory/core/di/LocalDataSourceModule.android.kt` — Kotlin; Без явных верхнеуровневых объявлений;
+- `shared/src/androidMain/kotlin/com/android/rut/miit/productinventory/core/di/PlatformModule.android.kt` — Kotlin; Без явных верхнеуровневых объявлений;
+- `shared/src/androidMain/kotlin/com/android/rut/miit/productinventory/core/network/ApiBaseUrl.android.kt` — Kotlin; Без явных верхнеуровневых объявлений;
+- `shared/src/androidMain/kotlin/com/android/rut/miit/productinventory/core/push/AndroidFirebaseDeviceTokenRegistrar.kt` — Kotlin; Ключевые сущности: AndroidFirebaseDeviceTokenRegistrar RegisterDeviceTokenRequestDto;
+- `shared/src/androidMain/kotlin/com/android/rut/miit/productinventory/core/push/AndroidNotificationPresenter.kt` — Kotlin (неотслеживаемый); Ключевые сущности: Context Context Context Context PRODUCT_REMINDER_NOTIFICATION_CHANNEL_ID PRODUCT_REMINDER_NOTIFICATION_CHANNEL_NAME SHOWN_NOTIFICATIONS_PREFERENCES SHOWN_NOTIFICATION_IDS_KEY;
+- `shared/src/androidMain/kotlin/com/android/rut/miit/productinventory/core/push/ProductInventoryFirebaseMessagingService.kt` — Kotlin; Ключевые сущности: ProductInventoryFirebaseMessagingService;
+- `shared/src/androidMain/kotlin/com/android/rut/miit/productinventory/core/storage/DataStoreTokenStorage.kt` — Kotlin; Ключевые сущности: Context DataStoreTokenStorage;
+- `shared/src/androidMain/kotlin/com/android/rut/miit/productinventory/Platform.android.kt` — Kotlin; Ключевые сущности: AndroidPlatform;
+- `shared/src/commonMain/kotlin/com/android/rut/miit/productinventory/common/FlowWatchUtils.kt` — Kotlin; Без явных верхнеуровневых объявлений;
+- `shared/src/commonMain/kotlin/com/android/rut/miit/productinventory/common/SharedViewModel.kt` — Kotlin; Ключевые сущности: SharedViewModel;
+- `shared/src/commonMain/kotlin/com/android/rut/miit/productinventory/common/UiState.kt` — Kotlin; Ключевые сущности: UiState UiEvent UiAction;
+- `shared/src/commonMain/kotlin/com/android/rut/miit/productinventory/Constants.kt` — Kotlin; Ключевые сущности: SERVER_PORT;
+- `shared/src/commonMain/kotlin/com/android/rut/miit/productinventory/core/di/AppModules.kt` — Kotlin; Ключевые сущности: appModules;
+- `shared/src/commonMain/kotlin/com/android/rut/miit/productinventory/core/di/CoreModule.kt` — Kotlin; Ключевые сущности: coreModule;
+- `shared/src/commonMain/kotlin/com/android/rut/miit/productinventory/core/di/LocalDataSourceModule.kt` — Kotlin; Без явных верхнеуровневых объявлений;
+- `shared/src/commonMain/kotlin/com/android/rut/miit/productinventory/core/di/PlatformModule.kt` — Kotlin; Без явных верхнеуровневых объявлений;
+- `shared/src/commonMain/kotlin/com/android/rut/miit/productinventory/core/local/BarcodeLocalDataSource.kt` — Kotlin; Ключевые сущности: CachedBarcodeProduct BarcodeLocalDataSource;
+- `shared/src/commonMain/kotlin/com/android/rut/miit/productinventory/core/local/HouseholdLocalDataSource.kt` — Kotlin; Ключевые сущности: HouseholdLocalDataSource;
+- `shared/src/commonMain/kotlin/com/android/rut/miit/productinventory/core/local/PersistentBarcodeLocalDataSource.kt` — Kotlin; Ключевые сущности: PersistentBarcodeLocalDataSource BarcodeCache BarcodeRecord;
+- `shared/src/commonMain/kotlin/com/android/rut/miit/productinventory/core/local/PersistentHouseholdLocalDataSource.kt` — Kotlin; Ключевые сущности: PersistentHouseholdLocalDataSource HouseholdCache HouseholdRecord;
+- `shared/src/commonMain/kotlin/com/android/rut/miit/productinventory/core/local/PersistentKeyValueStore.kt` — Kotlin; Ключевые сущности: PersistentKeyValueStore;
+- `shared/src/commonMain/kotlin/com/android/rut/miit/productinventory/core/local/PersistentLocalJson.kt` — Kotlin; Ключевые сущности: persistentLocalJson;
+- `shared/src/commonMain/kotlin/com/android/rut/miit/productinventory/core/local/PersistentProductLocalDataSource.kt` — Kotlin; Ключевые сущности: PersistentProductLocalDataSource ProductCache ProductRecord;
+- `shared/src/commonMain/kotlin/com/android/rut/miit/productinventory/core/local/PersistentSyncQueue.kt` — Kotlin; Ключевые сущности: PersistentSyncQueue SyncQueueCache;
+- `shared/src/commonMain/kotlin/com/android/rut/miit/productinventory/core/local/ProductLocalDataSource.kt` — Kotlin; Ключевые сущности: ProductLocalDataSource;
+- `shared/src/commonMain/kotlin/com/android/rut/miit/productinventory/core/local/SyncQueue.kt` — Kotlin; Ключевые сущности: PendingSyncAction SyncActionType SyncQueue;
+- `shared/src/commonMain/kotlin/com/android/rut/miit/productinventory/core/network/ApiConstants.kt` — Kotlin; Ключевые сущности: ApiConstants;
+- `shared/src/commonMain/kotlin/com/android/rut/miit/productinventory/core/network/HttpClientFactory.kt` — Kotlin; Ключевые сущности: HttpClientFactory ApiException ErrorResponseDto TokenRefreshResponse;
+- `shared/src/commonMain/kotlin/com/android/rut/miit/productinventory/core/network/NetworkResult.kt` — Kotlin; Ключевые сущности: NetworkResult;
+- `shared/src/commonMain/kotlin/com/android/rut/miit/productinventory/core/push/DeviceTokenRegistrar.kt` — Kotlin; Ключевые сущности: DeviceTokenRegistrar NoOpDeviceTokenRegistrar;
+- `shared/src/commonMain/kotlin/com/android/rut/miit/productinventory/core/storage/InMemoryTokenStorage.kt` — Kotlin; Ключевые сущности: InMemoryTokenStorage;
+- `shared/src/commonMain/kotlin/com/android/rut/miit/productinventory/core/storage/TokenStorage.kt` — Kotlin; Ключевые сущности: TokenStorage;
+- `shared/src/commonMain/kotlin/com/android/rut/miit/productinventory/feature/auth/api/AuthRepository.kt` — Kotlin; Ключевые сущности: AuthRepository;
+- `shared/src/commonMain/kotlin/com/android/rut/miit/productinventory/feature/auth/api/LoginUseCase.kt` — Kotlin; Ключевые сущности: LoginUseCase;
+- `shared/src/commonMain/kotlin/com/android/rut/miit/productinventory/feature/auth/api/models/AuthToken.kt` — Kotlin; Ключевые сущности: AuthToken;
+- `shared/src/commonMain/kotlin/com/android/rut/miit/productinventory/feature/auth/api/RegisterUseCase.kt` — Kotlin; Ключевые сущности: RegisterUseCase;
+- `shared/src/commonMain/kotlin/com/android/rut/miit/productinventory/feature/auth/api/RestoreSessionUseCase.kt` — Kotlin; Ключевые сущности: RestoreSessionUseCase;
+- `shared/src/commonMain/kotlin/com/android/rut/miit/productinventory/feature/auth/data/AuthRemoteDataSource.kt` — Kotlin; Ключевые сущности: AuthRemoteDataSource;
+- `shared/src/commonMain/kotlin/com/android/rut/miit/productinventory/feature/auth/data/AuthRepositoryImpl.kt` — Kotlin; Ключевые сущности: AuthRepositoryImpl;
+- `shared/src/commonMain/kotlin/com/android/rut/miit/productinventory/feature/auth/data/mappers/AuthMapper.kt` — Kotlin; Ключевые сущности: AuthResponseDto;
+- `shared/src/commonMain/kotlin/com/android/rut/miit/productinventory/feature/auth/data/models/AuthDto.kt` — Kotlin; Ключевые сущности: RegisterRequestDto LoginRequestDto AuthResponseDto;
+- `shared/src/commonMain/kotlin/com/android/rut/miit/productinventory/feature/auth/di/AuthModule.kt` — Kotlin; Ключевые сущности: authModule;
+- `shared/src/commonMain/kotlin/com/android/rut/miit/productinventory/feature/auth/presentation/login/LoginAction.kt` — Kotlin; Ключевые сущности: LoginAction;
+- `shared/src/commonMain/kotlin/com/android/rut/miit/productinventory/feature/auth/presentation/login/LoginEvent.kt` — Kotlin; Ключевые сущности: LoginEvent;
+- `shared/src/commonMain/kotlin/com/android/rut/miit/productinventory/feature/auth/presentation/login/LoginState.kt` — Kotlin; Ключевые сущности: LoginState;
+- `shared/src/commonMain/kotlin/com/android/rut/miit/productinventory/feature/auth/presentation/login/LoginViewModel.kt` — Kotlin; Ключевые сущности: LoginViewModel;
+- `shared/src/commonMain/kotlin/com/android/rut/miit/productinventory/feature/auth/presentation/register/RegisterAction.kt` — Kotlin; Ключевые сущности: RegisterAction;
+- `shared/src/commonMain/kotlin/com/android/rut/miit/productinventory/feature/auth/presentation/register/RegisterEvent.kt` — Kotlin; Ключевые сущности: RegisterEvent;
+- `shared/src/commonMain/kotlin/com/android/rut/miit/productinventory/feature/auth/presentation/register/RegisterState.kt` — Kotlin; Ключевые сущности: RegisterState;
+- `shared/src/commonMain/kotlin/com/android/rut/miit/productinventory/feature/auth/presentation/register/RegisterViewModel.kt` — Kotlin; Ключевые сущности: RegisterViewModel;
+- `shared/src/commonMain/kotlin/com/android/rut/miit/productinventory/feature/barcode/api/AddBarcodeProductUseCase.kt` — Kotlin; Ключевые сущности: AddBarcodeProductUseCase;
+- `shared/src/commonMain/kotlin/com/android/rut/miit/productinventory/feature/barcode/api/BarcodeRepository.kt` — Kotlin; Ключевые сущности: BarcodeRepository BarcodeLookupResult BarcodeAddProductResult BarcodeResult;
+- `shared/src/commonMain/kotlin/com/android/rut/miit/productinventory/feature/barcode/api/LookupBarcodeUseCase.kt` — Kotlin; Ключевые сущности: LookupBarcodeUseCase;
+- `shared/src/commonMain/kotlin/com/android/rut/miit/productinventory/feature/barcode/api/models/BarcodeProduct.kt` — Kotlin; Ключевые сущности: BarcodeProductDraft BarcodeRequest BarcodeProductDraftResponseDto BarcodeProductSource BarcodeNotFoundResponse;
+- `shared/src/commonMain/kotlin/com/android/rut/miit/productinventory/feature/barcode/api/ScanBarcodeUseCase.kt` — Kotlin; Ключевые сущности: ScanBarcodeUseCase;
+- `shared/src/commonMain/kotlin/com/android/rut/miit/productinventory/feature/barcode/data/BarcodeRemoteDataSource.kt` — Kotlin; Ключевые сущности: BarcodeRemoteDataSource;
+- `shared/src/commonMain/kotlin/com/android/rut/miit/productinventory/feature/barcode/data/BarcodeRepositoryImpl.kt` — Kotlin; Ключевые сущности: BarcodeRepositoryImpl;
+- `shared/src/commonMain/kotlin/com/android/rut/miit/productinventory/feature/barcode/data/mappers/BarcodeMapper.kt` — Kotlin; Ключевые сущности: BarcodeProductDraftResponseDto String String String;
+- `shared/src/commonMain/kotlin/com/android/rut/miit/productinventory/feature/barcode/di/BarcodeModule.kt` — Kotlin; Ключевые сущности: barcodeModule;
+- `shared/src/commonMain/kotlin/com/android/rut/miit/productinventory/feature/barcode/presentation/BarcodeScanAction.kt` — Kotlin; Ключевые сущности: BarcodeScanAction;
+- `shared/src/commonMain/kotlin/com/android/rut/miit/productinventory/feature/barcode/presentation/BarcodeScanEvent.kt` — Kotlin; Ключевые сущности: BarcodeScanEvent;
+- `shared/src/commonMain/kotlin/com/android/rut/miit/productinventory/feature/barcode/presentation/BarcodeScanState.kt` — Kotlin; Ключевые сущности: BarcodeScanState;
+- `shared/src/commonMain/kotlin/com/android/rut/miit/productinventory/feature/barcode/presentation/BarcodeScanViewModel.kt` — Kotlin; Ключевые сущности: BarcodeScanViewModel;
+- `shared/src/commonMain/kotlin/com/android/rut/miit/productinventory/feature/household/api/CreateHouseholdUseCase.kt` — Kotlin; Ключевые сущности: CreateHouseholdUseCase;
+- `shared/src/commonMain/kotlin/com/android/rut/miit/productinventory/feature/household/api/GenerateInviteCodeUseCase.kt` — Kotlin; Ключевые сущности: GenerateInviteCodeUseCase;
+- `shared/src/commonMain/kotlin/com/android/rut/miit/productinventory/feature/household/api/GetHouseholdsUseCase.kt` — Kotlin; Ключевые сущности: GetHouseholdsUseCase;
+- `shared/src/commonMain/kotlin/com/android/rut/miit/productinventory/feature/household/api/GetMembersUseCase.kt` — Kotlin; Ключевые сущности: GetMembersUseCase;
+- `shared/src/commonMain/kotlin/com/android/rut/miit/productinventory/feature/household/api/HouseholdRepository.kt` — Kotlin; Ключевые сущности: HouseholdRepository;
+- `shared/src/commonMain/kotlin/com/android/rut/miit/productinventory/feature/household/api/JoinHouseholdUseCase.kt` — Kotlin; Ключевые сущности: JoinHouseholdUseCase;
+- `shared/src/commonMain/kotlin/com/android/rut/miit/productinventory/feature/household/api/models/Household.kt` — Kotlin; Ключевые сущности: Household Member MemberRole InviteCode;
+- `shared/src/commonMain/kotlin/com/android/rut/miit/productinventory/feature/household/data/HouseholdRemoteDataSource.kt` — Kotlin; Ключевые сущности: HouseholdRemoteDataSource;
+- `shared/src/commonMain/kotlin/com/android/rut/miit/productinventory/feature/household/data/HouseholdRepositoryImpl.kt` — Kotlin; Ключевые сущности: HouseholdRepositoryImpl;
+- `shared/src/commonMain/kotlin/com/android/rut/miit/productinventory/feature/household/data/mappers/HouseholdMapper.kt` — Kotlin; Ключевые сущности: HouseholdResponseDto MemberResponseDto InviteCodeResponseDto;
+- `shared/src/commonMain/kotlin/com/android/rut/miit/productinventory/feature/household/data/models/HouseholdDto.kt` — Kotlin; Ключевые сущности: HouseholdResponseDto MemberResponseDto InviteCodeResponseDto CreateHouseholdRequestDto JoinHouseholdRequestDto;
+- `shared/src/commonMain/kotlin/com/android/rut/miit/productinventory/feature/household/di/HouseholdModule.kt` — Kotlin; Ключевые сущности: householdModule;
+- `shared/src/commonMain/kotlin/com/android/rut/miit/productinventory/feature/household/presentation/list/HouseholdListAction.kt` — Kotlin; Ключевые сущности: HouseholdListAction;
+- `shared/src/commonMain/kotlin/com/android/rut/miit/productinventory/feature/household/presentation/list/HouseholdListEvent.kt` — Kotlin; Ключевые сущности: HouseholdListEvent;
+- `shared/src/commonMain/kotlin/com/android/rut/miit/productinventory/feature/household/presentation/list/HouseholdListState.kt` — Kotlin; Ключевые сущности: HouseholdListState;
+- `shared/src/commonMain/kotlin/com/android/rut/miit/productinventory/feature/household/presentation/list/HouseholdListViewModel.kt` — Kotlin; Ключевые сущности: HouseholdListViewModel;
+- `shared/src/commonMain/kotlin/com/android/rut/miit/productinventory/feature/notifications/api/GetNotificationSettingsUseCase.kt` — Kotlin; Ключевые сущности: GetNotificationSettingsUseCase;
+- `shared/src/commonMain/kotlin/com/android/rut/miit/productinventory/feature/notifications/api/GetNotificationsUseCase.kt` — Kotlin; Ключевые сущности: GetNotificationsUseCase;
+- `shared/src/commonMain/kotlin/com/android/rut/miit/productinventory/feature/notifications/api/MarkAllReadUseCase.kt` — Kotlin; Ключевые сущности: MarkAllReadUseCase;
+- `shared/src/commonMain/kotlin/com/android/rut/miit/productinventory/feature/notifications/api/MarkNotificationReadUseCase.kt` — Kotlin; Ключевые сущности: MarkNotificationReadUseCase;
+- `shared/src/commonMain/kotlin/com/android/rut/miit/productinventory/feature/notifications/api/models/Notification.kt` — Kotlin; Ключевые сущности: Notification;
+- `shared/src/commonMain/kotlin/com/android/rut/miit/productinventory/feature/notifications/api/models/NotificationSettings.kt` — Kotlin; Ключевые сущности: NotificationSettings;
+- `shared/src/commonMain/kotlin/com/android/rut/miit/productinventory/feature/notifications/api/NotificationRepository.kt` — Kotlin; Ключевые сущности: NotificationRepository;
+- `shared/src/commonMain/kotlin/com/android/rut/miit/productinventory/feature/notifications/api/UpdateNotificationSettingsUseCase.kt` — Kotlin; Ключевые сущности: UpdateNotificationSettingsUseCase;
+- `shared/src/commonMain/kotlin/com/android/rut/miit/productinventory/feature/notifications/data/mappers/NotificationMapper.kt` — Kotlin; Ключевые сущности: NotificationResponseDto NotificationSettingsResponseDto;
+- `shared/src/commonMain/kotlin/com/android/rut/miit/productinventory/feature/notifications/data/models/NotificationDto.kt` — Kotlin; Ключевые сущности: NotificationResponseDto NotificationSettingsResponseDto UpdateNotificationSettingsRequestDto;
+- `shared/src/commonMain/kotlin/com/android/rut/miit/productinventory/feature/notifications/data/NotificationRemoteDataSource.kt` — Kotlin; Ключевые сущности: NotificationRemoteDataSource;
+- `shared/src/commonMain/kotlin/com/android/rut/miit/productinventory/feature/notifications/data/NotificationRepositoryImpl.kt` — Kotlin; Ключевые сущности: NotificationRepositoryImpl;
+- `shared/src/commonMain/kotlin/com/android/rut/miit/productinventory/feature/notifications/di/NotificationsModule.kt` — Kotlin; Ключевые сущности: notificationsModule;
+- `shared/src/commonMain/kotlin/com/android/rut/miit/productinventory/feature/notifications/presentation/NotificationListAction.kt` — Kotlin; Ключевые сущности: NotificationListAction;
+- `shared/src/commonMain/kotlin/com/android/rut/miit/productinventory/feature/notifications/presentation/NotificationListEvent.kt` — Kotlin; Ключевые сущности: NotificationListEvent;
+- `shared/src/commonMain/kotlin/com/android/rut/miit/productinventory/feature/notifications/presentation/NotificationListState.kt` — Kotlin; Ключевые сущности: NotificationListState;
+- `shared/src/commonMain/kotlin/com/android/rut/miit/productinventory/feature/notifications/presentation/NotificationListViewModel.kt` — Kotlin; Ключевые сущности: NotificationListViewModel;
+- `shared/src/commonMain/kotlin/com/android/rut/miit/productinventory/feature/products/api/AddProductUseCase.kt` — Kotlin; Ключевые сущности: AddProductUseCase;
+- `shared/src/commonMain/kotlin/com/android/rut/miit/productinventory/feature/products/api/ApplyRealtimeProductEventUseCase.kt` — Kotlin; Ключевые сущности: ApplyRealtimeProductEventUseCase;
+- `shared/src/commonMain/kotlin/com/android/rut/miit/productinventory/feature/products/api/ArchiveProductCategoryUseCase.kt` — Kotlin; Ключевые сущности: ArchiveProductCategoryUseCase;
+- `shared/src/commonMain/kotlin/com/android/rut/miit/productinventory/feature/products/api/CategoryRepository.kt` — Kotlin; Ключевые сущности: CategoryRepository;
+- `shared/src/commonMain/kotlin/com/android/rut/miit/productinventory/feature/products/api/ConsumeProductUseCase.kt` — Kotlin; Ключевые сущности: ConsumeProductUseCase;
+- `shared/src/commonMain/kotlin/com/android/rut/miit/productinventory/feature/products/api/CreateProductCategoryUseCase.kt` — Kotlin; Ключевые сущности: CreateProductCategoryUseCase;
+- `shared/src/commonMain/kotlin/com/android/rut/miit/productinventory/feature/products/api/DeleteProductUseCase.kt` — Kotlin; Ключевые сущности: DeleteProductUseCase;
+- `shared/src/commonMain/kotlin/com/android/rut/miit/productinventory/feature/products/api/GetProductCategoriesUseCase.kt` — Kotlin; Ключевые сущности: GetProductCategoriesUseCase;
+- `shared/src/commonMain/kotlin/com/android/rut/miit/productinventory/feature/products/api/GetProductsUseCase.kt` — Kotlin; Ключевые сущности: GetProductsUseCase;
+- `shared/src/commonMain/kotlin/com/android/rut/miit/productinventory/feature/products/api/GetProductUseCase.kt` — Kotlin; Ключевые сущности: GetProductUseCase;
+- `shared/src/commonMain/kotlin/com/android/rut/miit/productinventory/feature/products/api/models/Product.kt` — Kotlin; Ключевые сущности: Product ProductCategory ProductCategoryOption Product QuantityUnit ExpirationStatus;
+- `shared/src/commonMain/kotlin/com/android/rut/miit/productinventory/feature/products/api/models/ProductEnrichmentSuggestion.kt` — Kotlin; Ключевые сущности: ProductEnrichmentSuggestion ProductEnrichmentSource;
+- `shared/src/commonMain/kotlin/com/android/rut/miit/productinventory/feature/products/api/ProductRepository.kt` — Kotlin; Ключевые сущности: ProductRepository;
+- `shared/src/commonMain/kotlin/com/android/rut/miit/productinventory/feature/products/api/SuggestProductEnrichmentUseCase.kt` — Kotlin; Ключевые сущности: SuggestProductEnrichmentUseCase;
+- `shared/src/commonMain/kotlin/com/android/rut/miit/productinventory/feature/products/api/UpdateProductCategoryUseCase.kt` — Kotlin; Ключевые сущности: UpdateProductCategoryUseCase;
+- `shared/src/commonMain/kotlin/com/android/rut/miit/productinventory/feature/products/api/UpdateProductUseCase.kt` — Kotlin; Ключевые сущности: UpdateProductUseCase;
+- `shared/src/commonMain/kotlin/com/android/rut/miit/productinventory/feature/products/data/CategoryRemoteDataSource.kt` — Kotlin; Ключевые сущности: CategoryRemoteDataSource;
+- `shared/src/commonMain/kotlin/com/android/rut/miit/productinventory/feature/products/data/CategoryRepositoryImpl.kt` — Kotlin; Ключевые сущности: CategoryRepositoryImpl;
+- `shared/src/commonMain/kotlin/com/android/rut/miit/productinventory/feature/products/data/mappers/CategoryMapper.kt` — Kotlin; Ключевые сущности: CategoryResponseDto;
+- `shared/src/commonMain/kotlin/com/android/rut/miit/productinventory/feature/products/data/mappers/ProductEnrichmentMapper.kt` — Kotlin; Ключевые сущности: ProductEnrichmentSuggestionResponseDto;
+- `shared/src/commonMain/kotlin/com/android/rut/miit/productinventory/feature/products/data/mappers/ProductMapper.kt` — Kotlin; Ключевые сущности: ProductResponseDto;
+- `shared/src/commonMain/kotlin/com/android/rut/miit/productinventory/feature/products/data/models/CategoryDto.kt` — Kotlin; Ключевые сущности: CategoryResponseDto CreateCategoryRequestDto UpdateCategoryRequestDto;
+- `shared/src/commonMain/kotlin/com/android/rut/miit/productinventory/feature/products/data/models/ProductDto.kt` — Kotlin; Ключевые сущности: ProductResponseDto CreateProductRequestDto UpdateProductRequestDto ConsumeProductRequestDto ProductEnrichmentSuggestionRequestDto ProductEnrichmentSuggestionResponseDto;
+- `shared/src/commonMain/kotlin/com/android/rut/miit/productinventory/feature/products/data/ProductRemoteDataSource.kt` — Kotlin; Ключевые сущности: ProductRemoteDataSource;
+- `shared/src/commonMain/kotlin/com/android/rut/miit/productinventory/feature/products/data/ProductRepositoryImpl.kt` — Kotlin; Ключевые сущности: ProductRepositoryImpl;
+- `shared/src/commonMain/kotlin/com/android/rut/miit/productinventory/feature/products/di/ProductsModule.kt` — Kotlin; Ключевые сущности: productsModule;
+- `shared/src/commonMain/kotlin/com/android/rut/miit/productinventory/feature/products/presentation/add/AddProductAction.kt` — Kotlin; Ключевые сущности: AddProductAction;
+- `shared/src/commonMain/kotlin/com/android/rut/miit/productinventory/feature/products/presentation/add/AddProductEvent.kt` — Kotlin; Ключевые сущности: AddProductEvent;
+- `shared/src/commonMain/kotlin/com/android/rut/miit/productinventory/feature/products/presentation/add/AddProductState.kt` — Kotlin; Ключевые сущности: AddProductState;
+- `shared/src/commonMain/kotlin/com/android/rut/miit/productinventory/feature/products/presentation/add/AddProductViewModel.kt` — Kotlin; Ключевые сущности: AddProductViewModel;
+- `shared/src/commonMain/kotlin/com/android/rut/miit/productinventory/feature/products/presentation/categories/CategoryManagementAction.kt` — Kotlin; Ключевые сущности: CategoryManagementAction;
+- `shared/src/commonMain/kotlin/com/android/rut/miit/productinventory/feature/products/presentation/categories/CategoryManagementEvent.kt` — Kotlin; Ключевые сущности: CategoryManagementEvent;
+- `shared/src/commonMain/kotlin/com/android/rut/miit/productinventory/feature/products/presentation/categories/CategoryManagementState.kt` — Kotlin; Ключевые сущности: CategoryManagementState;
+- `shared/src/commonMain/kotlin/com/android/rut/miit/productinventory/feature/products/presentation/categories/CategoryManagementViewModel.kt` — Kotlin; Ключевые сущности: CategoryManagementViewModel;
+- `shared/src/commonMain/kotlin/com/android/rut/miit/productinventory/feature/products/presentation/list/ProductInventoryFilter.kt` — Kotlin; Ключевые сущности: InventoryFilter ProductListFilters Product List Product;
+- `shared/src/commonMain/kotlin/com/android/rut/miit/productinventory/feature/products/presentation/list/ProductListAction.kt` — Kotlin; Ключевые сущности: ProductListAction;
+- `shared/src/commonMain/kotlin/com/android/rut/miit/productinventory/feature/products/presentation/list/ProductListEvent.kt` — Kotlin; Ключевые сущности: ProductListEvent;
+- `shared/src/commonMain/kotlin/com/android/rut/miit/productinventory/feature/products/presentation/list/ProductListState.kt` — Kotlin; Ключевые сущности: ProductListState;
+- `shared/src/commonMain/kotlin/com/android/rut/miit/productinventory/feature/products/presentation/list/ProductListViewModel.kt` — Kotlin; Ключевые сущности: ProductListViewModel;
+- `shared/src/commonMain/kotlin/com/android/rut/miit/productinventory/feature/profile/api/GetProfileUseCase.kt` — Kotlin; Ключевые сущности: GetProfileUseCase;
+- `shared/src/commonMain/kotlin/com/android/rut/miit/productinventory/feature/profile/api/models/UserProfile.kt` — Kotlin; Ключевые сущности: UserProfile;
+- `shared/src/commonMain/kotlin/com/android/rut/miit/productinventory/feature/profile/api/ProfileRepository.kt` — Kotlin; Ключевые сущности: ProfileRepository;
+- `shared/src/commonMain/kotlin/com/android/rut/miit/productinventory/feature/profile/api/UpdateProfileUseCase.kt` — Kotlin; Ключевые сущности: UpdateProfileUseCase;
+- `shared/src/commonMain/kotlin/com/android/rut/miit/productinventory/feature/profile/data/mappers/ProfileMapper.kt` — Kotlin; Ключевые сущности: UserProfileResponseDto;
+- `shared/src/commonMain/kotlin/com/android/rut/miit/productinventory/feature/profile/data/models/ProfileDto.kt` — Kotlin; Ключевые сущности: UserProfileResponseDto UpdateProfileRequestDto;
+- `shared/src/commonMain/kotlin/com/android/rut/miit/productinventory/feature/profile/data/ProfileRemoteDataSource.kt` — Kotlin; Ключевые сущности: ProfileRemoteDataSource;
+- `shared/src/commonMain/kotlin/com/android/rut/miit/productinventory/feature/profile/data/ProfileRepositoryImpl.kt` — Kotlin; Ключевые сущности: ProfileRepositoryImpl;
+- `shared/src/commonMain/kotlin/com/android/rut/miit/productinventory/feature/profile/di/ProfileModule.kt` — Kotlin; Ключевые сущности: profileModule;
+- `shared/src/commonMain/kotlin/com/android/rut/miit/productinventory/feature/profile/presentation/ProfileAction.kt` — Kotlin; Ключевые сущности: ProfileAction;
+- `shared/src/commonMain/kotlin/com/android/rut/miit/productinventory/feature/profile/presentation/ProfileEvent.kt` — Kotlin; Ключевые сущности: ProfileEvent;
+- `shared/src/commonMain/kotlin/com/android/rut/miit/productinventory/feature/profile/presentation/ProfileState.kt` — Kotlin; Ключевые сущности: ProfileState;
+- `shared/src/commonMain/kotlin/com/android/rut/miit/productinventory/feature/profile/presentation/ProfileViewModel.kt` — Kotlin; Ключевые сущности: ProfileViewModel;
+- `shared/src/commonMain/kotlin/com/android/rut/miit/productinventory/feature/realtime/api/models/HouseholdRealtimeEvent.kt` — Kotlin; Ключевые сущности: HouseholdRealtimeEvent;
+- `shared/src/commonMain/kotlin/com/android/rut/miit/productinventory/feature/realtime/api/ObserveHouseholdEventsUseCase.kt` — Kotlin; Ключевые сущности: ObserveHouseholdEventsUseCase;
+- `shared/src/commonMain/kotlin/com/android/rut/miit/productinventory/feature/realtime/api/RealtimeRepository.kt` — Kotlin; Ключевые сущности: RealtimeRepository;
+- `shared/src/commonMain/kotlin/com/android/rut/miit/productinventory/feature/realtime/data/KtorSseRealtimeEventSource.kt` — Kotlin; Ключевые сущности: KtorSseRealtimeEventSource RealtimeEventCursor;
+- `shared/src/commonMain/kotlin/com/android/rut/miit/productinventory/feature/realtime/data/mappers/RealtimeEventMapper.kt` — Kotlin; Ключевые сущности: RealtimeEventDto RealtimeEventDto;
+- `shared/src/commonMain/kotlin/com/android/rut/miit/productinventory/feature/realtime/data/models/RealtimeEventDto.kt` — Kotlin; Ключевые сущности: RealtimeEventDto;
+- `shared/src/commonMain/kotlin/com/android/rut/miit/productinventory/feature/realtime/data/NoopRealtimeEventSource.kt` — Kotlin; Ключевые сущности: NoopRealtimeEventSource;
+- `shared/src/commonMain/kotlin/com/android/rut/miit/productinventory/feature/realtime/data/RealtimeEventSource.kt` — Kotlin; Ключевые сущности: RealtimeEventSource;
+- `shared/src/commonMain/kotlin/com/android/rut/miit/productinventory/feature/realtime/data/RealtimeRepositoryImpl.kt` — Kotlin; Ключевые сущности: RealtimeRepositoryImpl;
+- `shared/src/commonMain/kotlin/com/android/rut/miit/productinventory/feature/realtime/di/RealtimeModule.kt` — Kotlin; Ключевые сущности: realtimeModule;
+- `shared/src/commonMain/kotlin/com/android/rut/miit/productinventory/feature/recommendations/api/GetRecipeSuggestionsUseCase.kt` — Kotlin; Ключевые сущности: GetRecipeSuggestionsUseCase;
+- `shared/src/commonMain/kotlin/com/android/rut/miit/productinventory/feature/recommendations/api/GetRecipesUseCase.kt` — Kotlin; Ключевые сущности: GetRecipesUseCase;
+- `shared/src/commonMain/kotlin/com/android/rut/miit/productinventory/feature/recommendations/api/models/Recipe.kt` — Kotlin; Ключевые сущности: Recipe RecipeIngredient;
+- `shared/src/commonMain/kotlin/com/android/rut/miit/productinventory/feature/recommendations/api/RecipeRepository.kt` — Kotlin; Ключевые сущности: RecipeRepository;
+- `shared/src/commonMain/kotlin/com/android/rut/miit/productinventory/feature/recommendations/data/mappers/RecipeMapper.kt` — Kotlin; Ключевые сущности: RecipeResponseDto;
+- `shared/src/commonMain/kotlin/com/android/rut/miit/productinventory/feature/recommendations/data/models/RecipeDto.kt` — Kotlin; Ключевые сущности: RecipeResponseDto RecipeIngredientDto;
+- `shared/src/commonMain/kotlin/com/android/rut/miit/productinventory/feature/recommendations/data/RecipeRemoteDataSource.kt` — Kotlin; Ключевые сущности: RecipeRemoteDataSource;
+- `shared/src/commonMain/kotlin/com/android/rut/miit/productinventory/feature/recommendations/data/RecipeRepositoryImpl.kt` — Kotlin; Ключевые сущности: RecipeRepositoryImpl;
+- `shared/src/commonMain/kotlin/com/android/rut/miit/productinventory/feature/recommendations/di/RecommendationsModule.kt` — Kotlin; Ключевые сущности: recommendationsModule;
+- `shared/src/commonMain/kotlin/com/android/rut/miit/productinventory/feature/recommendations/presentation/RecipeListAction.kt` — Kotlin; Ключевые сущности: RecipeListAction;
+- `shared/src/commonMain/kotlin/com/android/rut/miit/productinventory/feature/recommendations/presentation/RecipeListEvent.kt` — Kotlin; Ключевые сущности: RecipeListEvent;
+- `shared/src/commonMain/kotlin/com/android/rut/miit/productinventory/feature/recommendations/presentation/RecipeListState.kt` — Kotlin; Ключевые сущности: RecipeListState;
+- `shared/src/commonMain/kotlin/com/android/rut/miit/productinventory/feature/recommendations/presentation/RecipeListViewModel.kt` — Kotlin; Ключевые сущности: RecipeListViewModel;
+- `shared/src/commonMain/kotlin/com/android/rut/miit/productinventory/Greeting.kt` — Kotlin; Ключевые сущности: Greeting;
+- `shared/src/commonMain/kotlin/com/android/rut/miit/productinventory/Platform.kt` — Kotlin; Ключевые сущности: Platform;
+- `shared/src/commonTest/kotlin/com/android/rut/miit/productinventory/core/local/PersistentLocalDataSourceTest.kt` — Kotlin; Ключевые сущности: PersistentLocalDataSourceTest InMemoryPersistentKeyValueStore;
+- `shared/src/commonTest/kotlin/com/android/rut/miit/productinventory/core/network/HttpClientFactoryTest.kt` — Kotlin; Ключевые сущности: HttpClientFactoryTest;
+- `shared/src/commonTest/kotlin/com/android/rut/miit/productinventory/feature/auth/api/RestoreSessionUseCaseTest.kt` — Kotlin; Ключевые сущности: RestoreSessionUseCaseTest;
+- `shared/src/commonTest/kotlin/com/android/rut/miit/productinventory/feature/barcode/api/BarcodeUseCaseTest.kt` — Kotlin; Ключевые сущности: BarcodeUseCaseTest;
+- `shared/src/commonTest/kotlin/com/android/rut/miit/productinventory/feature/barcode/data/BarcodeRepositoryImplTest.kt` — Kotlin; Ключевые сущности: BarcodeRepositoryImplTest;
+- `shared/src/commonTest/kotlin/com/android/rut/miit/productinventory/feature/barcode/data/mappers/BarcodeMapperTest.kt` — Kotlin; Ключевые сущности: BarcodeMapperTest;
+- `shared/src/commonTest/kotlin/com/android/rut/miit/productinventory/feature/household/presentation/list/HouseholdListViewModelTest.kt` — Kotlin; Ключевые сущности: HouseholdListViewModelTest;
+- `shared/src/commonTest/kotlin/com/android/rut/miit/productinventory/feature/notifications/presentation/NotificationListViewModelTest.kt` — Kotlin; Ключевые сущности: NotificationListViewModelTest;
+- `shared/src/commonTest/kotlin/com/android/rut/miit/productinventory/feature/products/api/GetProductCategoriesUseCaseTest.kt` — Kotlin; Ключевые сущности: GetProductCategoriesUseCaseTest;
+- `shared/src/commonTest/kotlin/com/android/rut/miit/productinventory/feature/products/data/mappers/ProductMapperTest.kt` — Kotlin; Ключевые сущности: ProductMapperTest;
+- `shared/src/commonTest/kotlin/com/android/rut/miit/productinventory/feature/products/data/ProductRepositoryImplTest.kt` — Kotlin; Ключевые сущности: ProductRepositoryImplTest;
+- `shared/src/commonTest/kotlin/com/android/rut/miit/productinventory/feature/products/presentation/add/AddProductViewModelDraftTest.kt` — Kotlin; Ключевые сущности: AddProductViewModelDraftTest CapturedAddProductRequest CapturingProductRepository FakeCategoryRepository;
+- `shared/src/commonTest/kotlin/com/android/rut/miit/productinventory/feature/products/presentation/add/AddProductViewModelTest.kt` — Kotlin; Ключевые сущности: AddProductViewModelTest;
+- `shared/src/commonTest/kotlin/com/android/rut/miit/productinventory/feature/products/presentation/categories/CategoryManagementViewModelTest.kt` — Kotlin; Ключевые сущности: CategoryManagementViewModelTest;
+- `shared/src/commonTest/kotlin/com/android/rut/miit/productinventory/feature/products/presentation/list/ProductInventoryFilterTest.kt` — Kotlin; Ключевые сущности: ProductInventoryFilterTest;
+- `shared/src/commonTest/kotlin/com/android/rut/miit/productinventory/feature/products/presentation/list/ProductListViewModelRealtimeTest.kt` — Kotlin; Ключевые сущности: ProductListViewModelRealtimeTest FakeRealtimeRepository FakeProductRepository FakeCategoryRepository;
+- `shared/src/commonTest/kotlin/com/android/rut/miit/productinventory/feature/products/presentation/list/ProductListViewModelTest.kt` — Kotlin; Ключевые сущности: ProductListViewModelTest;
+- `shared/src/commonTest/kotlin/com/android/rut/miit/productinventory/feature/profile/presentation/ProfileViewModelTest.kt` — Kotlin; Ключевые сущности: ProfileViewModelTest;
+- `shared/src/commonTest/kotlin/com/android/rut/miit/productinventory/feature/realtime/api/ObserveHouseholdEventsUseCaseTest.kt` — Kotlin; Ключевые сущности: ObserveHouseholdEventsUseCaseTest;
+- `shared/src/commonTest/kotlin/com/android/rut/miit/productinventory/feature/realtime/data/KtorSseRealtimeEventSourceTest.kt` — Kotlin; Ключевые сущности: KtorSseRealtimeEventSourceTest;
+- `shared/src/commonTest/kotlin/com/android/rut/miit/productinventory/feature/realtime/data/mappers/RealtimeEventMapperTest.kt` — Kotlin; Ключевые сущности: RealtimeEventMapperTest;
+- `shared/src/commonTest/kotlin/com/android/rut/miit/productinventory/feature/recommendations/api/GetRecipeSuggestionsUseCaseTest.kt` — Kotlin; Ключевые сущности: GetRecipeSuggestionsUseCaseTest;
+- `shared/src/commonTest/kotlin/com/android/rut/miit/productinventory/feature/recommendations/data/mappers/RecipeMapperTest.kt` — Kotlin; Ключевые сущности: RecipeMapperTest;
+- `shared/src/commonTest/kotlin/com/android/rut/miit/productinventory/feature/recommendations/data/RecipeRemoteDataSourceTest.kt` — Kotlin; Ключевые сущности: RecipeRemoteDataSourceTest;
+- `shared/src/commonTest/kotlin/com/android/rut/miit/productinventory/feature/recommendations/presentation/RecipeListViewModelTest.kt` — Kotlin; Ключевые сущности: RecipeListViewModelTest;
+- `shared/src/commonTest/kotlin/com/android/rut/miit/productinventory/SharedCommonTest.kt` — Kotlin; Ключевые сущности: SharedCommonTest;
+- `shared/src/iosMain/kotlin/com/android/rut/miit/productinventory/core/di/LocalDataSourceModule.ios.kt` — Kotlin; Без явных верхнеуровневых объявлений;
+- `shared/src/iosMain/kotlin/com/android/rut/miit/productinventory/core/di/PlatformModule.ios.kt` — Kotlin; Без явных верхнеуровневых объявлений;
+- `shared/src/iosMain/kotlin/com/android/rut/miit/productinventory/core/local/NSUserDefaultsPersistentKeyValueStore.kt` — Kotlin; Ключевые сущности: NSUserDefaultsPersistentKeyValueStore;
+- `shared/src/iosMain/kotlin/com/android/rut/miit/productinventory/core/network/ApiBaseUrl.ios.kt` — Kotlin; Без явных верхнеуровневых объявлений;
+- `shared/src/iosMain/kotlin/com/android/rut/miit/productinventory/core/push/IosFirebaseDeviceTokenRegistrar.kt` — Kotlin; Ключевые сущности: IosFirebaseDeviceTokenRegistrar IosPushTokenBridge RegisterDeviceTokenRequestDto;
+- `shared/src/iosMain/kotlin/com/android/rut/miit/productinventory/core/storage/NSUserDefaultsTokenStorage.kt` — Kotlin; Ключевые сущности: NSUserDefaultsTokenStorage;
+- `shared/src/iosMain/kotlin/com/android/rut/miit/productinventory/di/IosRuntimeSmokeRunner.kt` — Kotlin; Ключевые сущности: IosRuntimeSmokeResult IosRealtimeSmokeResult IosRuntimeSmokeRunner;
+- `shared/src/iosMain/kotlin/com/android/rut/miit/productinventory/di/KoinHelper.kt` — Kotlin; Ключевые сущности: initKoin KoinHelper;
+- `shared/src/iosMain/kotlin/com/android/rut/miit/productinventory/Platform.ios.kt` — Kotlin; Ключевые сущности: IOSPlatform;
+- `shared/src/jvmMain/kotlin/com/android/rut/miit/productinventory/core/di/LocalDataSourceModule.jvm.kt` — Kotlin; Без явных верхнеуровневых объявлений;
+- `shared/src/jvmMain/kotlin/com/android/rut/miit/productinventory/core/di/PlatformModule.jvm.kt` — Kotlin; Без явных верхнеуровневых объявлений;
+- `shared/src/jvmMain/kotlin/com/android/rut/miit/productinventory/core/local/InMemoryLocalDataSources.kt` — Kotlin; Ключевые сущности: JvmInMemoryProductLocalDataSource JvmInMemoryHouseholdLocalDataSource JvmInMemoryBarcodeLocalDataSource JvmInMemorySyncQueue;
+- `shared/src/jvmMain/kotlin/com/android/rut/miit/productinventory/core/network/ApiBaseUrl.jvm.kt` — Kotlin; Без явных верхнеуровневых объявлений;
+- `shared/src/jvmMain/kotlin/com/android/rut/miit/productinventory/Platform.jvm.kt` — Kotlin; Ключевые сущности: JVMPlatform;
+
+## server
+
+- `server/build.gradle.kts` — Kotlin; Без явных верхнеуровневых объявлений;
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/Application.kt` — Kotlin; Ключевые сущности: Application main;
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/application/dto/request/AuthRequests.kt` — Kotlin; Ключевые сущности: RegisterRequest LoginRequest RefreshTokenRequest;
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/application/dto/request/CategoryRequests.kt` — Kotlin; Ключевые сущности: CreateCategoryRequest UpdateCategoryRequest;
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/application/dto/request/HouseholdRequests.kt` — Kotlin; Ключевые сущности: CreateHouseholdRequest JoinHouseholdRequest;
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/application/dto/request/NotificationPreferenceRequests.kt` — Kotlin; Ключевые сущности: UpdateNotificationSettingsRequest RegisterDeviceTokenRequest;
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/application/dto/request/ProductEnrichmentRequests.kt` — Kotlin; Ключевые сущности: ProductEnrichmentSuggestionRequest;
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/application/dto/request/ProductRequests.kt` — Kotlin; Ключевые сущности: CreateProductRequest UpdateProductRequest ConsumeProductRequest BarcodeLookupRequest;
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/application/dto/request/ProfileRequests.kt` — Kotlin; Ключевые сущности: UpdateProfileRequest;
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/application/dto/response/AuthResponse.kt` — Kotlin; Ключевые сущности: AuthResponse;
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/application/dto/response/barcode/BarcodeProductDraftResponse.kt` — Kotlin; Ключевые сущности: BarcodeProductDraftResponse;
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/application/dto/response/CategoryResponse.kt` — Kotlin; Ключевые сущности: CategoryResponse;
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/application/dto/response/ErrorResponse.kt` — Kotlin; Ключевые сущности: ErrorResponse;
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/application/dto/response/HouseholdResponse.kt` — Kotlin; Ключевые сущности: HouseholdResponse;
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/application/dto/response/InviteCodeResponse.kt` — Kotlin; Ключевые сущности: InviteCodeResponse;
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/application/dto/response/MembershipResponse.kt` — Kotlin; Ключевые сущности: MembershipResponse;
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/application/dto/response/NotificationPreferenceResponse.kt` — Kotlin; Ключевые сущности: NotificationSettingsResponse NotificationDeviceTokenResponse;
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/application/dto/response/NotificationResponse.kt` — Kotlin; Ключевые сущности: NotificationResponse;
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/application/dto/response/ProductEnrichmentResponse.kt` — Kotlin; Ключевые сущности: ProductEnrichmentSuggestionResponse;
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/application/dto/response/ProductResponse.kt` — Kotlin; Ключевые сущности: ProductResponse BarcodeProductResponse;
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/application/dto/response/RecipeResponse.kt` — Kotlin; Ключевые сущности: RecipeResponse RecipeIngredientResponse;
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/application/dto/response/ReminderRunResponse.kt` — Kotlin; Ключевые сущности: ReminderRunResponse;
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/application/dto/response/UserResponse.kt` — Kotlin; Ключевые сущности: UserResponse;
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/application/mapper/BarcodeDtoMapper.kt` — Kotlin; Ключевые сущности: BarcodeProductDraft;
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/application/mapper/DtoMapper.kt` — Kotlin; Ключевые сущности: AuthResult User Product Category Household Notification Recipe Membership;
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/application/service/AuthServiceImpl.kt` — Kotlin; Ключевые сущности: AuthServiceImpl;
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/application/service/barcode/BarcodeProductServiceImpl.kt` — Kotlin; Ключевые сущности: BarcodeProductServiceImpl BarcodeProductSource CategorySuggestionService BarcodeProductDraft;
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/application/service/BarcodeServiceImpl.kt` — Kotlin; Ключевые сущности: BarcodeServiceImpl String;
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/application/service/CategoryServiceImpl.kt` — Kotlin; Ключевые сущности: CategoryServiceImpl;
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/application/service/HouseholdServiceImpl.kt` — Kotlin; Ключевые сущности: HouseholdServiceImpl;
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/application/service/NotificationPreferencesServiceImpl.kt` — Kotlin; Ключевые сущности: NotificationPreferencesServiceImpl;
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/application/service/NotificationServiceImpl.kt` — Kotlin; Ключевые сущности: NotificationServiceImpl;
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/application/service/ProductEnrichmentServiceImpl.kt` — Kotlin; Ключевые сущности: ProductEnrichmentServiceImpl String;
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/application/service/ProductServiceImpl.kt` — Kotlin; Ключевые сущности: ProductServiceImpl String ResolvedCategory;
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/application/service/RecommendationServiceImpl.kt` — Kotlin; Ключевые сущности: RecommendationServiceImpl;
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/application/service/ReminderServiceImpl.kt` — Kotlin; Ключевые сущности: ReminderServiceImpl NotificationSettings;
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/application/service/UserServiceImpl.kt` — Kotlin; Ключевые сущности: UserServiceImpl;
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/domain/exception/DomainExceptions.kt` — Kotlin; Ключевые сущности: DomainException EntityNotFoundException DuplicateEntityException AccessDeniedException InvalidCredentialsException TokenExpiredException InvalidTokenException InviteCodeExpiredException InviteCodeAlreadyUsedException BarcodeNotFoundException;
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/domain/model/barcode/BarcodeModels.kt` — Kotlin; Ключевые сущности: BarcodeProductDraft NutritionFacts CategorySuggestion BarcodeProductSource CategorySuggestionSource;
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/domain/model/BarcodeProduct.kt` — Kotlin; Ключевые сущности: BarcodeProduct;
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/domain/model/Category.kt` — Kotlin; Ключевые сущности: Category SystemCategoryCatalog;
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/domain/model/ExpirationDate.kt` — Kotlin; Ключевые сущности: ExpirationDate;
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/domain/model/ExpirationStatus.kt` — Kotlin; Ключевые сущности: ExpirationStatus;
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/domain/model/Household.kt` — Kotlin; Ключевые сущности: Household;
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/domain/model/HouseholdEvent.kt` — Kotlin; Ключевые сущности: HouseholdEvent HouseholdEventType;
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/domain/model/InviteCode.kt` — Kotlin; Ключевые сущности: InviteCode;
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/domain/model/Membership.kt` — Kotlin; Ключевые сущности: Membership;
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/domain/model/MembershipRole.kt` — Kotlin; Ключевые сущности: MembershipRole;
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/domain/model/Notification.kt` — Kotlin; Ключевые сущности: Notification NotificationType;
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/domain/model/NotificationDeviceToken.kt` — Kotlin; Ключевые сущности: NotificationDeviceToken NotificationPlatform;
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/domain/model/NotificationSettings.kt` — Kotlin; Ключевые сущности: NotificationSettings;
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/domain/model/OpenFoodFactsProduct.kt` — Kotlin; Ключевые сущности: OpenFoodFactsProduct;
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/domain/model/Product.kt` — Kotlin; Ключевые сущности: Product requireNonNegative;
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/domain/model/ProductCategory.kt` — Kotlin; Ключевые сущности: ProductCategory;
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/domain/model/ProductEnrichment.kt` — Kotlin; Ключевые сущности: ProductEnrichmentInput ProductEnrichmentSuggestion ProductEnrichmentCategoryOption AiProductEnrichmentSuggestion ProductEnrichmentSource requireNonNegative;
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/domain/model/Quantity.kt` — Kotlin; Ключевые сущности: Quantity;
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/domain/model/QuantityUnit.kt` — Kotlin; Ключевые сущности: QuantityUnit;
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/domain/model/Recipe.kt` — Kotlin; Ключевые сущности: Recipe RecipeIngredient;
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/domain/model/RecipeDocument.kt` — Kotlin; Ключевые сущности: RecipeDocument RecipeDocumentMatch;
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/domain/model/RecipeGenerationRequest.kt` — Kotlin; Ключевые сущности: RecipeGenerationRequest;
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/domain/model/RefreshToken.kt` — Kotlin; Ключевые сущности: RefreshToken;
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/domain/model/ReminderRunResult.kt` — Kotlin; Ключевые сущности: ReminderRunResult;
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/domain/model/User.kt` — Kotlin; Ключевые сущности: User;
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/domain/port/inbound/IAuthService.kt` — Kotlin; Ключевые сущности: IAuthService AuthResult;
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/domain/port/inbound/IBarcodeProductService.kt` — Kotlin; Ключевые сущности: IBarcodeProductService;
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/domain/port/inbound/IBarcodeService.kt` — Kotlin; Ключевые сущности: IBarcodeService;
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/domain/port/inbound/ICategoryService.kt` — Kotlin; Ключевые сущности: ICategoryService;
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/domain/port/inbound/IHouseholdService.kt` — Kotlin; Ключевые сущности: IHouseholdService;
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/domain/port/inbound/INotificationPreferencesService.kt` — Kotlin; Ключевые сущности: INotificationPreferencesService;
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/domain/port/inbound/INotificationService.kt` — Kotlin; Ключевые сущности: INotificationService;
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/domain/port/inbound/IProductEnrichmentService.kt` — Kotlin; Ключевые сущности: IProductEnrichmentService;
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/domain/port/inbound/IProductService.kt` — Kotlin; Ключевые сущности: IProductService;
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/domain/port/inbound/IRecommendationService.kt` — Kotlin; Ключевые сущности: IRecommendationService;
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/domain/port/inbound/IReminderService.kt` — Kotlin; Ключевые сущности: IReminderService;
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/domain/port/inbound/IUserService.kt` — Kotlin; Ключевые сущности: IUserService;
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/domain/port/outbound/barcode/IBarcodeProductCacheRepository.kt` — Kotlin; Ключевые сущности: IBarcodeProductCacheRepository;
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/domain/port/outbound/barcode/IBarcodeProductProvider.kt` — Kotlin; Ключевые сущности: BarcodeLookupContext IBarcodeProductProvider BarcodeProductProviderOrder;
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/domain/port/outbound/barcode/IGigaChatCategoryClient.kt` — Kotlin; Ключевые сущности: IGigaChatCategoryClient;
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/domain/port/outbound/IBarcodeProductRepository.kt` — Kotlin; Ключевые сущности: IBarcodeProductRepository;
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/domain/port/outbound/ICategoryRepository.kt` — Kotlin; Ключевые сущности: ICategoryRepository;
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/domain/port/outbound/IHouseholdEventPublisher.kt` — Kotlin; Ключевые сущности: IHouseholdEventPublisher;
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/domain/port/outbound/IHouseholdRepository.kt` — Kotlin; Ключевые сущности: IHouseholdRepository;
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/domain/port/outbound/IInviteCodeRepository.kt` — Kotlin; Ключевые сущности: IInviteCodeRepository;
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/domain/port/outbound/IMembershipRepository.kt` — Kotlin; Ключевые сущности: IMembershipRepository;
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/domain/port/outbound/INotificationDeviceTokenRepository.kt` — Kotlin; Ключевые сущности: INotificationDeviceTokenRepository;
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/domain/port/outbound/INotificationRepository.kt` — Kotlin; Ключевые сущности: INotificationRepository;
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/domain/port/outbound/INotificationSender.kt` — Kotlin; Ключевые сущности: INotificationSender;
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/domain/port/outbound/INotificationSettingsRepository.kt` — Kotlin; Ключевые сущности: INotificationSettingsRepository;
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/domain/port/outbound/IProductEnrichmentClient.kt` — Kotlin; Ключевые сущности: IProductEnrichmentClient;
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/domain/port/outbound/IProductInfoProvider.kt` — Kotlin; Ключевые сущности: IProductInfoProvider;
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/domain/port/outbound/IProductRepository.kt` — Kotlin; Ключевые сущности: IProductRepository;
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/domain/port/outbound/IRecipeKnowledgeRepository.kt` — Kotlin; Ключевые сущности: IRecipeKnowledgeRepository;
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/domain/port/outbound/IRecipeProvider.kt` — Kotlin; Ключевые сущности: IRecipeProvider;
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/domain/port/outbound/IRefreshTokenRepository.kt` — Kotlin; Ключевые сущности: IRefreshTokenRepository;
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/domain/port/outbound/IUserRepository.kt` — Kotlin; Ключевые сущности: IUserRepository;
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/domain/service/ExpirationCheckService.kt` — Kotlin; Ключевые сущности: ExpirationCheckService;
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/domain/service/ProductCategoryRuleMatcher.kt` — Kotlin; Ключевые сущности: ProductCategoryRuleMatcher RuleCategorySuggestion Rule;
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/domain/service/RecipeRetriever.kt` — Kotlin; Ключевые сущности: RecipeRetriever;
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/infrastructure/adapter/inbound/realtime/HouseholdEventSseBroadcaster.kt` — Kotlin; Ключевые сущности: HouseholdEventSseBroadcaster interface DefaultSseEmitterFactory;
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/infrastructure/adapter/inbound/realtime/HouseholdEventSseController.kt` — Kotlin; Ключевые сущности: HouseholdEventSseController;
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/infrastructure/adapter/inbound/realtime/HouseholdEventTransactionalListener.kt` — Kotlin; Ключевые сущности: HouseholdEventTransactionalListener;
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/infrastructure/adapter/inbound/rest/AuthController.kt` — Kotlin; Ключевые сущности: AuthController;
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/infrastructure/adapter/inbound/rest/AuthenticatedUser.kt` — Kotlin; Ключевые сущности: currentUserId;
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/infrastructure/adapter/inbound/rest/barcode/BarcodeProductDraftController.kt` — Kotlin; Ключевые сущности: BarcodeProductDraftController;
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/infrastructure/adapter/inbound/rest/BarcodeController.kt` — Kotlin; Ключевые сущности: BarcodeController;
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/infrastructure/adapter/inbound/rest/CategoryController.kt` — Kotlin; Ключевые сущности: CategoryController;
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/infrastructure/adapter/inbound/rest/GlobalExceptionHandler.kt` — Kotlin; Ключевые сущности: GlobalExceptionHandler;
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/infrastructure/adapter/inbound/rest/HealthController.kt` — Kotlin; Ключевые сущности: HealthController;
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/infrastructure/adapter/inbound/rest/HouseholdController.kt` — Kotlin; Ключевые сущности: HouseholdController;
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/infrastructure/adapter/inbound/rest/HouseholdNotificationController.kt` — Kotlin; Ключевые сущности: HouseholdNotificationController;
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/infrastructure/adapter/inbound/rest/NotificationController.kt` — Kotlin; Ключевые сущности: NotificationController;
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/infrastructure/adapter/inbound/rest/NotificationPreferencesController.kt` — Kotlin; Ключевые сущности: NotificationPreferencesController NotificationSettings NotificationDeviceToken;
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/infrastructure/adapter/inbound/rest/ProductController.kt` — Kotlin; Ключевые сущности: ProductController;
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/infrastructure/adapter/inbound/rest/ProductEnrichmentController.kt` — Kotlin; Ключевые сущности: ProductEnrichmentController;
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/infrastructure/adapter/inbound/rest/ProfileController.kt` — Kotlin; Ключевые сущности: ProfileController;
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/infrastructure/adapter/inbound/rest/RecommendationController.kt` — Kotlin; Ключевые сущности: RecommendationController;
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/infrastructure/adapter/inbound/scheduler/ReminderScheduler.kt` — Kotlin; Ключевые сущности: ReminderScheduler;
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/infrastructure/adapter/outbound/ai/AiRateLimiter.kt` — Kotlin; Ключевые сущности: AiRateLimiter;
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/infrastructure/adapter/outbound/ai/GigaChatAccessTokenProvider.kt` — Kotlin; Ключевые сущности: GigaChatAccessTokenProvider GigaChatAccessToken GigaChatOAuthResponse Long;
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/infrastructure/adapter/outbound/ai/GigaChatProductEnrichmentClient.kt` — Kotlin; Ключевые сущности: GigaChatProductEnrichmentClient JsonNode GigaChatProductEnrichmentRequest GigaChatMessage GigaChatProductEnrichmentResponse;
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/infrastructure/adapter/outbound/barcode/cache/BarcodeProductCacheEntity.kt` — Kotlin; Ключевые сущности: BarcodeProductCacheEntity;
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/infrastructure/adapter/outbound/barcode/cache/BarcodeProductCacheRepositoryAdapter.kt` — Kotlin; Ключевые сущности: BarcodeProductCacheRepositoryAdapter BarcodeProductCacheEntity BarcodeProductDraft;
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/infrastructure/adapter/outbound/barcode/cache/JpaBarcodeProductCacheRepository.kt` — Kotlin; Ключевые сущности: JpaBarcodeProductCacheRepository;
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/infrastructure/adapter/outbound/barcode/cache/LocalDatabaseBarcodeProductProvider.kt` — Kotlin; Ключевые сущности: LocalDatabaseBarcodeProductProvider;
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/infrastructure/adapter/outbound/barcode/gigachat/GigaChatCategoryClient.kt` — Kotlin; Ключевые сущности: GigaChatCategoryClient GigaChatCategoryRequest GigaChatCategoryResponse;
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/infrastructure/adapter/outbound/barcode/gs1/Gs1BarcodeProductProvider.kt` — Kotlin; Ключевые сущности: Gs1BarcodeProductProvider Gs1ProductResponse Gs1ProductResponse;
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/infrastructure/adapter/outbound/barcode/openfoodfacts/OpenFoodFactsBarcodeProductProvider.kt` — Kotlin; Ключевые сущности: OpenFoodFactsBarcodeProductProvider OpenFoodFactsResponse String mapCategory Nutriments QUANTITY_REGEX OpenFoodFactsResponse OpenFoodFactsProduct Nutriments;
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/infrastructure/adapter/outbound/fcm/FcmNotificationSender.kt` — Kotlin; Ключевые сущности: FcmNotificationSender FcmSendRequest FcmMessage FcmAndroidConfig FcmNotification FirebaseAccessToken FirebaseTokenResponse FirebaseServiceAccount ByteArray;
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/infrastructure/adapter/outbound/openfoodfacts/OpenFoodFactsClient.kt` — Kotlin; Ключевые сущности: OpenFoodFactsClient;
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/infrastructure/adapter/outbound/persistence/adapter/BarcodeProductRepositoryAdapter.kt` — Kotlin; Ключевые сущности: BarcodeProductRepositoryAdapter;
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/infrastructure/adapter/outbound/persistence/adapter/CategoryRepositoryAdapter.kt` — Kotlin; Ключевые сущности: CategoryRepositoryAdapter;
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/infrastructure/adapter/outbound/persistence/adapter/EntityMapper.kt` — Kotlin; Ключевые сущности: UserEntity User HouseholdEntity Household ProductEntity Product CategoryEntity Category BarcodeProductEntity BarcodeProduct MembershipEntity Membership NotificationEntity Notification NotificationDeviceTokenEntity NotificationDeviceToken NotificationSettingsEntity NotificationSettings InviteCodeEntity InviteCode RefreshTokenEntity RefreshToken;
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/infrastructure/adapter/outbound/persistence/adapter/HouseholdRepositoryAdapter.kt` — Kotlin; Ключевые сущности: HouseholdRepositoryAdapter;
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/infrastructure/adapter/outbound/persistence/adapter/InviteCodeRepositoryAdapter.kt` — Kotlin; Ключевые сущности: InviteCodeRepositoryAdapter;
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/infrastructure/adapter/outbound/persistence/adapter/MembershipRepositoryAdapter.kt` — Kotlin; Ключевые сущности: MembershipRepositoryAdapter;
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/infrastructure/adapter/outbound/persistence/adapter/NotificationDeviceTokenRepositoryAdapter.kt` — Kotlin; Ключевые сущности: NotificationDeviceTokenRepositoryAdapter;
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/infrastructure/adapter/outbound/persistence/adapter/NotificationRepositoryAdapter.kt` — Kotlin; Ключевые сущности: NotificationRepositoryAdapter;
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/infrastructure/adapter/outbound/persistence/adapter/NotificationSettingsRepositoryAdapter.kt` — Kotlin; Ключевые сущности: NotificationSettingsRepositoryAdapter;
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/infrastructure/adapter/outbound/persistence/adapter/ProductRepositoryAdapter.kt` — Kotlin; Ключевые сущности: ProductRepositoryAdapter;
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/infrastructure/adapter/outbound/persistence/adapter/RecipeKnowledgeRepositoryAdapter.kt` — Kotlin; Ключевые сущности: RecipeKnowledgeRepositoryAdapter RecipeDocumentEntity String recipeIngredientsType stringListType;
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/infrastructure/adapter/outbound/persistence/adapter/RefreshTokenRepositoryAdapter.kt` — Kotlin; Ключевые сущности: RefreshTokenRepositoryAdapter;
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/infrastructure/adapter/outbound/persistence/adapter/UserRepositoryAdapter.kt` — Kotlin; Ключевые сущности: UserRepositoryAdapter;
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/infrastructure/adapter/outbound/persistence/entity/BarcodeProductEntity.kt` — Kotlin; Ключевые сущности: BarcodeProductEntity;
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/infrastructure/adapter/outbound/persistence/entity/CategoryEntity.kt` — Kotlin; Ключевые сущности: CategoryEntity;
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/infrastructure/adapter/outbound/persistence/entity/HouseholdEntity.kt` — Kotlin; Ключевые сущности: HouseholdEntity;
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/infrastructure/adapter/outbound/persistence/entity/InviteCodeEntity.kt` — Kotlin; Ключевые сущности: InviteCodeEntity;
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/infrastructure/adapter/outbound/persistence/entity/MembershipEntity.kt` — Kotlin; Ключевые сущности: MembershipEntity;
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/infrastructure/adapter/outbound/persistence/entity/NotificationDeviceTokenEntity.kt` — Kotlin; Ключевые сущности: NotificationDeviceTokenEntity;
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/infrastructure/adapter/outbound/persistence/entity/NotificationEntity.kt` — Kotlin; Ключевые сущности: NotificationEntity;
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/infrastructure/adapter/outbound/persistence/entity/NotificationSettingsEntity.kt` — Kotlin; Ключевые сущности: NotificationSettingsEntity;
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/infrastructure/adapter/outbound/persistence/entity/ProductEntity.kt` — Kotlin; Ключевые сущности: ProductEntity;
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/infrastructure/adapter/outbound/persistence/entity/RecipeDocumentEntity.kt` — Kotlin; Ключевые сущности: RecipeDocumentEntity;
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/infrastructure/adapter/outbound/persistence/entity/RefreshTokenEntity.kt` — Kotlin; Ключевые сущности: RefreshTokenEntity;
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/infrastructure/adapter/outbound/persistence/entity/UserEntity.kt` — Kotlin; Ключевые сущности: UserEntity;
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/infrastructure/adapter/outbound/persistence/repository/JpaBarcodeProductRepository.kt` — Kotlin; Ключевые сущности: JpaBarcodeProductRepository;
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/infrastructure/adapter/outbound/persistence/repository/JpaCategoryRepository.kt` — Kotlin; Ключевые сущности: JpaCategoryRepository;
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/infrastructure/adapter/outbound/persistence/repository/JpaHouseholdRepository.kt` — Kotlin; Ключевые сущности: JpaHouseholdRepository;
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/infrastructure/adapter/outbound/persistence/repository/JpaInviteCodeRepository.kt` — Kotlin; Ключевые сущности: JpaInviteCodeRepository;
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/infrastructure/adapter/outbound/persistence/repository/JpaMembershipRepository.kt` — Kotlin; Ключевые сущности: JpaMembershipRepository;
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/infrastructure/adapter/outbound/persistence/repository/JpaNotificationDeviceTokenRepository.kt` — Kotlin; Ключевые сущности: JpaNotificationDeviceTokenRepository;
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/infrastructure/adapter/outbound/persistence/repository/JpaNotificationRepository.kt` — Kotlin; Ключевые сущности: JpaNotificationRepository;
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/infrastructure/adapter/outbound/persistence/repository/JpaNotificationSettingsRepository.kt` — Kotlin; Ключевые сущности: JpaNotificationSettingsRepository;
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/infrastructure/adapter/outbound/persistence/repository/JpaProductRepository.kt` — Kotlin; Ключевые сущности: JpaProductRepository;
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/infrastructure/adapter/outbound/persistence/repository/JpaRecipeDocumentRepository.kt` — Kotlin; Ключевые сущности: JpaRecipeDocumentRepository;
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/infrastructure/adapter/outbound/persistence/repository/JpaRefreshTokenRepository.kt` — Kotlin; Ключевые сущности: JpaRefreshTokenRepository;
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/infrastructure/adapter/outbound/persistence/repository/JpaUserRepository.kt` — Kotlin; Ключевые сущности: JpaUserRepository;
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/infrastructure/adapter/outbound/realtime/SpringHouseholdEventPublisher.kt` — Kotlin; Ключевые сущности: SpringHouseholdEventPublisher;
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/infrastructure/adapter/outbound/recipe/GigaChatRecipeProvider.kt` — Kotlin; Ключевые сущности: GigaChatRecipeProvider Product RecipeDocumentMatch JsonNode String GigaChatRecipeRequest GigaChatMessage JsonNode JsonNode JsonNode JsonNode numberPattern;
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/infrastructure/config/AppConfig.kt` — Kotlin; Ключевые сущности: AppConfig;
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/infrastructure/config/SecurityConfig.kt` — Kotlin; Ключевые сущности: SecurityConfig;
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/infrastructure/security/JwtAuthenticationFilter.kt` — Kotlin; Ключевые сущности: JwtAuthenticationFilter;
+- `server/src/main/kotlin/com/android/rut/miit/productinventory/infrastructure/security/JwtTokenProvider.kt` — Kotlin; Ключевые сущности: JwtTokenProvider;
+- `server/src/main/resources/application-prod.yml` — Конфиг/текст; Без явных верхнеуровневых объявлений;
+- `server/src/main/resources/application.yml` — Конфиг/текст; Без явных верхнеуровневых объявлений;
+- `server/src/main/resources/db/migration/V1__baseline_schema.sql` — Ресурс/другое; Без явных верхнеуровневых объявлений;
+- `server/src/main/resources/db/migration/V2__barcode_product_drafts.sql` — Ресурс/другое; Без явных верхнеуровневых объявлений;
+- `server/src/main/resources/db/migration/V3__backfill_product_remaining_amount.sql` — Ресурс/другое; Без явных верхнеуровневых объявлений;
+- `server/src/main/resources/db/migration/V4__remove_local_database_barcode_cache.sql` — Ресурс/другое; Без явных верхнеуровневых объявлений;
+- `server/src/main/resources/db/migration/V5__recipe_rag_documents.sql` — Ресурс/другое; Без явных верхнеуровневых объявлений;
+- `server/src/main/resources/db/migration/V6__custom_categories.sql` — Ресурс/другое; Без явных верхнеуровневых объявлений;
+- `server/src/main/resources/db/migration/V7__notification_reminders.sql` — Ресурс/другое; Без явных верхнеуровневых объявлений;
+- `server/src/main/resources/db/migration/V8__notification_preferences_and_device_tokens.sql` — Ресурс/другое; Без явных верхнеуровневых объявлений;
+- `server/src/main/resources/db/migration/V9__localize_recipe_documents_ru.sql` — Ресурс/другое; Без явных верхнеуровневых объявлений;
+- `server/src/main/resources/logback-spring.xml` — XML; Без явных верхнеуровневых объявлений;
+- `server/src/test/kotlin/com/android/rut/miit/productinventory/application/dto/request/ProductRequestValidationTest.kt` — Kotlin; Ключевые сущности: ProductRequestValidationTest;
+- `server/src/test/kotlin/com/android/rut/miit/productinventory/application/mapper/ProductDtoMapperTest.kt` — Kotlin; Ключевые сущности: ProductDtoMapperTest;
+- `server/src/test/kotlin/com/android/rut/miit/productinventory/application/mapper/RecipeDtoMapperTest.kt` — Kotlin; Ключевые сущности: RecipeDtoMapperTest;
+- `server/src/test/kotlin/com/android/rut/miit/productinventory/application/service/AuthServiceImplTest.kt` — Kotlin; Ключевые сущности: AuthServiceImplTest;
+- `server/src/test/kotlin/com/android/rut/miit/productinventory/application/service/barcode/BarcodeProductServiceImplTest.kt` — Kotlin; Ключевые сущности: BarcodeProductServiceImplTest InMemoryCache StaticProvider SequenceProvider FakeMembershipRepository TestGigaChatClient;
+- `server/src/test/kotlin/com/android/rut/miit/productinventory/application/service/barcode/CategorySuggestionServiceTest.kt` — Kotlin; Ключевые сущности: CategorySuggestionServiceTest StaticGigaChatClient;
+- `server/src/test/kotlin/com/android/rut/miit/productinventory/application/service/BarcodeServiceImplTest.kt` — Kotlin; Ключевые сущности: BarcodeServiceImplTest StaticBarcodeProductService RecordingProductService AddProductCall;
+- `server/src/test/kotlin/com/android/rut/miit/productinventory/application/service/CategoryServiceImplTest.kt` — Kotlin; Ключевые сущности: CategoryServiceImplTest;
+- `server/src/test/kotlin/com/android/rut/miit/productinventory/application/service/HouseholdServiceImplTest.kt` — Kotlin; Ключевые сущности: HouseholdServiceImplTest;
+- `server/src/test/kotlin/com/android/rut/miit/productinventory/application/service/NotificationPreferencesServiceImplTest.kt` — Kotlin; Ключевые сущности: NotificationPreferencesServiceImplTest;
+- `server/src/test/kotlin/com/android/rut/miit/productinventory/application/service/ProductEnrichmentServiceImplTest.kt` — Kotlin; Ключевые сущности: ProductEnrichmentServiceImplTest;
+- `server/src/test/kotlin/com/android/rut/miit/productinventory/application/service/ProductServiceImplTest.kt` — Kotlin; Ключевые сущности: ProductServiceImplTest;
+- `server/src/test/kotlin/com/android/rut/miit/productinventory/application/service/RecommendationServiceImplTest.kt` — Kotlin; Ключевые сущности: RecommendationServiceImplTest;
+- `server/src/test/kotlin/com/android/rut/miit/productinventory/application/service/ReminderServiceImplTest.kt` — Kotlin; Ключевые сущности: ReminderServiceImplTest;
+- `server/src/test/kotlin/com/android/rut/miit/productinventory/application/service/UserServiceImplTest.kt` — Kotlin; Ключевые сущности: UserServiceImplTest;
+- `server/src/test/kotlin/com/android/rut/miit/productinventory/ApplicationTest.kt` — Kotlin; Ключевые сущности: ApplicationTest;
+- `server/src/test/kotlin/com/android/rut/miit/productinventory/domain/model/ProductTest.kt` — Kotlin; Ключевые сущности: ProductTest;
+- `server/src/test/kotlin/com/android/rut/miit/productinventory/domain/service/RecipeRetrieverTest.kt` — Kotlin; Ключевые сущности: RecipeRetrieverTest;
+- `server/src/test/kotlin/com/android/rut/miit/productinventory/infrastructure/adapter/inbound/realtime/HouseholdEventSseBroadcasterTest.kt` — Kotlin; Ключевые сущности: HouseholdEventSseBroadcasterTest;
+- `server/src/test/kotlin/com/android/rut/miit/productinventory/infrastructure/adapter/inbound/realtime/HouseholdEventSseControllerTest.kt` — Kotlin; Ключевые сущности: HouseholdEventSseControllerTest;
+- `server/src/test/kotlin/com/android/rut/miit/productinventory/infrastructure/adapter/inbound/realtime/HouseholdEventTransactionalListenerTest.kt` — Kotlin; Ключевые сущности: HouseholdEventTransactionalListenerTest;
+- `server/src/test/kotlin/com/android/rut/miit/productinventory/infrastructure/adapter/inbound/realtime/HouseholdEventTransactionIntegrationTest.kt` — Kotlin; Ключевые сущности: HouseholdEventTransactionIntegrationTest;
+- `server/src/test/kotlin/com/android/rut/miit/productinventory/infrastructure/adapter/inbound/rest/barcode/BarcodeProductDraftControllerTest.kt` — Kotlin; Ключевые сущности: BarcodeProductDraftControllerTest RecordingBarcodeProductService;
+- `server/src/test/kotlin/com/android/rut/miit/productinventory/infrastructure/adapter/inbound/rest/BarcodeControllerTest.kt` — Kotlin; Ключевые сущности: BarcodeControllerTest RestStaticBarcodeProductService RestRecordingProductService RestAddProductCall;
+- `server/src/test/kotlin/com/android/rut/miit/productinventory/infrastructure/adapter/inbound/rest/CategoryControllerTest.kt` — Kotlin; Ключевые сущности: CategoryControllerTest;
+- `server/src/test/kotlin/com/android/rut/miit/productinventory/infrastructure/adapter/inbound/rest/ProductControllerTest.kt` — Kotlin; Ключевые сущности: ProductControllerTest;
+- `server/src/test/kotlin/com/android/rut/miit/productinventory/infrastructure/adapter/inbound/rest/RecommendationControllerConsumptionIntegrationTest.kt` — Kotlin; Ключевые сущности: RecommendationControllerConsumptionIntegrationTest;
+- `server/src/test/kotlin/com/android/rut/miit/productinventory/infrastructure/adapter/outbound/barcode/cache/BarcodeProductCacheRepositoryAdapterTest.kt` — Kotlin; Ключевые сущности: BarcodeProductCacheRepositoryAdapterTest;
+- `server/src/test/kotlin/com/android/rut/miit/productinventory/infrastructure/adapter/outbound/barcode/cache/LocalDatabaseBarcodeProductProviderTest.kt` — Kotlin; Ключевые сущности: LocalDatabaseBarcodeProductProviderTest FakeProductRepository;
+- `server/src/test/kotlin/com/android/rut/miit/productinventory/infrastructure/adapter/outbound/barcode/gs1/Gs1BarcodeProductProviderTest.kt` — Kotlin; Ключевые сущности: Gs1BarcodeProductProviderTest;
+- `server/src/test/kotlin/com/android/rut/miit/productinventory/infrastructure/adapter/outbound/barcode/openfoodfacts/OpenFoodFactsBarcodeProductProviderTest.kt` — Kotlin; Ключевые сущности: OpenFoodFactsBarcodeProductProviderTest;
+- `server/src/test/kotlin/com/android/rut/miit/productinventory/infrastructure/adapter/outbound/fcm/FcmNotificationSenderTest.kt` — Kotlin; Ключевые сущности: FcmNotificationSenderTest;
+- `server/src/test/kotlin/com/android/rut/miit/productinventory/infrastructure/adapter/outbound/persistence/adapter/ProductEntityMapperTest.kt` — Kotlin; Ключевые сущности: ProductEntityMapperTest;
+- `server/src/test/kotlin/com/android/rut/miit/productinventory/infrastructure/adapter/outbound/persistence/adapter/RecipeKnowledgeRepositoryAdapterTest.kt` — Kotlin; Ключевые сущности: RecipeKnowledgeRepositoryAdapterTest;
+- `server/src/test/kotlin/com/android/rut/miit/productinventory/infrastructure/adapter/outbound/realtime/SpringHouseholdEventPublisherTest.kt` — Kotlin; Ключевые сущности: SpringHouseholdEventPublisherTest;
+- `server/src/test/kotlin/com/android/rut/miit/productinventory/infrastructure/adapter/outbound/recipe/GigaChatRecipeProviderTest.kt` — Kotlin; Ключевые сущности: GigaChatRecipeProviderTest;
+- `server/src/test/kotlin/com/android/rut/miit/productinventory/infrastructure/config/FlywayMigrationFilenameTest.kt` — Kotlin; Ключевые сущности: FlywayMigrationFilenameTest;
+- `server/src/test/kotlin/com/android/rut/miit/productinventory/infrastructure/config/FlywaySchemaValidationTest.kt` — Kotlin; Ключевые сущности: FlywaySchemaValidationTest;
+- `server/src/test/kotlin/com/android/rut/miit/productinventory/infrastructure/config/ProductRemainingAmountMigrationTest.kt` — Kotlin; Ключевые сущности: ProductRemainingAmountMigrationTest;
+- `server/src/test/kotlin/com/android/rut/miit/productinventory/infrastructure/config/RecipeRagMigrationTest.kt` — Kotlin; Ключевые сущности: RecipeRagMigrationTest;
+- `server/src/test/kotlin/com/android/rut/miit/productinventory/infrastructure/security/JwtTokenProviderTest.kt` — Kotlin; Ключевые сущности: JwtTokenProviderTest;
+- `server/src/test/resources/application-test.yml` — Конфиг/текст; Без явных верхнеуровневых объявлений;
+
+## docs
+
+- `docs/.keep` — Конфиг/текст; Без явных верхнеуровневых объявлений;
+- `docs/android-phone-local-server.md` — Конфиг/текст; Без явных верхнеуровневых объявлений;
+- `docs/inventory-event-storming-goal.md` — Конфиг/текст; Без явных верхнеуровневых объявлений;
+- `docs/product-usage-flow.md` — Конфиг/текст; Без явных верхнеуровневых объявлений;
+
+## gradle
+
+- `gradle/libs.versions.toml` — Конфиг/текст; Без явных верхнеуровневых объявлений;
+- `gradle/wrapper/gradle-wrapper.jar` — Ресурс/другое; Без явных верхнеуровневых объявлений;
+- `gradle/wrapper/gradle-wrapper.properties` — Конфиг/текст; Без явных верхнеуровневых объявлений;
+
+## scripts
+
+- `scripts/android_product_usage_e2e.sh` — Конфиг/текст; Без явных верхнеуровневых объявлений;

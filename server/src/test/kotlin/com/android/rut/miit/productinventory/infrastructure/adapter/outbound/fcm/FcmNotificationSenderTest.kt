@@ -16,6 +16,7 @@ import org.springframework.http.HttpMethod
 import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
 import org.springframework.test.web.client.MockRestServiceServer
+import org.springframework.test.web.client.match.MockRestRequestMatchers.content
 import org.springframework.test.web.client.match.MockRestRequestMatchers.header
 import org.springframework.test.web.client.match.MockRestRequestMatchers.method
 import org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo
@@ -61,6 +62,7 @@ class FcmNotificationSenderTest {
         val builder = RestClient.builder()
         val server = MockRestServiceServer.bindTo(builder).build()
         val userId = UUID.randomUUID()
+        val notificationId = UUID.randomUUID()
         val tokenRepository = InMemoryNotificationDeviceTokenRepository()
         val token = tokenRepository.upsert(userId, "token-1", NotificationPlatform.ANDROID)
         val sender = sender(
@@ -81,9 +83,28 @@ class FcmNotificationSenderTest {
         server.expect(requestTo("https://fcm.googleapis.com/v1/projects/project-1/messages:send"))
             .andExpect(method(HttpMethod.POST))
             .andExpect(header("Authorization", "Bearer oauth-token"))
+            .andExpect(
+                content().json(
+                    """
+                    {
+                      "message": {
+                        "token": "token-1",
+                        "data": {
+                          "title": "Low stock",
+                          "body": "Rice is low",
+                          "notificationId": "$notificationId"
+                        },
+                        "android": {
+                          "priority": "HIGH"
+                        }
+                      }
+                    }
+                    """.trimIndent()
+                )
+            )
             .andRespond(withStatus(HttpStatus.NOT_FOUND))
 
-        sender.sendPush(userId, "Low stock", "Rice is low")
+        sender.sendPush(userId, "Low stock", "Rice is low", notificationId)
 
         assertFalse(tokenRepository.findById(token.id)?.active == true)
         server.verify()

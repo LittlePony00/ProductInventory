@@ -92,8 +92,59 @@ class ProductServiceImplTest {
         assertEquals(2.0, product.remainingAmount)
         assertEquals(0.5, product.lowStockThreshold)
         assertEquals(product, productRepository.savedProducts.single())
-        assertEquals(otherMemberId, notificationRepository.savedNotifications.single().userId)
-        assertEquals(otherMemberId, notificationSender.sentPushes.single().userId)
+        assertEquals(
+            setOf(actorId, otherMemberId),
+            notificationRepository.savedNotifications.map { it.userId }.toSet()
+        )
+        assertEquals(
+            setOf(actorId, otherMemberId),
+            notificationSender.sentPushes.map { it.userId }.toSet()
+        )
+    }
+
+    @Test
+    fun `add product notifies actor user so other devices of same account receive the event`() {
+        val actorId = UUID.randomUUID()
+        val householdId = UUID.randomUUID()
+        val notificationRepository = RecordingNotificationRepository()
+        val notificationSender = RecordingNotificationSender()
+        val service = ProductServiceImpl(
+            productRepository = InMemoryProductRepository(),
+            membershipRepository = FakeMembershipRepository(
+                memberships = listOf(Membership(userId = actorId, householdId = householdId, role = MembershipRole.OWNER))
+            ),
+            notificationRepository = notificationRepository,
+            notificationSender = notificationSender,
+            householdEventPublisher = RecordingHouseholdEventPublisher(),
+            categoryRepository = FakeCategoryRepository(),
+            barcodeProductCacheRepository = RecordingBarcodeProductCacheRepository()
+        )
+
+        service.addProduct(
+            userId = actorId,
+            householdId = householdId,
+            name = "Milk",
+            brand = null,
+            barcode = null,
+            category = ProductCategory.DAIRY,
+            categoryId = null,
+            quantity = 1.0,
+            quantityUnit = QuantityUnit.PIECES,
+            packageAmount = null,
+            packageUnit = null,
+            ingredientsText = null,
+            calories = null,
+            protein = null,
+            fat = null,
+            carbs = null,
+            purchaseDate = null,
+            remainingAmount = null,
+            lowStockThreshold = null,
+            expirationDate = null
+        )
+
+        assertEquals(actorId, notificationRepository.savedNotifications.single().userId)
+        assertEquals(actorId, notificationSender.sentPushes.single().userId)
     }
 
     @Test
@@ -171,6 +222,72 @@ class ProductServiceImplTest {
         assertEquals(existing.purchaseDate, updated.purchaseDate)
         assertEquals(1.5, updated.remainingAmount)
         assertEquals(existing.lowStockThreshold, updated.lowStockThreshold)
+    }
+
+    @Test
+    fun `update product notifies all household members with backend notification ids`() {
+        val actorId = UUID.randomUUID()
+        val otherMemberId = UUID.randomUUID()
+        val householdId = UUID.randomUUID()
+        val existing = Product(
+            id = UUID.randomUUID(),
+            name = "Rice",
+            category = ProductCategory.CEREALS,
+            categoryId = null,
+            quantity = Quantity(1.0, QuantityUnit.PIECES),
+            householdId = householdId,
+            addedByUserId = actorId
+        )
+        val notificationRepository = RecordingNotificationRepository()
+        val notificationSender = RecordingNotificationSender()
+        val service = ProductServiceImpl(
+            productRepository = InMemoryProductRepository(initialProducts = listOf(existing)),
+            membershipRepository = FakeMembershipRepository(
+                memberships = listOf(
+                    Membership(userId = actorId, householdId = householdId, role = MembershipRole.OWNER),
+                    Membership(userId = otherMemberId, householdId = householdId, role = MembershipRole.MEMBER)
+                )
+            ),
+            notificationRepository = notificationRepository,
+            notificationSender = notificationSender,
+            householdEventPublisher = RecordingHouseholdEventPublisher(),
+            categoryRepository = FakeCategoryRepository(),
+            barcodeProductCacheRepository = RecordingBarcodeProductCacheRepository()
+        )
+
+        service.updateProduct(
+            userId = actorId,
+            productId = existing.id,
+            name = "Rice updated",
+            brand = null,
+            barcode = null,
+            category = null,
+            categoryId = null,
+            quantity = null,
+            quantityUnit = null,
+            packageAmount = null,
+            packageUnit = null,
+            ingredientsText = null,
+            calories = null,
+            protein = null,
+            fat = null,
+            carbs = null,
+            purchaseDate = null,
+            remainingAmount = null,
+            lowStockThreshold = null,
+            expirationDate = null
+        )
+
+        assertEquals(setOf(actorId, otherMemberId), notificationRepository.savedNotifications.map { it.userId }.toSet())
+        notificationRepository.savedNotifications.forEach { notification ->
+            assertEquals("Продукт изменён", notification.title)
+            assertEquals("«Rice updated» изменён", notification.message)
+        }
+        assertEquals(
+            notificationRepository.savedNotifications.map { it.id }.toSet(),
+            notificationSender.sentPushes.map { it.notificationId }.toSet()
+        )
+        assertEquals(setOf(actorId, otherMemberId), notificationSender.sentPushes.map { it.userId }.toSet())
     }
 
     @Test
@@ -551,6 +668,51 @@ class ProductServiceImplTest {
         assertEquals(HouseholdEventType.PRODUCT_DELETED, event.type)
         assertEquals(existing.id, event.productId)
         assertEquals(householdId, event.householdId)
+    }
+
+    @Test
+    fun `delete product notifies all household members with backend notification ids`() {
+        val actorId = UUID.randomUUID()
+        val otherMemberId = UUID.randomUUID()
+        val householdId = UUID.randomUUID()
+        val existing = Product(
+            id = UUID.randomUUID(),
+            name = "Rice",
+            category = ProductCategory.CEREALS,
+            categoryId = null,
+            quantity = Quantity(1.0, QuantityUnit.PIECES),
+            householdId = householdId,
+            addedByUserId = actorId
+        )
+        val notificationRepository = RecordingNotificationRepository()
+        val notificationSender = RecordingNotificationSender()
+        val service = ProductServiceImpl(
+            productRepository = InMemoryProductRepository(initialProducts = listOf(existing)),
+            membershipRepository = FakeMembershipRepository(
+                memberships = listOf(
+                    Membership(userId = actorId, householdId = householdId, role = MembershipRole.OWNER),
+                    Membership(userId = otherMemberId, householdId = householdId, role = MembershipRole.MEMBER)
+                )
+            ),
+            notificationRepository = notificationRepository,
+            notificationSender = notificationSender,
+            householdEventPublisher = RecordingHouseholdEventPublisher(),
+            categoryRepository = FakeCategoryRepository(),
+            barcodeProductCacheRepository = RecordingBarcodeProductCacheRepository()
+        )
+
+        service.deleteProduct(actorId, existing.id)
+
+        assertEquals(setOf(actorId, otherMemberId), notificationRepository.savedNotifications.map { it.userId }.toSet())
+        notificationRepository.savedNotifications.forEach { notification ->
+            assertEquals("Продукт удалён", notification.title)
+            assertEquals("«Rice» удалён", notification.message)
+        }
+        assertEquals(
+            notificationRepository.savedNotifications.map { it.id }.toSet(),
+            notificationSender.sentPushes.map { it.notificationId }.toSet()
+        )
+        assertEquals(setOf(actorId, otherMemberId), notificationSender.sentPushes.map { it.userId }.toSet())
     }
 
     @Test
@@ -961,8 +1123,8 @@ class ProductServiceImplTest {
     private class RecordingNotificationSender : INotificationSender {
         val sentPushes = mutableListOf<Push>()
 
-        override fun sendPush(userId: UUID, title: String, message: String) {
-            sentPushes += Push(userId, title, message)
+        override fun sendPush(userId: UUID, title: String, message: String, notificationId: UUID?) {
+            sentPushes += Push(userId, title, message, notificationId)
         }
     }
 
@@ -988,6 +1150,7 @@ class ProductServiceImplTest {
     private data class Push(
         val userId: UUID,
         val title: String,
-        val message: String
+        val message: String,
+        val notificationId: UUID?
     )
 }

@@ -64,14 +64,18 @@ class ReminderServiceImplTest {
             notificationRepository.savedNotifications.any {
                 it.userId == userId &&
                     it.type == NotificationType.REMINDER_EXPIRING_SOON &&
-                    it.productId == expiring.id
+                    it.productId == expiring.id &&
+                    it.title == "Скоро истекает срок годности" &&
+                    it.message == "Срок годности продукта «Milk» истекает 2026-05-15"
             }
         )
         assertTrue(
             notificationRepository.savedNotifications.any {
                 it.userId == otherUserId &&
                     it.type == NotificationType.REMINDER_LOW_STOCK &&
-                    it.productId == lowStock.id
+                    it.productId == lowStock.id &&
+                    it.title == "Продукт заканчивается" &&
+                    it.message == "Осталось: «Rice» — 0.2 шт."
             }
         )
     }
@@ -288,7 +292,7 @@ class ReminderServiceImplTest {
     private class RecordingNotificationSender : INotificationSender {
         val sentPushes = mutableListOf<Push>()
 
-        override fun sendPush(userId: UUID, title: String, message: String) {
+        override fun sendPush(userId: UUID, title: String, message: String, notificationId: UUID?) {
             sentPushes += Push(userId, title, message)
         }
     }

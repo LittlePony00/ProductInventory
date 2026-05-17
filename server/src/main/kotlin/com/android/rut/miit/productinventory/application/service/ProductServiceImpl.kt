@@ -82,7 +82,11 @@ class ProductServiceImpl(
 
         publishProductEvent(HouseholdEventType.PRODUCT_CREATED, userId, product)
         publishStateEvents(userId, product)
-        notifyOtherMembers(userId, householdId, "New product", "${product.name} was added")
+        notifyHouseholdMembers(
+            householdId = householdId,
+            title = "Продукт добавлен",
+            message = "«${product.name}» добавлен"
+        )
         saveBarcodeMetadata(product)
 
         return product.withCategoryDetails(householdId)
@@ -167,6 +171,11 @@ class ProductServiceImpl(
         }
         publishStateTransitionEvents(userId, existing, saved)
         saveBarcodeMetadata(saved)
+        notifyHouseholdMembers(
+            householdId = saved.householdId,
+            title = "Продукт изменён",
+            message = "«${saved.name}» изменён"
+        )
 
         return saved.withCategoryDetails(saved.householdId)
     }
@@ -203,6 +212,11 @@ class ProductServiceImpl(
         requireMembership(userId, product.householdId)
         productRepository.deleteById(productId)
         publishProductEvent(HouseholdEventType.PRODUCT_DELETED, userId, product)
+        notifyHouseholdMembers(
+            householdId = product.householdId,
+            title = "Продукт удалён",
+            message = "«${product.name}» удалён"
+        )
     }
 
     @Transactional(readOnly = true)
@@ -259,13 +273,13 @@ class ProductServiceImpl(
         return copy(categoryId = resolvedId, categoryName = resolvedName)
     }
 
-    private fun notifyOtherMembers(actorId: UUID, householdId: UUID, title: String, message: String) {
+    private fun notifyHouseholdMembers(householdId: UUID, title: String, message: String) {
         val members = membershipRepository.findByHouseholdId(householdId)
-        members.filter { it.userId != actorId }.forEach { membership ->
-            notificationRepository.save(
+        members.distinctBy { it.userId }.forEach { membership ->
+            val notification = notificationRepository.save(
                 Notification(userId = membership.userId, title = title, message = message)
             )
-            notificationSender.sendPush(membership.userId, title, message)
+            notificationSender.sendPush(membership.userId, title, message, notification.id)
         }
     }
 

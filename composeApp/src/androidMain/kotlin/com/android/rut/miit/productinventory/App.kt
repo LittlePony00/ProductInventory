@@ -5,6 +5,11 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.navigation.compose.NavHost
@@ -25,32 +30,45 @@ import com.android.rut.miit.productinventory.ui.screen.profile.ProfileScreen
 import com.android.rut.miit.productinventory.ui.screen.barcode.BarcodeScannerScreen
 import com.android.rut.miit.productinventory.ui.screen.recipes.RecipeListScreen
 import com.android.rut.miit.productinventory.ui.design.ProductInventoryTheme
+import com.android.rut.miit.productinventory.ui.notification.AndroidNotificationBootstrap
 import org.koin.compose.koinInject
 
 @Composable
 fun App() {
     ProductInventoryTheme {
         val navController = rememberNavController()
+        val restoreSessionUseCase = koinInject<RestoreSessionUseCase>()
+        var isAuthenticated by rememberSaveable { mutableStateOf(false) }
+
+        LaunchedEffect(restoreSessionUseCase) {
+            isAuthenticated = restoreSessionUseCase()
+        }
+
+        AndroidNotificationBootstrap(isAuthenticated = isAuthenticated)
 
         NavHost(navController = navController, startDestination = Route.AuthBootstrap) {
             composable<Route.AuthBootstrap> {
                 AuthBootstrapScreen(
                     onAuthenticated = {
+                        isAuthenticated = true
                         navController.navigate(Route.HouseholdList) {
                             popUpTo(Route.AuthBootstrap) { inclusive = true }
                         }
                     },
                     onUnauthenticated = {
+                        isAuthenticated = false
                         navController.navigate(Route.Login) {
                             popUpTo(Route.AuthBootstrap) { inclusive = true }
                         }
-                    }
+                    },
+                    restoreSessionUseCase = restoreSessionUseCase
                 )
             }
 
             composable<Route.Login> {
                 LoginScreen(
                     onNavigateToHome = {
+                        isAuthenticated = true
                         navController.navigate(Route.HouseholdList) {
                             popUpTo(Route.Login) { inclusive = true }
                         }
@@ -62,6 +80,7 @@ fun App() {
             composable<Route.Register> {
                 RegisterScreen(
                     onNavigateToHome = {
+                        isAuthenticated = true
                         navController.navigate(Route.HouseholdList) {
                             popUpTo(Route.Login) { inclusive = true }
                         }
@@ -137,6 +156,7 @@ fun App() {
             composable<Route.Profile> {
                 ProfileScreen(
                     onNavigateToLogin = {
+                        isAuthenticated = false
                         navController.navigate(Route.Login) {
                             popUpTo(0) { inclusive = true }
                         }

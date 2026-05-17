@@ -5,6 +5,7 @@ import com.android.rut.miit.productinventory.domain.model.Notification
 import com.android.rut.miit.productinventory.domain.model.NotificationSettings
 import com.android.rut.miit.productinventory.domain.model.NotificationType
 import com.android.rut.miit.productinventory.domain.model.Product
+import com.android.rut.miit.productinventory.domain.model.QuantityUnit
 import com.android.rut.miit.productinventory.domain.model.ReminderRunResult
 import com.android.rut.miit.productinventory.domain.port.inbound.IReminderService
 import com.android.rut.miit.productinventory.domain.port.outbound.IMembershipRepository
@@ -62,8 +63,8 @@ class ReminderServiceImpl(
             notifyHouseholdMembers(
                 product = product,
                 type = NotificationType.REMINDER_EXPIRING_SOON,
-                title = "Product expires soon",
-                message = "${product.name} expires on ${product.expirationDate?.date}",
+                title = "Скоро истекает срок годности",
+                message = "Срок годности продукта «${product.name}» истекает ${product.expirationDate?.date}",
                 dedupeKey = "reminder:expiring:${product.id}:${product.expirationDate?.date}",
                 referenceDate = referenceDate
             )
@@ -72,8 +73,8 @@ class ReminderServiceImpl(
             notifyHouseholdMembers(
                 product = product,
                 type = NotificationType.REMINDER_LOW_STOCK,
-                title = "Low stock",
-                message = "${product.name} has ${product.remainingAmount} ${product.quantity.unit.name.lowercase()} left",
+                title = "Продукт заканчивается",
+                message = "Осталось: «${product.name}» — ${product.remainingAmount} ${product.quantity.unit.displayNameRu()}",
                 dedupeKey = "reminder:low-stock:${product.id}",
                 referenceDate = referenceDate
             )
@@ -137,7 +138,7 @@ class ReminderServiceImpl(
         }
 
         if (settings.pushEnabled) {
-            notificationSender.sendPush(saved.userId, saved.title, saved.message)
+            notificationSender.sendPush(saved.userId, saved.title, saved.message, saved.id)
         }
         return true
     }
@@ -168,4 +169,11 @@ private fun NotificationSettings.allows(
                 product.expirationDate?.date?.isAfter(referenceDate.plusDays(expirationReminderDays.toLong())) != true
         NotificationType.REMINDER_LOW_STOCK -> lowStockRemindersEnabled
         NotificationType.GENERAL -> true
+    }
+
+private fun QuantityUnit.displayNameRu(): String =
+    when (this) {
+        QuantityUnit.GRAMS -> "г"
+        QuantityUnit.MILLILITERS -> "мл"
+        QuantityUnit.PIECES -> "шт."
     }

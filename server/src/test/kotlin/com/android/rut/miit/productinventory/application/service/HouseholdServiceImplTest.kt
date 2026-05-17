@@ -218,7 +218,7 @@ class HouseholdServiceImplTest {
     }
 
     private class RecordingNotificationSender : INotificationSender {
-        override fun sendPush(userId: UUID, title: String, message: String) = Unit
+        override fun sendPush(userId: UUID, title: String, message: String, notificationId: UUID?) = Unit
     }
 
     private class RecordingHouseholdEventPublisher : IHouseholdEventPublisher {

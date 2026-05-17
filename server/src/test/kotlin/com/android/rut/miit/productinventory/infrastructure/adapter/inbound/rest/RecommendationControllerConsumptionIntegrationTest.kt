@@ -195,7 +195,7 @@ class RecommendationControllerConsumptionIntegrationTest {
     }
 
     private class NoopNotificationSender : INotificationSender {
-        override fun sendPush(userId: UUID, title: String, message: String) = Unit
+        override fun sendPush(userId: UUID, title: String, message: String, notificationId: UUID?) = Unit
     }
 
     private class RecordingHouseholdEventPublisher : IHouseholdEventPublisher {

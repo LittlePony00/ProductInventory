@@ -1,12 +1,6 @@
 package com.android.rut.miit.productinventory.ui.screen.notifications
 
 import android.Manifest
-import android.app.NotificationChannel
-import android.app.NotificationManager
-import android.app.PendingIntent
-import android.content.Context
-import android.content.Intent
-import android.content.pm.PackageManager
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -21,10 +15,10 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.android.rut.miit.productinventory.MainActivity
 import com.android.rut.miit.productinventory.R
+import com.android.rut.miit.productinventory.core.push.isPostNotificationsPermissionGranted
+import com.android.rut.miit.productinventory.core.push.showUnreadProductInventoryNotifications
 import com.android.rut.miit.productinventory.feature.notifications.api.models.Notification
 import com.android.rut.miit.productinventory.feature.notifications.api.models.NotificationSettings
 import com.android.rut.miit.productinventory.feature.notifications.presentation.*
@@ -89,7 +83,7 @@ fun NotificationListScreen(
     LaunchedEffect(state, isPushPermissionGranted) {
         val content = state as? NotificationListState.Content ?: return@LaunchedEffect
         if (content.settings.pushEnabled && isPushPermissionGranted) {
-            context.showUnreadLocalNotifications(content.notifications)
+            context.showUnreadProductInventoryNotifications(content.notifications)
         }
     }
 
@@ -286,65 +280,6 @@ private fun NotificationSettingsCard(
         }
     }
 }
-
-private fun Context.isPostNotificationsPermissionGranted(): Boolean =
-    Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
-        ContextCompat.checkSelfPermission(
-            this,
-            Manifest.permission.POST_NOTIFICATIONS
-        ) == PackageManager.PERMISSION_GRANTED
-
-private fun Context.showUnreadLocalNotifications(notifications: List<Notification>) {
-    val unread = notifications.filterNot { it.isRead }
-    if (unread.isEmpty()) return
-
-    // Local fallback mirrors unread backend notifications when this screen syncs.
-    // Background delivery still depends on configured FCM or a future polling worker.
-    val preferences = getSharedPreferences("shown_notifications", Context.MODE_PRIVATE)
-    val shownIds = preferences.getStringSet(SHOWN_NOTIFICATION_IDS_KEY, emptySet()).orEmpty()
-    val pending = unread.filterNot { it.id in shownIds }
-    if (pending.isEmpty()) return
-
-    val manager = getSystemService(NotificationManager::class.java)
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-        manager.createNotificationChannel(
-            NotificationChannel(
-                REMINDER_NOTIFICATION_CHANNEL_ID,
-                "Product reminders",
-                NotificationManager.IMPORTANCE_DEFAULT
-            )
-        )
-    }
-
-    val launchIntent = packageManager.getLaunchIntentForPackage(packageName)
-        ?: Intent(this, MainActivity::class.java)
-    val pendingIntent = PendingIntent.getActivity(
-        this,
-        0,
-        launchIntent,
-        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-    )
-
-    pending.forEach { notification ->
-        val platformNotification = android.app.Notification.Builder(this, REMINDER_NOTIFICATION_CHANNEL_ID)
-            .setSmallIcon(android.R.drawable.ic_dialog_info)
-            .setContentTitle(notification.title)
-            .setContentText(notification.message)
-            .setStyle(android.app.Notification.BigTextStyle().bigText(notification.message))
-            .setContentIntent(pendingIntent)
-            .setAutoCancel(true)
-            .build()
-
-        manager.notify(notification.id.hashCode(), platformNotification)
-    }
-
-    preferences.edit()
-        .putStringSet(SHOWN_NOTIFICATION_IDS_KEY, shownIds + pending.map { it.id })
-        .apply()
-}
-
-private const val REMINDER_NOTIFICATION_CHANNEL_ID = "product_reminders"
-private const val SHOWN_NOTIFICATION_IDS_KEY = "shown_notification_ids"
 
 @Composable
 private fun NotificationSwitchRow(
