@@ -51,7 +51,7 @@ Hexagonal architecture решает это через порты:
 - application services реализуют сценарии;
 - infrastructure adapters подключают REST, JPA, FCM, AI и barcode providers.
 
-Преимущество: `ProductServiceImpl`, `ReminderServiceImpl`, `AuthServiceImpl` можно тестировать изолированно. Можно заменить FCM sender, GigaChat client или barcode provider без переписывания бизнес-правил.
+Преимущество: `ProductServiceImpl`, `AuthServiceImpl` и shared mobile planners можно тестировать изолированно. Можно заменить FCM sender, GigaChat client, barcode provider или platform scheduler без переписывания бизнес-правил.
 
 ## 6. Почему не хватило бы обычного `Controller -> Service -> Repository`?
 
@@ -99,7 +99,7 @@ Access token короткоживущий и stateless. Refresh token храни
 
 ## 10. Как защищены данные разных домохозяйств?
 
-Каждый household-scoped use case вызывает проверку membership через `IMembershipRepository.findByUserIdAndHouseholdId`. Например, `ProductServiceImpl`, `HouseholdServiceImpl`, `CategoryServiceImpl`, `BarcodeProductServiceImpl`, `ProductEnrichmentServiceImpl`, `ReminderServiceImpl` проверяют, что пользователь является участником домохозяйства.
+Каждый backend household-scoped use case вызывает проверку membership через `IMembershipRepository.findByUserIdAndHouseholdId`. Например, `ProductServiceImpl`, `HouseholdServiceImpl`, `CategoryServiceImpl`, `BarcodeProductServiceImpl`, `ProductEnrichmentServiceImpl` проверяют, что пользователь является участником домохозяйства. Напоминания о сроке/остатке планируются локально на устройстве по уже доступному кешу продуктов.
 
 Это означает, что пользователь не может просто подставить чужой `householdId` в URL. Даже если endpoint аутентифицирован, service layer отклонит доступ.
 

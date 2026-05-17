@@ -24,7 +24,7 @@
 - `server/src/main/kotlin/com/android/rut/miit/productinventory/application/service/ProductServiceImpl.kt` - главный сервис инвентаря. `addProduct` проверяет membership, разрешает category/categoryId, сохраняет продукт, публикует `PRODUCT_CREATED`, создает state events, создает notification для участников и сохраняет barcode metadata. `updateProduct` применяет частичный update, публикует `PRODUCT_UPDATED`, `CATEGORY_CHANGED` и transition events. `consumeProduct` валидирует amount, уменьшает `remainingAmount`, публикует `PRODUCT_QUANTITY_CHANGED` и при нуле `PRODUCT_DEPLETED`. `notifyHouseholdMembers` в текущей рабочей области включает actor user, чтобы same-account multi-device получал push.
 - `server/src/main/kotlin/com/android/rut/miit/productinventory/application/service/barcode/BarcodeProductServiceImpl.kt` - новый barcode draft use case. `getProductDraft` проверяет membership, ищет глобальный cache, затем проходит provider chain, создает empty draft при miss и добирает категорию через `CategorySuggestionService`. `CategorySuggestionService.suggestCategory` сначала использует rules, затем GigaChat, затем fallback `OTHER`.
 - `server/src/main/kotlin/com/android/rut/miit/productinventory/application/service/ProductEnrichmentServiceImpl.kt` - обогащение формы продукта. `suggestProduct` передает AI доступные категории, валидирует возвращенную категорию по id/code/name, затем делает rule-based и fallback ветки. Это защищает сценарий добавления от отказа GigaChat.
-- `server/src/main/kotlin/com/android/rut/miit/productinventory/application/service/ReminderServiceImpl.kt` - напоминания. `runDueReminders` и `runHouseholdDueReminders` собирают expiring/low-stock продукты. `createNotificationIfAbsent` применяет user settings, проверяет `dedupeKey`, сохраняет notification и вызывает `sendPush` с backend notification id.
+- Напоминания о сроке годности и низком остатке формируются локально на мобильных устройствах по кешу продуктов, чтобы работать без интернета. Shared `ProductLocalReminderPlanner` готовит русские тексты и даты, Android планирует их через `AlarmManager`, iOS — через `UNUserNotificationCenter`.
 - `server/src/main/kotlin/com/android/rut/miit/productinventory/application/service/RecommendationServiceImpl.kt` - соединяет продукты household с `IRecipeProvider`. Важен тем, что depleted продукты фильтруются на уровне retrieval/provider логики.
 
 ### Backend infrastructure
@@ -410,7 +410,6 @@
 - `server/src/main/kotlin/com/android/rut/miit/productinventory/application/dto/response/ProductEnrichmentResponse.kt` — Kotlin; Ключевые сущности: ProductEnrichmentSuggestionResponse;
 - `server/src/main/kotlin/com/android/rut/miit/productinventory/application/dto/response/ProductResponse.kt` — Kotlin; Ключевые сущности: ProductResponse BarcodeProductResponse;
 - `server/src/main/kotlin/com/android/rut/miit/productinventory/application/dto/response/RecipeResponse.kt` — Kotlin; Ключевые сущности: RecipeResponse RecipeIngredientResponse;
-- `server/src/main/kotlin/com/android/rut/miit/productinventory/application/dto/response/ReminderRunResponse.kt` — Kotlin; Ключевые сущности: ReminderRunResponse;
 - `server/src/main/kotlin/com/android/rut/miit/productinventory/application/dto/response/UserResponse.kt` — Kotlin; Ключевые сущности: UserResponse;
 - `server/src/main/kotlin/com/android/rut/miit/productinventory/application/mapper/BarcodeDtoMapper.kt` — Kotlin; Ключевые сущности: BarcodeProductDraft;
 - `server/src/main/kotlin/com/android/rut/miit/productinventory/application/mapper/DtoMapper.kt` — Kotlin; Ключевые сущности: AuthResult User Product Category Household Notification Recipe Membership;
@@ -424,7 +423,6 @@
 - `server/src/main/kotlin/com/android/rut/miit/productinventory/application/service/ProductEnrichmentServiceImpl.kt` — Kotlin; Ключевые сущности: ProductEnrichmentServiceImpl String;
 - `server/src/main/kotlin/com/android/rut/miit/productinventory/application/service/ProductServiceImpl.kt` — Kotlin; Ключевые сущности: ProductServiceImpl String ResolvedCategory;
 - `server/src/main/kotlin/com/android/rut/miit/productinventory/application/service/RecommendationServiceImpl.kt` — Kotlin; Ключевые сущности: RecommendationServiceImpl;
-- `server/src/main/kotlin/com/android/rut/miit/productinventory/application/service/ReminderServiceImpl.kt` — Kotlin; Ключевые сущности: ReminderServiceImpl NotificationSettings;
 - `server/src/main/kotlin/com/android/rut/miit/productinventory/application/service/UserServiceImpl.kt` — Kotlin; Ключевые сущности: UserServiceImpl;
 - `server/src/main/kotlin/com/android/rut/miit/productinventory/domain/exception/DomainExceptions.kt` — Kotlin; Ключевые сущности: DomainException EntityNotFoundException DuplicateEntityException AccessDeniedException InvalidCredentialsException TokenExpiredException InvalidTokenException InviteCodeExpiredException InviteCodeAlreadyUsedException BarcodeNotFoundException;
 - `server/src/main/kotlin/com/android/rut/miit/productinventory/domain/model/barcode/BarcodeModels.kt` — Kotlin; Ключевые сущности: BarcodeProductDraft NutritionFacts CategorySuggestion BarcodeProductSource CategorySuggestionSource;
@@ -450,7 +448,6 @@
 - `server/src/main/kotlin/com/android/rut/miit/productinventory/domain/model/RecipeDocument.kt` — Kotlin; Ключевые сущности: RecipeDocument RecipeDocumentMatch;
 - `server/src/main/kotlin/com/android/rut/miit/productinventory/domain/model/RecipeGenerationRequest.kt` — Kotlin; Ключевые сущности: RecipeGenerationRequest;
 - `server/src/main/kotlin/com/android/rut/miit/productinventory/domain/model/RefreshToken.kt` — Kotlin; Ключевые сущности: RefreshToken;
-- `server/src/main/kotlin/com/android/rut/miit/productinventory/domain/model/ReminderRunResult.kt` — Kotlin; Ключевые сущности: ReminderRunResult;
 - `server/src/main/kotlin/com/android/rut/miit/productinventory/domain/model/User.kt` — Kotlin; Ключевые сущности: User;
 - `server/src/main/kotlin/com/android/rut/miit/productinventory/domain/port/inbound/IAuthService.kt` — Kotlin; Ключевые сущности: IAuthService AuthResult;
 - `server/src/main/kotlin/com/android/rut/miit/productinventory/domain/port/inbound/IBarcodeProductService.kt` — Kotlin; Ключевые сущности: IBarcodeProductService;
@@ -462,7 +459,6 @@
 - `server/src/main/kotlin/com/android/rut/miit/productinventory/domain/port/inbound/IProductEnrichmentService.kt` — Kotlin; Ключевые сущности: IProductEnrichmentService;
 - `server/src/main/kotlin/com/android/rut/miit/productinventory/domain/port/inbound/IProductService.kt` — Kotlin; Ключевые сущности: IProductService;
 - `server/src/main/kotlin/com/android/rut/miit/productinventory/domain/port/inbound/IRecommendationService.kt` — Kotlin; Ключевые сущности: IRecommendationService;
-- `server/src/main/kotlin/com/android/rut/miit/productinventory/domain/port/inbound/IReminderService.kt` — Kotlin; Ключевые сущности: IReminderService;
 - `server/src/main/kotlin/com/android/rut/miit/productinventory/domain/port/inbound/IUserService.kt` — Kotlin; Ключевые сущности: IUserService;
 - `server/src/main/kotlin/com/android/rut/miit/productinventory/domain/port/outbound/barcode/IBarcodeProductCacheRepository.kt` — Kotlin; Ключевые сущности: IBarcodeProductCacheRepository;
 - `server/src/main/kotlin/com/android/rut/miit/productinventory/domain/port/outbound/barcode/IBarcodeProductProvider.kt` — Kotlin; Ключевые сущности: BarcodeLookupContext IBarcodeProductProvider BarcodeProductProviderOrder;
@@ -505,7 +501,6 @@
 - `server/src/main/kotlin/com/android/rut/miit/productinventory/infrastructure/adapter/inbound/rest/ProductEnrichmentController.kt` — Kotlin; Ключевые сущности: ProductEnrichmentController;
 - `server/src/main/kotlin/com/android/rut/miit/productinventory/infrastructure/adapter/inbound/rest/ProfileController.kt` — Kotlin; Ключевые сущности: ProfileController;
 - `server/src/main/kotlin/com/android/rut/miit/productinventory/infrastructure/adapter/inbound/rest/RecommendationController.kt` — Kotlin; Ключевые сущности: RecommendationController;
-- `server/src/main/kotlin/com/android/rut/miit/productinventory/infrastructure/adapter/inbound/scheduler/ReminderScheduler.kt` — Kotlin; Ключевые сущности: ReminderScheduler;
 - `server/src/main/kotlin/com/android/rut/miit/productinventory/infrastructure/adapter/outbound/ai/AiRateLimiter.kt` — Kotlin; Ключевые сущности: AiRateLimiter;
 - `server/src/main/kotlin/com/android/rut/miit/productinventory/infrastructure/adapter/outbound/ai/GigaChatAccessTokenProvider.kt` — Kotlin; Ключевые сущности: GigaChatAccessTokenProvider GigaChatAccessToken GigaChatOAuthResponse Long;
 - `server/src/main/kotlin/com/android/rut/miit/productinventory/infrastructure/adapter/outbound/ai/GigaChatProductEnrichmentClient.kt` — Kotlin; Ключевые сущности: GigaChatProductEnrichmentClient JsonNode GigaChatProductEnrichmentRequest GigaChatMessage GigaChatProductEnrichmentResponse;
@@ -586,7 +581,6 @@
 - `server/src/test/kotlin/com/android/rut/miit/productinventory/application/service/ProductEnrichmentServiceImplTest.kt` — Kotlin; Ключевые сущности: ProductEnrichmentServiceImplTest;
 - `server/src/test/kotlin/com/android/rut/miit/productinventory/application/service/ProductServiceImplTest.kt` — Kotlin; Ключевые сущности: ProductServiceImplTest;
 - `server/src/test/kotlin/com/android/rut/miit/productinventory/application/service/RecommendationServiceImplTest.kt` — Kotlin; Ключевые сущности: RecommendationServiceImplTest;
-- `server/src/test/kotlin/com/android/rut/miit/productinventory/application/service/ReminderServiceImplTest.kt` — Kotlin; Ключевые сущности: ReminderServiceImplTest;
 - `server/src/test/kotlin/com/android/rut/miit/productinventory/application/service/UserServiceImplTest.kt` — Kotlin; Ключевые сущности: UserServiceImplTest;
 - `server/src/test/kotlin/com/android/rut/miit/productinventory/ApplicationTest.kt` — Kotlin; Ключевые сущности: ApplicationTest;
 - `server/src/test/kotlin/com/android/rut/miit/productinventory/domain/model/ProductTest.kt` — Kotlin; Ключевые сущности: ProductTest;

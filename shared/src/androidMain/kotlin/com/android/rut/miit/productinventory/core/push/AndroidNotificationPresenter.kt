@@ -85,6 +85,6 @@ fun Context.markProductInventoryNotificationShown(notificationId: String) {
 }
 
 private const val PRODUCT_REMINDER_NOTIFICATION_CHANNEL_ID = "product_reminders"
-private const val PRODUCT_REMINDER_NOTIFICATION_CHANNEL_NAME = "Product reminders"
+private const val PRODUCT_REMINDER_NOTIFICATION_CHANNEL_NAME = "Напоминания о продуктах"
 private const val SHOWN_NOTIFICATIONS_PREFERENCES = "shown_notifications"
 private const val SHOWN_NOTIFICATION_IDS_KEY = "shown_notification_ids"

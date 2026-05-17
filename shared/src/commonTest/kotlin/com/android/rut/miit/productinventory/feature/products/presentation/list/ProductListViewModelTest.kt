@@ -1,5 +1,9 @@
 package com.android.rut.miit.productinventory.feature.products.presentation.list
 
+import com.android.rut.miit.productinventory.feature.notifications.api.GetNotificationSettingsUseCase
+import com.android.rut.miit.productinventory.feature.notifications.api.NotificationRepository
+import com.android.rut.miit.productinventory.feature.notifications.api.models.Notification
+import com.android.rut.miit.productinventory.feature.notifications.api.models.NotificationSettings
 import com.android.rut.miit.productinventory.feature.products.api.DeleteProductUseCase
 import com.android.rut.miit.productinventory.feature.products.api.ConsumeProductUseCase
 import com.android.rut.miit.productinventory.feature.products.api.CategoryRepository
@@ -188,9 +192,82 @@ class ProductListViewModelTest {
         }
     }
 
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    @Test
+    fun `plans local Russian reminders from loaded products and notification settings`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        try {
+            val productRepository = FakeProductRepository(
+                products = listOf(
+                    product(
+                        id = "milk",
+                        remainingAmount = 1.0,
+                        lowStockThreshold = 2.0,
+                        expirationDate = LocalDate.parse("2026-05-20")
+                    )
+                )
+            )
+            val viewModel = viewModel(
+                productRepository = productRepository,
+                realtimeRepository = FakeRealtimeRepository(),
+                notificationRepository = FakeNotificationRepository(
+                    settings = NotificationSettings(expirationReminderDays = 2)
+                )
+            )
+
+            viewModel.onEvent(ProductListEvent.OnCreate("household-id"))
+            advanceUntilIdle()
+
+            val state = assertIs<ProductListState.Content>(viewModel.viewState.value)
+            assertEquals(
+                listOf("Скоро истекает срок годности", "Продукт заканчивается"),
+                state.localReminders.map { it.title }
+            )
+            assertEquals(
+                "Срок годности продукта «milk» истекает 2026-05-20",
+                state.localReminders.first().message
+            )
+            assertEquals("2026-05-18", state.localReminders.first().triggerDateIso)
+            assertEquals("Осталось: «milk» — 1.0 шт.", state.localReminders.last().message)
+        } finally {
+            Dispatchers.resetMain()
+        }
+    }
+
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    @Test
+    fun `plans local reminders with default settings when notification settings are unavailable offline`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        try {
+            val productRepository = FakeProductRepository(
+                products = listOf(
+                    product(
+                        id = "offline-milk",
+                        expirationDate = LocalDate.parse("2026-05-20")
+                    )
+                )
+            )
+            val viewModel = viewModel(
+                productRepository = productRepository,
+                realtimeRepository = FakeRealtimeRepository(),
+                notificationRepository = FakeNotificationRepository(throwOnGetSettings = true)
+            )
+
+            viewModel.onEvent(ProductListEvent.OnCreate("household-id"))
+            advanceUntilIdle()
+
+            val state = assertIs<ProductListState.Content>(viewModel.viewState.value)
+            assertEquals(listOf("Скоро истекает срок годности"), state.localReminders.map { it.title })
+            assertEquals("2026-05-17", state.localReminders.single().triggerDateIso)
+        } finally {
+            Dispatchers.resetMain()
+        }
+    }
+
     private fun viewModel(
         productRepository: ProductRepository,
-        realtimeRepository: RealtimeRepository
+        realtimeRepository: RealtimeRepository,
+        notificationRepository: NotificationRepository = FakeNotificationRepository()
     ): ProductListViewModel =
         ProductListViewModel(
             getProductsUseCase = GetProductsUseCase(productRepository),
@@ -198,7 +275,8 @@ class ProductListViewModelTest {
             deleteProductUseCase = DeleteProductUseCase(productRepository),
             consumeProductUseCase = ConsumeProductUseCase(productRepository),
             applyRealtimeProductEventUseCase = ApplyRealtimeProductEventUseCase(productRepository),
-            observeHouseholdEventsUseCase = ObserveHouseholdEventsUseCase(realtimeRepository)
+            observeHouseholdEventsUseCase = ObserveHouseholdEventsUseCase(realtimeRepository),
+            getNotificationSettingsUseCase = GetNotificationSettingsUseCase(notificationRepository)
         )
 
     private class FakeRealtimeRepository : RealtimeRepository {
@@ -303,7 +381,8 @@ class ProductListViewModelTest {
         categoryId: String? = category.name.lowercase(),
         remainingAmount: Double = 1.0,
         lowStockThreshold: Double? = null,
-        expirationStatus: ExpirationStatus = ExpirationStatus.FRESH
+        expirationStatus: ExpirationStatus = ExpirationStatus.FRESH,
+        expirationDate: LocalDate? = null
     ): Product =
         Product(
             id = id,
@@ -314,12 +393,32 @@ class ProductListViewModelTest {
             quantityUnit = QuantityUnit.PIECES,
             remainingAmount = remainingAmount,
             lowStockThreshold = lowStockThreshold,
-            expirationDate = null,
+            expirationDate = expirationDate,
             expirationStatus = expirationStatus,
             householdId = "household-id",
             addedByUserId = "user-id",
             createdAt = "2026-05-14T00:00:00Z"
         )
+
+    private class FakeNotificationRepository(
+        private val settings: NotificationSettings = NotificationSettings(),
+        private val throwOnGetSettings: Boolean = false
+    ) : NotificationRepository {
+        override suspend fun getNotifications(): List<Notification> = emptyList()
+        override suspend fun getUnreadNotifications(): List<Notification> = emptyList()
+        override suspend fun markAsRead(notificationId: String) = Unit
+        override suspend fun markAllAsRead() = Unit
+        override suspend fun getSettings(): NotificationSettings {
+            if (throwOnGetSettings) error("offline")
+            return settings
+        }
+        override suspend fun updateSettings(
+            expirationRemindersEnabled: Boolean?,
+            lowStockRemindersEnabled: Boolean?,
+            pushEnabled: Boolean?,
+            expirationReminderDays: Int?
+        ): NotificationSettings = settings
+    }
 
     private class FakeCategoryRepository : CategoryRepository {
         override suspend fun getCategories(householdId: String, includeArchived: Boolean): List<ProductCategoryOption> =

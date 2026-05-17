@@ -1,5 +1,6 @@
 import SwiftUI
 import Shared
+import UserNotifications
 
 struct ProductListScreen: View {
     let householdId: String
@@ -55,63 +56,68 @@ struct ProductListScreen: View {
             case is ProductListState.Loading:
                 ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
             case let state as ProductListState.Content:
-                let products = state.visibleProducts
-                if state.products.isEmpty {
-                    InventoryEmptyState(
-                        title: "Нет продуктов",
-                        message: "Добавьте продукт вручную или отсканируйте штрихкод.",
-                        systemImage: "basket",
-                        primaryTitle: "Добавить продукт",
-                        primaryAction: { holder.sendEvent(ProductListEvent.OnAddProductClick()) },
-                        secondaryTitle: "Сканировать",
-                        secondaryAction: { router.push(.barcodeScan(householdId: householdId)) }
-                    )
-                } else if products.isEmpty {
-                    VStack(spacing: 8) {
-                        ProductFilters(
-                            categories: state.categories,
-                            filters: state.filters,
-                            onCategoryChanged: { holder.sendEvent(ProductListEvent.OnCategoryFilterChanged(categoryId: $0)) },
-                            onInventoryChanged: { holder.sendEvent(ProductListEvent.OnInventoryFilterChanged(filter: $0)) }
-                        )
-                        Spacer()
+                Group {
+                    let products = state.visibleProducts
+                    if state.products.isEmpty {
                         InventoryEmptyState(
-                            title: "Нет продуктов по выбранным фильтрам",
-                            message: "Сбросьте фильтры, чтобы увидеть весь список запасов.",
-                            systemImage: "line.3.horizontal.decrease.circle",
-                            primaryTitle: "Сбросить фильтры",
-                            primaryAction: {
-                                holder.sendEvent(ProductListEvent.OnCategoryFilterChanged(categoryId: nil))
-                                holder.sendEvent(ProductListEvent.OnInventoryFilterChanged(filter: .all))
-                            }
+                            title: "Нет продуктов",
+                            message: "Добавьте продукт вручную или отсканируйте штрихкод.",
+                            systemImage: "basket",
+                            primaryTitle: "Добавить продукт",
+                            primaryAction: { holder.sendEvent(ProductListEvent.OnAddProductClick()) },
+                            secondaryTitle: "Сканировать",
+                            secondaryAction: { router.push(.barcodeScan(householdId: householdId)) }
                         )
-                        Spacer()
-                    }
-                    .padding()
-                } else {
-                    VStack(spacing: 8) {
-                        ProductFilters(
-                            categories: state.categories,
-                            filters: state.filters,
-                            onCategoryChanged: { holder.sendEvent(ProductListEvent.OnCategoryFilterChanged(categoryId: $0)) },
-                            onInventoryChanged: { holder.sendEvent(ProductListEvent.OnInventoryFilterChanged(filter: $0)) }
-                        )
-                            .padding(.horizontal)
-                        List(products, id: \.id) { product in
-                            ProductRow(
-                                product: product,
-                                onOpen: {
-                                    holder.sendEvent(ProductListEvent.OnProductClick(productId: product.id))
-                                },
-                                onConsume: { amount in
-                                    holder.sendEvent(ProductListEvent.OnConsumeProduct(productId: product.id, amount: amount))
-                                },
-                                onDelete: {
-                                holder.sendEvent(ProductListEvent.OnDeleteProduct(productId: product.id))
+                    } else if products.isEmpty {
+                        VStack(spacing: 8) {
+                            ProductFilters(
+                                categories: state.categories,
+                                filters: state.filters,
+                                onCategoryChanged: { holder.sendEvent(ProductListEvent.OnCategoryFilterChanged(categoryId: $0)) },
+                                onInventoryChanged: { holder.sendEvent(ProductListEvent.OnInventoryFilterChanged(filter: $0)) }
+                            )
+                            Spacer()
+                            InventoryEmptyState(
+                                title: "Нет продуктов по выбранным фильтрам",
+                                message: "Сбросьте фильтры, чтобы увидеть весь список запасов.",
+                                systemImage: "line.3.horizontal.decrease.circle",
+                                primaryTitle: "Сбросить фильтры",
+                                primaryAction: {
+                                    holder.sendEvent(ProductListEvent.OnCategoryFilterChanged(categoryId: nil))
+                                    holder.sendEvent(ProductListEvent.OnInventoryFilterChanged(filter: .all))
                                 }
                             )
+                            Spacer()
+                        }
+                        .padding()
+                    } else {
+                        VStack(spacing: 8) {
+                            ProductFilters(
+                                categories: state.categories,
+                                filters: state.filters,
+                                onCategoryChanged: { holder.sendEvent(ProductListEvent.OnCategoryFilterChanged(categoryId: $0)) },
+                                onInventoryChanged: { holder.sendEvent(ProductListEvent.OnInventoryFilterChanged(filter: $0)) }
+                            )
+                                .padding(.horizontal)
+                            List(products, id: \.id) { product in
+                                ProductRow(
+                                    product: product,
+                                    onOpen: {
+                                        holder.sendEvent(ProductListEvent.OnProductClick(productId: product.id))
+                                    },
+                                    onConsume: { amount in
+                                        holder.sendEvent(ProductListEvent.OnConsumeProduct(productId: product.id, amount: amount))
+                                    },
+                                    onDelete: {
+                                        holder.sendEvent(ProductListEvent.OnDeleteProduct(productId: product.id))
+                                    }
+                                )
+                            }
                         }
                     }
+                }
+                .task(id: localReminderSignature(state.localReminders)) {
+                    await ProductLocalReminderScheduler.schedule(state.localReminders)
                 }
             case let state as ProductListState.Error:
                 VStack(spacing: 8) {
@@ -309,4 +315,104 @@ func categoryDisplayName(_ category: ProductCategoryOption) -> String {
         if code == .other { return "Другое" }
     }
     return category.name
+}
+
+private func localReminderSignature(_ reminders: [ProductLocalReminder]) -> String {
+    reminders
+        .map { "\($0.id):\($0.triggerDateIso ?? "now")" }
+        .sorted()
+        .joined(separator: "|")
+}
+
+private enum ProductLocalReminderScheduler {
+    private static let identifierPrefix = "product-inventory-local-reminder:"
+    private static let scheduledIdentifiersKey = "scheduledProductLocalReminderIdentifiers"
+
+    static func schedule(_ reminders: [ProductLocalReminder]) async {
+        guard await requestAuthorizationIfNeeded() else { return }
+
+        let center = UNUserNotificationCenter.current()
+        let desiredIdentifiers = Set(reminders.map(identifier(for:)))
+        let scheduledIdentifiers = Set(UserDefaults.standard.stringArray(forKey: scheduledIdentifiersKey) ?? [])
+        let staleIdentifiers = scheduledIdentifiers.subtracting(desiredIdentifiers)
+
+        if !staleIdentifiers.isEmpty {
+            center.removePendingNotificationRequests(withIdentifiers: Array(staleIdentifiers))
+        }
+
+        for reminder in reminders where !scheduledIdentifiers.contains(identifier(for: reminder)) {
+            try? await center.add(request(for: reminder))
+        }
+
+        UserDefaults.standard.set(Array(desiredIdentifiers), forKey: scheduledIdentifiersKey)
+    }
+
+    private static func request(for reminder: ProductLocalReminder) -> UNNotificationRequest {
+        let content = UNMutableNotificationContent()
+        content.title = reminder.title
+        content.body = reminder.message
+        content.sound = .default
+        content.userInfo = [
+            "reminderId": reminder.id,
+            "productId": reminder.productId,
+            "householdId": reminder.householdId
+        ]
+
+        return UNNotificationRequest(
+            identifier: identifier(for: reminder),
+            content: content,
+            trigger: trigger(for: reminder)
+        )
+    }
+
+    private static func trigger(for reminder: ProductLocalReminder) -> UNNotificationTrigger {
+        guard let triggerDateIso = reminder.triggerDateIso,
+              let triggerDate = date(from: triggerDateIso)
+        else {
+            return UNTimeIntervalNotificationTrigger(timeInterval: 5, repeats: false)
+        }
+
+        let scheduledAt = Calendar.current.date(
+            bySettingHour: 9,
+            minute: 0,
+            second: 0,
+            of: triggerDate
+        ) ?? triggerDate
+
+        if scheduledAt <= Date() {
+            return UNTimeIntervalNotificationTrigger(timeInterval: 5, repeats: false)
+        }
+
+        let components = Calendar.current.dateComponents(
+            [.year, .month, .day, .hour, .minute],
+            from: scheduledAt
+        )
+        return UNCalendarNotificationTrigger(dateMatching: components, repeats: false)
+    }
+
+    private static func requestAuthorizationIfNeeded() async -> Bool {
+        let center = UNUserNotificationCenter.current()
+        let settings = await center.notificationSettings()
+        if settings.authorizationStatus == .authorized || settings.authorizationStatus == .provisional {
+            return true
+        }
+        if settings.authorizationStatus == .denied {
+            return false
+        }
+        return (try? await center.requestAuthorization(options: [.alert, .badge, .sound])) ?? false
+    }
+
+    private static func identifier(for reminder: ProductLocalReminder) -> String {
+        "\(identifierPrefix)\(reminder.id)"
+    }
+
+    private static func date(from iso: String) -> Date? {
+        let parts = iso.split(separator: "-").compactMap { Int($0) }
+        guard parts.count == 3 else { return nil }
+        var components = DateComponents()
+        components.year = parts[0]
+        components.month = parts[1]
+        components.day = parts[2]
+        return Calendar.current.date(from: components)
+    }
 }

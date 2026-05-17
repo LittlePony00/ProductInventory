@@ -356,7 +356,8 @@ class PlatformScreenSmokeTest {
             deleteProductUseCase = DeleteProductUseCase(repository),
             consumeProductUseCase = ConsumeProductUseCase(repository),
             applyRealtimeProductEventUseCase = ApplyRealtimeProductEventUseCase(repository),
-            observeHouseholdEventsUseCase = ObserveHouseholdEventsUseCase(FakeRealtimeRepository())
+            observeHouseholdEventsUseCase = ObserveHouseholdEventsUseCase(FakeRealtimeRepository()),
+            getNotificationSettingsUseCase = GetNotificationSettingsUseCase(FakeNotificationRepository())
         )
 
     private fun product(remainingAmount: Double): Product =

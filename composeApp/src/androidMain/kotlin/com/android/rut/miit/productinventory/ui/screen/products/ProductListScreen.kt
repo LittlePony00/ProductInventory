@@ -8,6 +8,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -17,6 +18,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.Lifecycle
 import com.android.rut.miit.productinventory.R
+import com.android.rut.miit.productinventory.core.push.scheduleProductLocalReminders
 import com.android.rut.miit.productinventory.feature.products.api.models.ExpirationStatus
 import com.android.rut.miit.productinventory.feature.products.api.models.Product
 import com.android.rut.miit.productinventory.feature.products.api.models.ProductCategory
@@ -46,6 +48,7 @@ fun ProductListScreen(
     viewModel: ProductListViewModel = koinViewModel()
 ) {
     val state by viewModel.viewState.collectAsStateWithLifecycle()
+    val context = LocalContext.current
     var consumingProduct by remember { mutableStateOf<Product?>(null) }
     var consumeAmount by remember { mutableStateOf("") }
     var consumeError by remember { mutableStateOf<String?>(null) }
@@ -107,6 +110,10 @@ fun ProductListScreen(
             }
 
             is ProductListState.Content -> {
+                LaunchedEffect(currentState.localReminders) {
+                    context.scheduleProductLocalReminders(currentState.localReminders)
+                }
+
                 if (currentState.products.isEmpty()) {
                     ScreenMessage(
                         title = stringResource(R.string.products_empty),

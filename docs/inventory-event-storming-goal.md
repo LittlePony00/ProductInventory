@@ -44,11 +44,11 @@ Expected behavior:
 - [x] Backend emits or records `ExpirationDateApproaching` for close dates.
   - Implemented as `HouseholdEventType.EXPIRING_SOON`.
   - Covered by `ProductServiceImplTest`.
-- [x] Backend emits/records/schedules `NotificationSent`.
-  - Product add intentionally does not emit `NotificationSent` synchronously.
-  - Scheduled path: `ReminderScheduler` calls `ReminderServiceImpl.runDueReminders`.
-  - `ReminderServiceImpl` creates `Notification(type = REMINDER_EXPIRING_SOON)` and sends push when enabled.
-  - Covered by `ReminderServiceImplTest`.
+- [x] Mobile schedules local `NotificationSent` for expiring products.
+  - Product add/update refreshes the product list state.
+  - `ProductLocalReminderPlanner` creates local expiration/low-stock reminder plans from cached products and notification settings.
+  - Android schedules via `AlarmManager`; iOS schedules via `UNUserNotificationCenter`.
+  - Covered by `ProductListViewModelTest`.
 - [x] Manual mobile add flow calls product add API with active household id.
   - `AddProductViewModel` calls `AddProductUseCase(householdId = householdId, ...)`.
   - `ProductRemoteDataSource.addProduct` posts to `/api/v1/households/{householdId}/products`.
@@ -58,7 +58,7 @@ Expected behavior:
   - Covered by `BarcodeServiceImplTest`.
 - [x] Tests cover close-expiration notification behavior.
   - `ProductServiceImplTest`: add publishes `PRODUCT_CREATED`, `INVENTORY_LOW`, `EXPIRING_SOON`.
-  - `ReminderServiceImplTest`: expiring products create reminder notifications for household members and dedupe.
+  - `ProductListViewModelTest`: cached products create local Russian reminder plans for expiration and low stock.
 - [x] Tests/build run and results captured.
   - `./gradlew :server:test`: PASS.
   - `./gradlew :composeApp:assembleDebug :composeApp:testDebugUnitTest :shared:jvmTest :shared:testDebugUnitTest`: PASS.

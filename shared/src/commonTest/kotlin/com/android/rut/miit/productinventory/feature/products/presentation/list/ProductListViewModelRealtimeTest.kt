@@ -1,5 +1,9 @@
 package com.android.rut.miit.productinventory.feature.products.presentation.list
 
+import com.android.rut.miit.productinventory.feature.notifications.api.GetNotificationSettingsUseCase
+import com.android.rut.miit.productinventory.feature.notifications.api.NotificationRepository
+import com.android.rut.miit.productinventory.feature.notifications.api.models.Notification
+import com.android.rut.miit.productinventory.feature.notifications.api.models.NotificationSettings
 import com.android.rut.miit.productinventory.feature.products.api.DeleteProductUseCase
 import com.android.rut.miit.productinventory.feature.products.api.ConsumeProductUseCase
 import com.android.rut.miit.productinventory.feature.products.api.CategoryRepository
@@ -54,7 +58,8 @@ class ProductListViewModelRealtimeTest {
             deleteProductUseCase = DeleteProductUseCase(products),
             consumeProductUseCase = ConsumeProductUseCase(products),
             applyRealtimeProductEventUseCase = ApplyRealtimeProductEventUseCase(products),
-            observeHouseholdEventsUseCase = ObserveHouseholdEventsUseCase(realtime)
+            observeHouseholdEventsUseCase = ObserveHouseholdEventsUseCase(realtime),
+            getNotificationSettingsUseCase = GetNotificationSettingsUseCase(FakeNotificationRepository())
         )
 
         viewModel.onEvent(ProductListEvent.OnCreate("h1"))
@@ -88,7 +93,8 @@ class ProductListViewModelRealtimeTest {
             deleteProductUseCase = DeleteProductUseCase(products),
             consumeProductUseCase = ConsumeProductUseCase(products),
             applyRealtimeProductEventUseCase = ApplyRealtimeProductEventUseCase(products),
-            observeHouseholdEventsUseCase = ObserveHouseholdEventsUseCase(realtime)
+            observeHouseholdEventsUseCase = ObserveHouseholdEventsUseCase(realtime),
+            getNotificationSettingsUseCase = GetNotificationSettingsUseCase(FakeNotificationRepository())
         )
 
         viewModel.onEvent(ProductListEvent.OnCreate("h1"))
@@ -128,6 +134,20 @@ private class FakeRealtimeRepository : RealtimeRepository {
     suspend fun emit(event: HouseholdRealtimeEvent) {
         events.emit(event)
     }
+}
+
+private class FakeNotificationRepository : NotificationRepository {
+    override suspend fun getNotifications(): List<Notification> = emptyList()
+    override suspend fun getUnreadNotifications(): List<Notification> = emptyList()
+    override suspend fun markAsRead(notificationId: String) = Unit
+    override suspend fun markAllAsRead() = Unit
+    override suspend fun getSettings(): NotificationSettings = NotificationSettings()
+    override suspend fun updateSettings(
+        expirationRemindersEnabled: Boolean?,
+        lowStockRemindersEnabled: Boolean?,
+        pushEnabled: Boolean?,
+        expirationReminderDays: Int?
+    ): NotificationSettings = NotificationSettings()
 }
 
 private class FakeProductRepository(
