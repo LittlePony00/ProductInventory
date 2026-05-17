@@ -15,6 +15,7 @@ import com.android.rut.miit.productinventory.domain.model.Recipe
 import com.android.rut.miit.productinventory.domain.model.RecipeGenerationRequest
 import com.android.rut.miit.productinventory.domain.model.RecipeIngredient
 import com.android.rut.miit.productinventory.domain.model.SystemCategoryCatalog
+import com.android.rut.miit.productinventory.domain.model.barcode.BarcodeProductDraft
 import com.android.rut.miit.productinventory.domain.port.outbound.ICategoryRepository
 import com.android.rut.miit.productinventory.domain.port.outbound.IHouseholdEventPublisher
 import com.android.rut.miit.productinventory.domain.port.outbound.IMembershipRepository
@@ -22,6 +23,7 @@ import com.android.rut.miit.productinventory.domain.port.outbound.INotificationR
 import com.android.rut.miit.productinventory.domain.port.outbound.INotificationSender
 import com.android.rut.miit.productinventory.domain.port.outbound.IProductRepository
 import com.android.rut.miit.productinventory.domain.port.outbound.IRecipeProvider
+import com.android.rut.miit.productinventory.domain.port.outbound.barcode.IBarcodeProductCacheRepository
 import com.android.rut.miit.productinventory.domain.service.ExpirationCheckService
 import java.time.LocalDate
 import java.util.UUID
@@ -58,7 +60,8 @@ class RecommendationControllerConsumptionIntegrationTest {
             notificationRepository = NoopNotificationRepository(),
             notificationSender = NoopNotificationSender(),
             householdEventPublisher = RecordingHouseholdEventPublisher(),
-            categoryRepository = FakeCategoryRepository()
+            categoryRepository = FakeCategoryRepository(),
+            barcodeProductCacheRepository = NoopBarcodeProductCacheRepository()
         )
         val controller = RecommendationController(
             RecommendationServiceImpl(
@@ -200,5 +203,11 @@ class RecommendationControllerConsumptionIntegrationTest {
         override fun publish(event: HouseholdEvent) {
             events += event
         }
+    }
+
+    private class NoopBarcodeProductCacheRepository : IBarcodeProductCacheRepository {
+        override fun findByBarcode(barcode: String): BarcodeProductDraft? = null
+
+        override fun save(draft: BarcodeProductDraft): BarcodeProductDraft = draft
     }
 }

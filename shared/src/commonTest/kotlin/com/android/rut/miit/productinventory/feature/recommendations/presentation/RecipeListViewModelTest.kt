@@ -19,7 +19,7 @@ class RecipeListViewModelTest {
 
     @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
     @Test
-    fun `loads empty recipe list as content state`() = runTest {
+    fun `loads empty saved recipe list as empty state`() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
         try {
             val repository = FakeRecipeRepository(recipes = emptyList())
@@ -28,8 +28,8 @@ class RecipeListViewModelTest {
             viewModel.onEvent(RecipeListEvent.OnCreate("household-id"))
             advanceUntilIdle()
 
-            val state = assertIs<RecipeListState.Content>(viewModel.viewState.value)
-            assertEquals(emptyList(), state.recipes)
+            val state = assertIs<RecipeListState.Empty>(viewModel.viewState.value)
+            assertEquals(false, state.generated)
             assertEquals(listOf("household-id"), repository.recipeHouseholdIds)
         } finally {
             Dispatchers.resetMain()
@@ -90,6 +90,27 @@ class RecipeListViewModelTest {
             val state = assertIs<RecipeListState.Content>(viewModel.viewState.value)
             assertEquals(listOf("Suggested Bowl"), state.recipes.map { it.title })
             assertEquals(listOf("household-id"), repository.recipeHouseholdIds)
+            assertEquals(listOf("household-id"), repository.suggestionHouseholdIds)
+        } finally {
+            Dispatchers.resetMain()
+        }
+    }
+
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    @Test
+    fun `generate empty suggestions shows generated empty state`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        try {
+            val repository = FakeRecipeRepository(recipes = listOf(recipe()), suggestions = emptyList())
+            val viewModel = viewModel(repository)
+
+            viewModel.onEvent(RecipeListEvent.OnCreate("household-id"))
+            advanceUntilIdle()
+            viewModel.onEvent(RecipeListEvent.OnGenerateClick)
+            advanceUntilIdle()
+
+            val state = assertIs<RecipeListState.Empty>(viewModel.viewState.value)
+            assertEquals(true, state.generated)
             assertEquals(listOf("household-id"), repository.suggestionHouseholdIds)
         } finally {
             Dispatchers.resetMain()

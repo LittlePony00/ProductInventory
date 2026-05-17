@@ -20,14 +20,38 @@ struct iOSApp: App {
 
 struct RootView: View {
     @EnvironmentObject var router: AppRouter
+    @State private var isRestoringSession = ProcessInfo.processInfo.shouldRunStartupRestore
 
     var body: some View {
-        NavigationStack(path: $router.path) {
-            rootScreen
-                .navigationDestination(for: AppRoute.self) { route in
-                    screenFor(route)
+        Group {
+            if isRestoringSession {
+                ProgressView()
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else {
+                NavigationStack(path: $router.path) {
+                    rootScreen
+                        .navigationDestination(for: AppRoute.self) { route in
+                            screenFor(route)
+                        }
                 }
+            }
         }
+        .task {
+            await restoreSessionIfNeeded()
+        }
+    }
+
+    @MainActor
+    private func restoreSessionIfNeeded() async {
+        guard isRestoringSession else { return }
+        let restored: Bool
+        if let startupRestoreOverride = ProcessInfo.processInfo.startupRestoreOverride {
+            restored = startupRestoreOverride
+        } else {
+            restored = (try? await DIContainer.shared.restoreSession()) ?? false
+        }
+        router.setRoot(restored ? .householdList : .login)
+        isRestoringSession = false
     }
 
     @ViewBuilder
@@ -63,5 +87,23 @@ struct RootView: View {
         case .profile:
             ProfileScreen()
         }
+    }
+}
+
+private extension ProcessInfo {
+    var shouldRunStartupRestore: Bool {
+        startupRestoreOverride != nil || !arguments.contains("--ios-ui-test")
+    }
+
+    var startupRestoreOverride: Bool? {
+        #if DEBUG
+        if arguments.contains("--ios-ui-test-restore-success") {
+            return true
+        }
+        if arguments.contains("--ios-ui-test-restore-failure") {
+            return false
+        }
+        #endif
+        return nil
     }
 }

@@ -21,8 +21,9 @@ class RecipeRetriever(
             .asSequence()
             .map { document ->
                 val ingredientMatchedProducts = availableProducts.filter { product ->
+                    val productName = normalize(product.name)
                     document.requiredIngredients.any { required ->
-                        normalize(product.name).matchesIngredient(required)
+                        productName.matchesIngredient(required)
                     }
                 }
                 RecipeDocumentMatch(
@@ -80,12 +81,37 @@ class RecipeRetriever(
     }
 
     private fun String.matchesIngredient(required: String): Boolean =
-        contains(required) || required.contains(this)
+        ingredientTerms(required).any { term -> contains(term) || term.contains(this) }
+
+    private fun ingredientTerms(required: String): Set<String> {
+        val normalizedRequired = normalize(required)
+        return setOf(normalizedRequired) + INGREDIENT_ALIASES[normalizedRequired].orEmpty()
+    }
 
     private fun normalize(value: String): String =
         value.trim().lowercase(Locale.ROOT)
 
     private companion object {
         const val DEFAULT_LIMIT = 3
+        val INGREDIENT_ALIASES = mapOf(
+            "milk" to setOf("молоко", "молоч"),
+            "yogurt" to setOf("йогурт", "творог", "кефир", "ряженка"),
+            "rice" to setOf("рис", "рисовая"),
+            "cereal" to setOf("крупа", "крупы", "гречка", "овсянка", "геркулес", "рис", "макароны", "паста"),
+            "vegetables" to setOf(
+                "овощ",
+                "помидор",
+                "томат",
+                "огурец",
+                "морковь",
+                "картофель",
+                "картошка",
+                "капуста",
+                "перец"
+            ),
+            "fruit" to setOf("фрукт", "яблок", "банан", "груш", "ягод", "апельсин"),
+            "fish" to setOf("рыба", "лосось", "тунец", "треска", "форель", "семга", "сёмга"),
+            "meat" to setOf("мясо", "говядина", "свинина", "курица", "индейка", "фарш")
+        )
     }
 }

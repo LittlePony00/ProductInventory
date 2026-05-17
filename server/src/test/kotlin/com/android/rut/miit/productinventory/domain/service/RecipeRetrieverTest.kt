@@ -93,6 +93,35 @@ class RecipeRetrieverTest {
         assertEquals(emptyList(), matches)
     }
 
+    @Test
+    fun `matches seeded english ingredients against russian product names`() {
+        val breakfast = document(
+            id = "breakfast",
+            title = "Breakfast",
+            requiredIngredients = setOf("cereal", "milk", "fruit"),
+            categories = setOf(ProductCategory.CEREALS, ProductCategory.DAIRY, ProductCategory.VEGETABLES_FRUITS)
+        )
+        val yogurtDessert = document(
+            id = "yogurt-dessert",
+            title = "Yogurt Dessert",
+            requiredIngredients = setOf("yogurt", "fruit"),
+            categories = setOf(ProductCategory.DAIRY, ProductCategory.VEGETABLES_FRUITS)
+        )
+        val retriever = RecipeRetriever(FakeRecipeKnowledgeRepository(listOf(breakfast, yogurtDessert)))
+
+        val matches = retriever.retrieve(
+            products = listOf(
+                product(name = "Молоко 2,5", category = ProductCategory.DAIRY),
+                product(name = "Творог 5%", category = ProductCategory.DAIRY),
+                product(name = "Яблоки", category = ProductCategory.VEGETABLES_FRUITS),
+                product(name = "Гречка", category = ProductCategory.CEREALS)
+            )
+        )
+
+        assertEquals(listOf("breakfast", "yogurt-dessert"), matches.map { it.document.id })
+        assertEquals(listOf("Молоко 2,5", "Яблоки", "Гречка"), matches.first().matchedProducts.map { it.name })
+    }
+
     private fun document(
         id: String,
         title: String,

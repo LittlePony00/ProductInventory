@@ -10,6 +10,10 @@ import com.android.rut.miit.productinventory.domain.port.outbound.IHouseholdEven
 import com.android.rut.miit.productinventory.domain.port.outbound.INotificationRepository
 import com.android.rut.miit.productinventory.domain.port.outbound.INotificationSender
 import com.android.rut.miit.productinventory.domain.port.outbound.IProductRepository
+import com.android.rut.miit.productinventory.domain.model.barcode.BarcodeProductDraft
+import com.android.rut.miit.productinventory.domain.model.barcode.BarcodeProductSource
+import com.android.rut.miit.productinventory.domain.model.barcode.NutritionFacts
+import com.android.rut.miit.productinventory.domain.port.outbound.barcode.IBarcodeProductCacheRepository
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.LocalDate
@@ -22,7 +26,8 @@ class ProductServiceImpl(
     private val notificationRepository: INotificationRepository,
     private val notificationSender: INotificationSender,
     private val householdEventPublisher: IHouseholdEventPublisher,
-    private val categoryRepository: ICategoryRepository
+    private val categoryRepository: ICategoryRepository,
+    private val barcodeProductCacheRepository: IBarcodeProductCacheRepository
 ) : IProductService {
 
     @Transactional
@@ -78,6 +83,7 @@ class ProductServiceImpl(
         publishProductEvent(HouseholdEventType.PRODUCT_CREATED, userId, product)
         publishStateEvents(userId, product)
         notifyOtherMembers(userId, householdId, "New product", "${product.name} was added")
+        saveBarcodeMetadata(product)
 
         return product.withCategoryDetails(householdId)
     }
@@ -160,6 +166,7 @@ class ProductServiceImpl(
             )
         }
         publishStateTransitionEvents(userId, existing, saved)
+        saveBarcodeMetadata(saved)
 
         return saved.withCategoryDetails(saved.householdId)
     }
@@ -298,6 +305,34 @@ class ProductServiceImpl(
 
     private fun Product.isExpiringSoon(): Boolean =
         expirationDate?.status == ExpirationStatus.EXPIRING_SOON
+
+    private fun saveBarcodeMetadata(product: Product) {
+        val barcode = product.barcode?.trimToNull() ?: return
+        val name = product.name.trimToNull() ?: return
+
+        barcodeProductCacheRepository.save(
+            BarcodeProductDraft(
+                barcode = barcode,
+                name = name,
+                brand = product.brand,
+                packageQuantity = product.packageQuantity ?: product.quantity,
+                ingredients = product.ingredientsText,
+                nutrition = NutritionFacts(
+                    caloriesKcal = product.calories,
+                    proteinGrams = product.protein,
+                    fatGrams = product.fat,
+                    carbohydratesGrams = product.carbs
+                ),
+                category = product.category,
+                source = BarcodeProductSource.LOCAL_DATABASE,
+                confidence = LOCAL_DATABASE_CACHE_CONFIDENCE
+            )
+        )
+    }
+
+    private companion object {
+        const val LOCAL_DATABASE_CACHE_CONFIDENCE = 0.95
+    }
 }
 
 private fun String.trimToNull(): String? = trim().takeIf { it.isNotEmpty() }

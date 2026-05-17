@@ -35,19 +35,19 @@ struct RecipeListScreen: View {
         case is RecipeListState.Loading:
             ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
         case let state as RecipeListState.Content:
-            if state.recipes.isEmpty {
-                InventoryEmptyState(
-                    title: "Нет рецептов",
-                    message: "Сгенерируйте рекомендации из текущих запасов домохозяйства.",
-                    systemImage: "sparkles",
-                    primaryTitle: "Сгенерировать",
-                    primaryAction: { holder.sendEvent(RecipeListEvent.OnGenerateClick()) }
-                )
-            } else {
-                List(state.recipes, id: \.identityKey) { recipe in
-                    RecipeRow(recipe: recipe)
-                }
+            List(state.recipes, id: \.identityKey) { recipe in
+                RecipeRow(recipe: recipe)
             }
+        case let state as RecipeListState.Empty:
+            InventoryEmptyState(
+                title: state.generated ? "Нет подходящих рецептов" : "Нет рецептов",
+                message: state.generated
+                    ? "В текущих запасах не нашлось сочетаний для рекомендаций. Добавьте продукты или измените остатки."
+                    : "Сгенерируйте рекомендации из текущих запасов домохозяйства.",
+                systemImage: "sparkles",
+                primaryTitle: state.generated ? nil : "Сгенерировать",
+                primaryAction: state.generated ? nil : { holder.sendEvent(RecipeListEvent.OnGenerateClick()) }
+            )
         case let state as RecipeListState.Error:
             VStack(spacing: 8) {
                 Text(state.message ?? "Ошибка загрузки")

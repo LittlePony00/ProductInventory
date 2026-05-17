@@ -62,11 +62,19 @@ kotlin {
 android {
     namespace = "com.android.rut.miit.productinventory.shared"
     compileSdk = libs.versions.android.compileSdk.get().toInt()
+    buildFeatures {
+        buildConfig = true
+    }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
     }
     defaultConfig {
         minSdk = libs.versions.android.minSdk.get().toInt()
+        buildConfigField(
+            "String",
+            "API_BASE_URL",
+            "\"${providers.gradleProperty("apiBaseUrl").getOrElse("http://10.0.2.2:8080")}\""
+        )
     }
 }

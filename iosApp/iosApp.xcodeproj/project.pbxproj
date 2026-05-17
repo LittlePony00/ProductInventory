@@ -25,7 +25,7 @@
 /* Begin PBXFileReference section */
 		89D958F5DC6FB68B0A758421 /* ProductInventory.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ProductInventory.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		A10000000000000000000002 /* ProductInventoryUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProductInventoryUITests.swift; sourceTree = "<group>"; };
-		A10000000000000000000003 /* ProductInventoryUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ProductInventoryUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		A10000000000000000000003 /* iosAppUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = iosAppUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -96,7 +96,7 @@
 			isa = PBXGroup;
 			children = (
 				89D958F5DC6FB68B0A758421 /* ProductInventory.app */,
-				A10000000000000000000003 /* ProductInventoryUITests.xctest */,
+				A10000000000000000000003 /* iosAppUITests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -104,6 +104,24 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
+		A10000000000000000000008 /* iosAppUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A10000000000000000000009 /* Build configuration list for PBXNativeTarget "iosAppUITests" */;
+			buildPhases = (
+				A10000000000000000000005 /* Sources */,
+				A10000000000000000000006 /* Frameworks */,
+				A10000000000000000000007 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				A1000000000000000000000D /* PBXTargetDependency */,
+			);
+			name = iosAppUITests;
+			productName = iosAppUITests;
+			productReference = A10000000000000000000003 /* iosAppUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
 		A7E150A4F0068564BFA40BC8 /* iosApp */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = B055F4C7B678E96306880836 /* Build configuration list for PBXNativeTarget "iosApp" */;
@@ -129,24 +147,6 @@
 			productReference = 89D958F5DC6FB68B0A758421 /* ProductInventory.app */;
 			productType = "com.apple.product-type.application";
 		};
-		A10000000000000000000008 /* iosAppUITests */ = {
-			isa = PBXNativeTarget;
-			buildConfigurationList = A10000000000000000000009 /* Build configuration list for PBXNativeTarget "iosAppUITests" */;
-			buildPhases = (
-				A10000000000000000000005 /* Sources */,
-				A10000000000000000000006 /* Frameworks */,
-				A10000000000000000000007 /* Resources */,
-			);
-			buildRules = (
-			);
-			dependencies = (
-				A1000000000000000000000D /* PBXTargetDependency */,
-			);
-			name = iosAppUITests;
-			productName = iosAppUITests;
-			productReference = A10000000000000000000003 /* ProductInventoryUITests.xctest */;
-			productType = "com.apple.product-type.bundle.ui-testing";
-		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -163,11 +163,6 @@
 					};
 					A7E150A4F0068564BFA40BC8 = {
 						CreatedOnToolsVersion = 16.2;
-						SystemCapabilities = {
-							com.apple.Push = {
-								enabled = 1;
-							};
-						};
 					};
 				};
 			};
@@ -195,14 +190,14 @@
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
-		FA5DAE735FA2EFA2B5054C09 /* Resources */ = {
+		A10000000000000000000007 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		A10000000000000000000007 /* Resources */ = {
+		FA5DAE735FA2EFA2B5054C09 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -266,7 +261,7 @@
 				ARCHS = arm64;
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				CODE_SIGN_ENTITLEMENTS = iosApp/iosApp.entitlements;
+				CODE_SIGN_ENTITLEMENTS = "";
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				DEVELOPMENT_ASSET_PATHS = "\"iosApp/Preview Content\"";
@@ -288,6 +283,42 @@
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = Debug;
+		};
+		A1000000000000000000000A /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = "${TEAM_ID}";
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.2;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.android.rut.miit.productinventory.ProductInventoryUITests$(TEAM_ID)";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = iosApp;
+			};
+			name = Debug;
+		};
+		A1000000000000000000000B /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = "${TEAM_ID}";
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.2;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.android.rut.miit.productinventory.ProductInventoryUITests$(TEAM_ID)";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = iosApp;
+			};
+			name = Release;
 		};
 		A99BAC5AFAC03EC0BF82BB30 /* Release */ = {
 			isa = XCBuildConfiguration;
@@ -412,25 +443,6 @@
 			};
 			name = Debug;
 		};
-		A1000000000000000000000A /* Debug */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = NO;
-				CODE_SIGN_STYLE = Automatic;
-				DEVELOPMENT_TEAM = "${TEAM_ID}";
-				GENERATE_INFOPLIST_FILE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 18.2;
-				PRODUCT_BUNDLE_IDENTIFIER = "com.android.rut.miit.productinventory.ProductInventoryUITests$(TEAM_ID)";
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = iphoneos;
-				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
-				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
-				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2";
-				TEST_TARGET_NAME = iosApp;
-			};
-			name = Debug;
-		};
 		F8405D7472568F998303F222 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -460,23 +472,6 @@
 			};
 			name = Release;
 		};
-		A1000000000000000000000B /* Release */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = NO;
-				CODE_SIGN_STYLE = Automatic;
-				DEVELOPMENT_TEAM = "${TEAM_ID}";
-				GENERATE_INFOPLIST_FILE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 18.2;
-				PRODUCT_BUNDLE_IDENTIFIER = "com.android.rut.miit.productinventory.ProductInventoryUITests$(TEAM_ID)";
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = iphoneos;
-				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2";
-				TEST_TARGET_NAME = iosApp;
-			};
-			name = Release;
-		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -489,20 +484,20 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		B055F4C7B678E96306880836 /* Build configuration list for PBXNativeTarget "iosApp" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				392C422D891B2C6B11C7C2C9 /* Debug */,
-				F8405D7472568F998303F222 /* Release */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
-		};
 		A10000000000000000000009 /* Build configuration list for PBXNativeTarget "iosAppUITests" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				A1000000000000000000000A /* Debug */,
 				A1000000000000000000000B /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		B055F4C7B678E96306880836 /* Build configuration list for PBXNativeTarget "iosApp" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				392C422D891B2C6B11C7C2C9 /* Debug */,
+				F8405D7472568F998303F222 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

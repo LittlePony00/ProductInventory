@@ -74,7 +74,9 @@ class BarcodeProductServiceImpl(
 }
 
 private fun BarcodeProductSource.isCacheableGlobalSource(): Boolean =
-    this == BarcodeProductSource.OPEN_FOOD_FACTS || this == BarcodeProductSource.GS1
+    this == BarcodeProductSource.OPEN_FOOD_FACTS ||
+        this == BarcodeProductSource.GS1 ||
+        this == BarcodeProductSource.LOCAL_DATABASE
 
 @Service
 class CategorySuggestionService(

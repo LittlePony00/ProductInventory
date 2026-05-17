@@ -1,3 +1,5 @@
 package com.android.rut.miit.productinventory.core.network
 
-actual val apiBaseUrl: String = "http://10.0.2.2:8080"
+import com.android.rut.miit.productinventory.shared.BuildConfig
+
+actual val apiBaseUrl: String = BuildConfig.API_BASE_URL

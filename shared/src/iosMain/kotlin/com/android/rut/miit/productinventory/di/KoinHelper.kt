@@ -3,6 +3,7 @@ package com.android.rut.miit.productinventory.di
 import com.android.rut.miit.productinventory.core.di.appModules
 import com.android.rut.miit.productinventory.core.push.DeviceTokenRegistrar
 import com.android.rut.miit.productinventory.core.push.IosPushTokenBridge
+import com.android.rut.miit.productinventory.feature.auth.api.RestoreSessionUseCase
 import com.android.rut.miit.productinventory.feature.auth.presentation.login.LoginViewModel
 import com.android.rut.miit.productinventory.feature.auth.presentation.register.RegisterViewModel
 import com.android.rut.miit.productinventory.feature.household.presentation.list.HouseholdListViewModel
@@ -34,6 +35,7 @@ class KoinHelper : KoinComponent {
     fun notificationListViewModel(): NotificationListViewModel = get()
     fun recipeListViewModel(): RecipeListViewModel = get()
     fun barcodeScanViewModel(): BarcodeScanViewModel = get()
+    suspend fun restoreSession(): Boolean = get<RestoreSessionUseCase>().invoke()
     fun cacheIosPushToken(token: String) {
         IosPushTokenBridge.setCurrentToken(token)
     }

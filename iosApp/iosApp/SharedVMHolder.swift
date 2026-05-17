@@ -16,6 +16,7 @@ final class SharedVMHolder<State: AnyObject, Event: AnyObject, Action: AnyObject
     }
 
     func start(onAction: @escaping (Action) -> Void = { _ in }) {
+        stop()
         disposableHandle = FlowWatchUtilsKt.bind(
             state: viewModel.viewState,
             onState: { [weak self] newState in

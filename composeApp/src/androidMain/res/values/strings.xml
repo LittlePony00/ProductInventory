@@ -157,6 +157,8 @@
     <string name="recipes_generate">Сгенерировать</string>
     <string name="recipes_empty">Нет рецептов</string>
     <string name="recipes_empty_hint">Сгенерируйте рекомендации из текущих запасов домохозяйства</string>
+    <string name="recipes_no_suggestions">Нет подходящих рецептов</string>
+    <string name="recipes_no_suggestions_hint">В текущих запасах не нашлось сочетаний для рекомендаций. Добавьте продукты или измените остатки.</string>
     <string name="recipes_ingredients">Ингредиенты:</string>
     <string name="recipes_instructions">Приготовление:</string>
 

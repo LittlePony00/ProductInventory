@@ -50,7 +50,10 @@ fun RecipeListScreen(
                     }
                 },
                 actions = {
-                    TextButton(onClick = { viewModel.onEvent(RecipeListEvent.OnGenerateClick) }) {
+                    TextButton(
+                        onClick = { viewModel.onEvent(RecipeListEvent.OnGenerateClick) },
+                        enabled = state !is RecipeListState.Loading
+                    ) {
                         Text(stringResource(R.string.recipes_generate))
                     }
                 }
@@ -62,26 +65,35 @@ fun RecipeListScreen(
                 ScreenLoading(modifier = Modifier.fillMaxSize().padding(padding))
             }
             is RecipeListState.Content -> {
-                if (s.recipes.isEmpty()) {
-                    ScreenMessage(
-                        title = stringResource(R.string.recipes_empty),
-                        message = stringResource(R.string.recipes_empty_hint),
-                        iconText = "*",
-                        primaryActionLabel = stringResource(R.string.recipes_generate),
-                        onPrimaryAction = { viewModel.onEvent(RecipeListEvent.OnGenerateClick) },
-                        modifier = Modifier.fillMaxSize().padding(padding)
-                    )
-                } else {
-                    LazyColumn(
-                        modifier = Modifier.fillMaxSize().padding(padding),
-                        contentPadding = PaddingValues(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        items(s.recipes) { recipe ->
-                            RecipeCard(recipe)
-                        }
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize().padding(padding),
+                    contentPadding = PaddingValues(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    items(s.recipes) { recipe ->
+                        RecipeCard(recipe)
                     }
                 }
+            }
+            is RecipeListState.Empty -> {
+                ScreenMessage(
+                    title = if (s.generated) {
+                        stringResource(R.string.recipes_no_suggestions)
+                    } else {
+                        stringResource(R.string.recipes_empty)
+                    },
+                    message = if (s.generated) {
+                        stringResource(R.string.recipes_no_suggestions_hint)
+                    } else {
+                        stringResource(R.string.recipes_empty_hint)
+                    },
+                    iconText = "*",
+                    primaryActionLabel = if (s.generated) null else stringResource(R.string.recipes_generate),
+                    onPrimaryAction = if (s.generated) null else {
+                        { viewModel.onEvent(RecipeListEvent.OnGenerateClick) }
+                    },
+                    modifier = Modifier.fillMaxSize().padding(padding)
+                )
             }
             is RecipeListState.Error -> {
                 ScreenError(

@@ -20,6 +20,7 @@ final class DIContainer {
     func profileViewModel() -> ProfileViewModel { koinHelper.profileViewModel() }
     func notificationListViewModel() -> NotificationListViewModel { koinHelper.notificationListViewModel() }
     func recipeListViewModel() -> RecipeListViewModel { koinHelper.recipeListViewModel() }
+    func restoreSession() async throws -> Bool { try await koinHelper.restoreSession().boolValue }
     func cacheIosPushToken(_ token: String) { koinHelper.cacheIosPushToken(token: token) }
     func registerIosPushToken(_ token: String) async throws {
         try await koinHelper.registerIosPushToken(token: token)

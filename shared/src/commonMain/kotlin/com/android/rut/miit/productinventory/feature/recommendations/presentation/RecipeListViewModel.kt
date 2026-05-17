@@ -41,7 +41,15 @@ class RecipeListViewModel(
                     RecipeLoadMode.Suggestions -> getRecipeSuggestionsUseCase(householdId)
                 }
             }
-                .onSuccess { updateState { RecipeListState.Content(it) } }
+                .onSuccess { recipes ->
+                    updateState {
+                        if (recipes.isEmpty()) {
+                            RecipeListState.Empty(generated = mode == RecipeLoadMode.Suggestions)
+                        } else {
+                            RecipeListState.Content(recipes)
+                        }
+                    }
+                }
                 .onFailure { updateState { RecipeListState.Error(it.message) } }
         }
     }

@@ -20,6 +20,14 @@ final class ProductInventoryUITests: XCTestCase {
         XCTAssertTrue(app.buttons["login.register"].exists)
     }
 
+    func testStartupRestoreSuccessRoutesToHouseholds() {
+        app.launchArguments += ["--ios-ui-test-restore-success"]
+        app.launch()
+
+        XCTAssertTrue(app.navigationBars["Мои домохозяйства"].waitForExistence(timeout: 15))
+        XCTAssertFalse(app.staticTexts["Учёт продуктов"].exists)
+    }
+
     func testBarcodeScannerShowsManualFallbackWhenCameraDenied() {
         app.launchArguments += [
             "--ios-ui-test-root-barcode",

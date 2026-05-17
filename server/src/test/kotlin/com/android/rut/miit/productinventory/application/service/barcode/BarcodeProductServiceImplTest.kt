@@ -41,7 +41,7 @@ class BarcodeProductServiceImplTest {
     }
 
     @Test
-    fun `ignores unsafe local database draft from global cache`() {
+    fun `returns cached local database draft before provider chain`() {
         val cache = InMemoryCache(
             draft(source = BarcodeProductSource.LOCAL_DATABASE, category = ProductCategory.DAIRY)
         )
@@ -50,8 +50,9 @@ class BarcodeProductServiceImplTest {
 
         val result = service.getProductDraft(userId, householdId, "4601234567890")
 
-        assertEquals(BarcodeProductSource.GS1, result.source)
-        assertEquals(1, provider.callCount)
+        assertEquals(BarcodeProductSource.LOCAL_CACHE, result.source)
+        assertEquals(ProductCategory.DAIRY, result.category)
+        assertEquals(0, provider.callCount)
     }
 
     @Test
@@ -150,7 +151,7 @@ class BarcodeProductServiceImplTest {
     }
 
     @Test
-    fun `does not save local database result into global cache`() {
+    fun `saves local database provider result into global cache`() {
         val cache = InMemoryCache()
         val service = service(
             cache = cache,
@@ -165,7 +166,8 @@ class BarcodeProductServiceImplTest {
         val result = service.getProductDraft(userId, householdId, "4601234567890")
 
         assertEquals(BarcodeProductSource.LOCAL_DATABASE, result.source)
-        assertNull(cache.saved)
+        assertEquals(BarcodeProductSource.LOCAL_DATABASE, cache.saved?.source)
+        assertEquals(ProductCategory.DAIRY, cache.saved?.category)
     }
 
     private fun service(

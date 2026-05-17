@@ -6,5 +6,6 @@ import com.android.rut.miit.productinventory.feature.recommendations.api.models.
 sealed class RecipeListState : UiState {
     data object Loading : RecipeListState()
     data class Content(val recipes: List<Recipe>) : RecipeListState()
+    data class Empty(val generated: Boolean) : RecipeListState()
     data class Error(val message: String?) : RecipeListState()
 }

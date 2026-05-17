@@ -13,12 +13,15 @@ import com.android.rut.miit.productinventory.domain.model.ProductCategory
 import com.android.rut.miit.productinventory.domain.model.Quantity
 import com.android.rut.miit.productinventory.domain.model.QuantityUnit
 import com.android.rut.miit.productinventory.domain.model.SystemCategoryCatalog
+import com.android.rut.miit.productinventory.domain.model.barcode.BarcodeProductDraft
+import com.android.rut.miit.productinventory.domain.model.barcode.BarcodeProductSource
 import com.android.rut.miit.productinventory.domain.port.outbound.IHouseholdEventPublisher
 import com.android.rut.miit.productinventory.domain.port.outbound.ICategoryRepository
 import com.android.rut.miit.productinventory.domain.port.outbound.IMembershipRepository
 import com.android.rut.miit.productinventory.domain.port.outbound.INotificationRepository
 import com.android.rut.miit.productinventory.domain.port.outbound.INotificationSender
 import com.android.rut.miit.productinventory.domain.port.outbound.IProductRepository
+import com.android.rut.miit.productinventory.domain.port.outbound.barcode.IBarcodeProductCacheRepository
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -47,7 +50,8 @@ class ProductServiceImplTest {
             notificationRepository = notificationRepository,
             notificationSender = notificationSender,
             householdEventPublisher = RecordingHouseholdEventPublisher(),
-            categoryRepository = FakeCategoryRepository()
+            categoryRepository = FakeCategoryRepository(),
+            barcodeProductCacheRepository = RecordingBarcodeProductCacheRepository()
         )
         val purchaseDate = LocalDate.of(2026, 5, 14)
 
@@ -125,7 +129,8 @@ class ProductServiceImplTest {
             notificationRepository = RecordingNotificationRepository(),
             notificationSender = RecordingNotificationSender(),
             householdEventPublisher = RecordingHouseholdEventPublisher(),
-            categoryRepository = FakeCategoryRepository()
+            categoryRepository = FakeCategoryRepository(),
+            barcodeProductCacheRepository = RecordingBarcodeProductCacheRepository()
         )
 
         val updated = service.updateProduct(
@@ -180,7 +185,8 @@ class ProductServiceImplTest {
             notificationRepository = RecordingNotificationRepository(),
             notificationSender = RecordingNotificationSender(),
             householdEventPublisher = RecordingHouseholdEventPublisher(),
-            categoryRepository = FakeCategoryRepository()
+            categoryRepository = FakeCategoryRepository(),
+            barcodeProductCacheRepository = RecordingBarcodeProductCacheRepository()
         )
 
         val product = service.addProduct(
@@ -223,7 +229,8 @@ class ProductServiceImplTest {
             notificationRepository = RecordingNotificationRepository(),
             notificationSender = RecordingNotificationSender(),
             householdEventPublisher = eventPublisher,
-            categoryRepository = FakeCategoryRepository()
+            categoryRepository = FakeCategoryRepository(),
+            barcodeProductCacheRepository = RecordingBarcodeProductCacheRepository()
         )
 
         val product = service.addProduct(
@@ -287,7 +294,8 @@ class ProductServiceImplTest {
             notificationRepository = RecordingNotificationRepository(),
             notificationSender = RecordingNotificationSender(),
             householdEventPublisher = eventPublisher,
-            categoryRepository = FakeCategoryRepository()
+            categoryRepository = FakeCategoryRepository(),
+            barcodeProductCacheRepository = RecordingBarcodeProductCacheRepository()
         )
 
         service.updateProduct(
@@ -347,7 +355,8 @@ class ProductServiceImplTest {
             notificationRepository = RecordingNotificationRepository(),
             notificationSender = RecordingNotificationSender(),
             householdEventPublisher = eventPublisher,
-            categoryRepository = FakeCategoryRepository()
+            categoryRepository = FakeCategoryRepository(),
+            barcodeProductCacheRepository = RecordingBarcodeProductCacheRepository()
         )
 
         service.updateProduct(
@@ -432,7 +441,8 @@ class ProductServiceImplTest {
             householdEventPublisher = RecordingHouseholdEventPublisher(),
             categoryRepository = FakeCategoryRepository(
                 (SystemCategoryCatalog.categories + customCategory).toMutableList()
-            )
+            ),
+            barcodeProductCacheRepository = RecordingBarcodeProductCacheRepository()
         )
 
         val product = service.addProduct(
@@ -498,7 +508,8 @@ class ProductServiceImplTest {
             householdEventPublisher = RecordingHouseholdEventPublisher(),
             categoryRepository = FakeCategoryRepository(
                 (SystemCategoryCatalog.categories + bakeryCategory + pantryCategory).toMutableList()
-            )
+            ),
+            barcodeProductCacheRepository = RecordingBarcodeProductCacheRepository()
         )
 
         val products = service.getProducts(actorId, householdId, bakeryCategory.id)
@@ -530,7 +541,8 @@ class ProductServiceImplTest {
             notificationRepository = RecordingNotificationRepository(),
             notificationSender = RecordingNotificationSender(),
             householdEventPublisher = eventPublisher,
-            categoryRepository = FakeCategoryRepository()
+            categoryRepository = FakeCategoryRepository(),
+            barcodeProductCacheRepository = RecordingBarcodeProductCacheRepository()
         )
 
         service.deleteProduct(actorId, existing.id)
@@ -563,7 +575,8 @@ class ProductServiceImplTest {
             notificationRepository = RecordingNotificationRepository(),
             notificationSender = RecordingNotificationSender(),
             householdEventPublisher = eventPublisher,
-            categoryRepository = FakeCategoryRepository()
+            categoryRepository = FakeCategoryRepository(),
+            barcodeProductCacheRepository = RecordingBarcodeProductCacheRepository()
         )
 
         val product = service.consumeProduct(actorId, existing.id, 0.75)
@@ -595,7 +608,8 @@ class ProductServiceImplTest {
             notificationRepository = RecordingNotificationRepository(),
             notificationSender = RecordingNotificationSender(),
             householdEventPublisher = eventPublisher,
-            categoryRepository = FakeCategoryRepository()
+            categoryRepository = FakeCategoryRepository(),
+            barcodeProductCacheRepository = RecordingBarcodeProductCacheRepository()
         )
 
         val product = service.consumeProduct(actorId, existing.id, 1.0)
@@ -628,7 +642,8 @@ class ProductServiceImplTest {
             notificationRepository = RecordingNotificationRepository(),
             notificationSender = RecordingNotificationSender(),
             householdEventPublisher = RecordingHouseholdEventPublisher(),
-            categoryRepository = FakeCategoryRepository()
+            categoryRepository = FakeCategoryRepository(),
+            barcodeProductCacheRepository = RecordingBarcodeProductCacheRepository()
         )
 
         assertFailsWith<IllegalArgumentException> {
@@ -658,7 +673,8 @@ class ProductServiceImplTest {
             notificationRepository = RecordingNotificationRepository(),
             notificationSender = RecordingNotificationSender(),
             householdEventPublisher = RecordingHouseholdEventPublisher(),
-            categoryRepository = FakeCategoryRepository()
+            categoryRepository = FakeCategoryRepository(),
+            barcodeProductCacheRepository = RecordingBarcodeProductCacheRepository()
         )
 
         assertFailsWith<AccessDeniedException> {
@@ -676,6 +692,160 @@ class ProductServiceImplTest {
         assertFailsWith<AccessDeniedException> {
             service.deleteProduct(nonMemberId, existing.id)
         }
+    }
+
+    @Test
+    fun `add product with barcode saves reusable local barcode metadata`() {
+        val actorId = UUID.randomUUID()
+        val householdId = UUID.randomUUID()
+        val cacheRepository = RecordingBarcodeProductCacheRepository()
+        val service = ProductServiceImpl(
+            productRepository = InMemoryProductRepository(),
+            membershipRepository = FakeMembershipRepository(
+                memberships = listOf(Membership(userId = actorId, householdId = householdId, role = MembershipRole.OWNER))
+            ),
+            notificationRepository = RecordingNotificationRepository(),
+            notificationSender = RecordingNotificationSender(),
+            householdEventPublisher = RecordingHouseholdEventPublisher(),
+            categoryRepository = FakeCategoryRepository(),
+            barcodeProductCacheRepository = cacheRepository
+        )
+
+        service.addProduct(
+            userId = actorId,
+            householdId = householdId,
+            name = " Custom Milk ",
+            brand = " Local Brand ",
+            barcode = " 4601234567890 ",
+            category = ProductCategory.DAIRY,
+            categoryId = null,
+            quantity = 1.0,
+            quantityUnit = QuantityUnit.PIECES,
+            packageAmount = 950.0,
+            packageUnit = QuantityUnit.MILLILITERS,
+            ingredientsText = " Milk ",
+            calories = 60.0,
+            protein = 3.0,
+            fat = 2.5,
+            carbs = 4.7,
+            purchaseDate = null,
+            remainingAmount = null,
+            lowStockThreshold = null,
+            expirationDate = null
+        )
+
+        val cachedDraft = cacheRepository.findByBarcode("4601234567890")
+        assertEquals(BarcodeProductSource.LOCAL_DATABASE, cachedDraft?.source)
+        assertEquals("Custom Milk", cachedDraft?.name)
+        assertEquals("Local Brand", cachedDraft?.brand)
+        assertEquals(950.0, cachedDraft?.packageQuantity?.value)
+        assertEquals(QuantityUnit.MILLILITERS, cachedDraft?.packageQuantity?.unit)
+        assertEquals(ProductCategory.DAIRY, cachedDraft?.category)
+    }
+
+    @Test
+    fun `update product with barcode refreshes reusable local barcode metadata`() {
+        val actorId = UUID.randomUUID()
+        val householdId = UUID.randomUUID()
+        val existing = Product(
+            id = UUID.randomUUID(),
+            name = "Old name",
+            brand = "Old brand",
+            barcode = "4601234567890",
+            category = ProductCategory.OTHER,
+            quantity = Quantity(1.0, QuantityUnit.PIECES),
+            householdId = householdId,
+            addedByUserId = actorId
+        )
+        val cacheRepository = RecordingBarcodeProductCacheRepository()
+        val service = ProductServiceImpl(
+            productRepository = InMemoryProductRepository(initialProducts = listOf(existing)),
+            membershipRepository = FakeMembershipRepository(
+                memberships = listOf(Membership(userId = actorId, householdId = householdId, role = MembershipRole.OWNER))
+            ),
+            notificationRepository = RecordingNotificationRepository(),
+            notificationSender = RecordingNotificationSender(),
+            householdEventPublisher = RecordingHouseholdEventPublisher(),
+            categoryRepository = FakeCategoryRepository(),
+            barcodeProductCacheRepository = cacheRepository
+        )
+
+        service.updateProduct(
+            userId = actorId,
+            productId = existing.id,
+            name = " Fresh Local Name ",
+            brand = " Fresh Brand ",
+            barcode = null,
+            category = ProductCategory.DAIRY,
+            categoryId = null,
+            quantity = null,
+            quantityUnit = null,
+            packageAmount = null,
+            packageUnit = null,
+            ingredientsText = " Milk ",
+            calories = 70.0,
+            protein = null,
+            fat = null,
+            carbs = null,
+            purchaseDate = null,
+            remainingAmount = null,
+            lowStockThreshold = null,
+            expirationDate = null
+        )
+
+        val cachedDraft = cacheRepository.findByBarcode("4601234567890")
+        assertEquals("Fresh Local Name", cachedDraft?.name)
+        assertEquals("Fresh Brand", cachedDraft?.brand)
+        assertEquals(ProductCategory.DAIRY, cachedDraft?.category)
+        assertEquals("Milk", cachedDraft?.ingredients)
+        assertEquals(70.0, cachedDraft?.nutrition?.caloriesKcal)
+    }
+
+    @Test
+    fun `delete product keeps reusable local barcode metadata`() {
+        val actorId = UUID.randomUUID()
+        val householdId = UUID.randomUUID()
+        val cacheRepository = RecordingBarcodeProductCacheRepository()
+        val productRepository = InMemoryProductRepository()
+        val service = ProductServiceImpl(
+            productRepository = productRepository,
+            membershipRepository = FakeMembershipRepository(
+                memberships = listOf(Membership(userId = actorId, householdId = householdId, role = MembershipRole.OWNER))
+            ),
+            notificationRepository = RecordingNotificationRepository(),
+            notificationSender = RecordingNotificationSender(),
+            householdEventPublisher = RecordingHouseholdEventPublisher(),
+            categoryRepository = FakeCategoryRepository(),
+            barcodeProductCacheRepository = cacheRepository
+        )
+
+        val product = service.addProduct(
+            userId = actorId,
+            householdId = householdId,
+            name = "Persistent Draft",
+            brand = null,
+            barcode = "4601234567890",
+            category = ProductCategory.DAIRY,
+            categoryId = null,
+            quantity = 1.0,
+            quantityUnit = QuantityUnit.PIECES,
+            packageAmount = null,
+            packageUnit = null,
+            ingredientsText = null,
+            calories = null,
+            protein = null,
+            fat = null,
+            carbs = null,
+            purchaseDate = null,
+            remainingAmount = null,
+            lowStockThreshold = null,
+            expirationDate = null
+        )
+
+        service.deleteProduct(actorId, product.id)
+
+        assertEquals(false, productRepository.existsById(product.id))
+        assertEquals("Persistent Draft", cacheRepository.findByBarcode("4601234567890")?.name)
     }
 
     private class InMemoryProductRepository(
@@ -801,6 +971,17 @@ class ProductServiceImplTest {
 
         override fun publish(event: HouseholdEvent) {
             events += event
+        }
+    }
+
+    private class RecordingBarcodeProductCacheRepository : IBarcodeProductCacheRepository {
+        private val drafts = mutableMapOf<String, BarcodeProductDraft>()
+
+        override fun findByBarcode(barcode: String): BarcodeProductDraft? = drafts[barcode]
+
+        override fun save(draft: BarcodeProductDraft): BarcodeProductDraft {
+            drafts[draft.barcode] = draft
+            return draft
         }
     }
 

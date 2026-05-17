@@ -24,11 +24,6 @@ struct CategoryManagementScreen: View {
                 holder.sendEvent(CategoryManagementEvent.OnCreate(householdId: householdId))
             }
             .navigationTitle("Категории")
-            .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Button("Назад") { router.pop() }
-                }
-            }
     }
 
     @ViewBuilder

@@ -1,10 +1,9 @@
 package com.android.rut.miit.productinventory.ui.screen.products
 
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -12,6 +11,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
@@ -70,16 +70,17 @@ fun ProductListScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(stringResource(R.string.products_title)) },
+                title = {
+                    Text(
+                        text = stringResource(R.string.products_title),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                },
                 navigationIcon = {
                     TextButton(onClick = onBack) {
                         Text(stringResource(R.string.back))
                     }
-                },
-                actions = {
-                    TextButton(onClick = onManageCategories) { Text(stringResource(R.string.categories_title)) }
-                    TextButton(onClick = onNavigateToRecipes) { Text(stringResource(R.string.recipes_title)) }
-                    TextButton(onClick = onNavigateToNotifications) { Text(stringResource(R.string.notifications_title)) }
                 }
             )
         },
@@ -119,6 +120,12 @@ fun ProductListScreen(
                     )
                 } else {
                     Column(modifier = Modifier.fillMaxSize().padding(padding)) {
+                        ProductQuickActions(
+                            onManageCategories = onManageCategories,
+                            onNavigateToRecipes = onNavigateToRecipes,
+                            onNavigateToNotifications = onNavigateToNotifications,
+                            modifier = Modifier.fillMaxWidth()
+                        )
                         ProductFilters(
                             filters = currentState.filters,
                             categories = currentState.categories,
@@ -248,6 +255,38 @@ fun ProductListScreen(
 }
 
 @Composable
+private fun ProductQuickActions(
+    onManageCategories: () -> Unit,
+    onNavigateToRecipes: () -> Unit,
+    onNavigateToNotifications: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    LazyRow(
+        modifier = modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        item {
+            AssistChip(
+                onClick = onManageCategories,
+                label = { Text(stringResource(R.string.categories_title), maxLines = 1) }
+            )
+        }
+        item {
+            AssistChip(
+                onClick = onNavigateToRecipes,
+                label = { Text(stringResource(R.string.recipes_title), maxLines = 1) }
+            )
+        }
+        item {
+            AssistChip(
+                onClick = onNavigateToNotifications,
+                label = { Text(stringResource(R.string.notifications_title), maxLines = 1) }
+            )
+        }
+    }
+}
+
+@Composable
 private fun ProductFilters(
     filters: ProductListFilters,
     categories: List<ProductCategoryOption>,
@@ -260,42 +299,45 @@ private fun ProductFilters(
         modifier = modifier.padding(horizontal = 16.dp, vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        Row(
-            modifier = Modifier.horizontalScroll(rememberScrollState()),
+        LazyRow(
+            modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            FilterChip(
-                selected = filters.categoryId == null,
-                onClick = { onCategorySelected(null) },
-                label = { Text(stringResource(R.string.filter_all)) }
-            )
-            categories.forEach { category ->
+            item {
+                FilterChip(
+                    selected = filters.categoryId == null,
+                    onClick = { onCategorySelected(null) },
+                    label = { Text(stringResource(R.string.filter_all), maxLines = 1) }
+                )
+            }
+            items(categories, key = { it.id }) { category ->
                 FilterChip(
                     selected = filters.categoryId == category.id,
                     onClick = { onCategorySelected(category.id) },
-                    label = { Text(categoryOptionDisplayName(category)) }
+                    label = { Text(categoryOptionDisplayName(category), maxLines = 1) }
                 )
             }
         }
 
-        Row(
-            modifier = Modifier.horizontalScroll(rememberScrollState()),
+        LazyRow(
+            modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalAlignment = Alignment.CenterVertically
         ) {
-            InventoryFilter.entries.forEach { filter ->
+            items(InventoryFilter.entries, key = { it.name }) { filter ->
                 FilterChip(
                     selected = filters.inventory == filter,
                     onClick = { onInventoryFilterSelected(filter) },
-                    label = { Text(inventoryFilterName(filter)) }
+                    label = { Text(inventoryFilterName(filter), maxLines = 1) }
                 )
             }
             if (isRealtimeActive) {
-                AssistChip(
-                    onClick = {},
-                    enabled = false,
-                    label = { Text(stringResource(R.string.products_realtime_active)) }
-                )
+                item {
+                    AssistChip(
+                        onClick = {},
+                        enabled = false,
+                        label = { Text(stringResource(R.string.products_realtime_active), maxLines = 1) }
+                    )
+                }
             }
         }
     }
@@ -330,23 +372,32 @@ private fun ProductCard(
             modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Row(verticalAlignment = Alignment.Top) {
-                Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
+                Column(
+                    modifier = Modifier.weight(1f).padding(end = 8.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
                     Text(
                         text = product.name,
-                        style = MaterialTheme.typography.titleMedium
+                        style = MaterialTheme.typography.titleMedium,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                     product.brand?.takeIf { it.isNotBlank() }?.let { brand ->
                         Text(
                             text = brand,
                             style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
                     }
                     Text(
                         text = categoryName,
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
                 StatusPill(
@@ -378,7 +429,9 @@ private fun ProductCard(
                         unitShortName(product.quantityUnit)
                     ),
                     style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
             }
 
@@ -396,23 +449,24 @@ private fun ProductCard(
                     Text(
                         text = stringResource(R.string.products_expiration, date),
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
             }
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.End,
+                horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 OutlinedButton(
                     onClick = onConsume,
                     enabled = product.remainingAmount > 0.0
                 ) {
-                    Text(stringResource(R.string.product_consume))
+                    Text(stringResource(R.string.product_consume), maxLines = 1)
                 }
-                Spacer(Modifier.width(8.dp))
                 DestructiveTextButton(
                     text = stringResource(R.string.delete),
                     onClick = { showDeleteConfirm = true }

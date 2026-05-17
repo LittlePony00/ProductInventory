@@ -9,6 +9,10 @@
 		<key>NSAllowsLocalNetworking</key>
 		<true/>
 	</dict>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>Приложению нужен доступ к локальному серверу ProductInventory в вашей Wi-Fi сети.</string>
+	<key>API_BASE_URL</key>
+	<string>$(API_BASE_URL)</string>
 	<key>NSCameraUsageDescription</key>
 	<string>Камера нужна для сканирования штрихкодов продуктов.</string>
 </dict>
