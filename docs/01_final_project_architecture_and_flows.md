@@ -12,6 +12,7 @@
 - Список продуктов обновляется между устройствами через SSE-события.
 - Android-приложение хранит локальный кеш в Room и очередь офлайн-действий.
 - Пользователь сканирует штрихкод через CameraX/ML Kit, получает черновик продукта из кеша, OpenFoodFacts, GS1, локальной базы или пустую форму.
+- Продукты могут иметь фотографии: мобильный клиент сначала показывает app-local файл, затем `imageUrl` с сервера или внешнего провайдера, иначе placeholder с возможностью выбрать фото вручную.
 - Backend обогащает продукт категорией, пищевой ценностью и нормализованными полями через GigaChat, rule-based fallback и дефолтную категорию.
 - Backend создает напоминания о близком сроке годности и малом остатке.
 - Backend хранит in-app notifications и отправляет push через Firebase Cloud Messaging.
@@ -30,11 +31,11 @@
 | Слой | Технологии | Почему выбрано |
 |---|---|---|
 | Backend | Kotlin, Spring Boot 3.4.5, Spring Web, Spring Security, Spring Data JPA, Flyway, PostgreSQL, Jackson Kotlin, JJWT | Spring Boot дает зрелую экосистему для REST, безопасности, транзакций и миграций. Kotlin сохраняет единый язык с мобильной бизнес-логикой. |
-| База данных | PostgreSQL, Flyway migrations `V1`-`V9` | PostgreSQL подходит для реляционной предметной области: пользователи, домохозяйства, продукты, категории, уведомления, refresh-токены. Flyway делает эволюцию схемы воспроизводимой. |
+| База данных | PostgreSQL, Flyway migrations `V1`-`V10` | PostgreSQL подходит для реляционной предметной области: пользователи, домохозяйства, продукты, категории, фото-метаданные, уведомления, refresh-токены. Flyway делает эволюцию схемы воспроизводимой. |
 | Shared mobile | Kotlin Multiplatform, Coroutines, Ktor 3.4.3, Koin 4.0.4, kotlinx.serialization, kotlinx.datetime | Общие repository/use case/ViewModel сокращают дублирование между Android и iOS. |
-| Android | Compose Multiplatform/Jetpack Compose, Navigation Compose, Room, DataStore, CameraX, ML Kit Barcode Scanning, Firebase Messaging | Compose дает декларативный UI, Room - надежный локальный кеш, DataStore - безопасное key-value хранение токенов, CameraX/ML Kit - нативное сканирование штрихкодов. |
-| iOS | SwiftUI, KMP framework `Shared`, Firebase/APNs bridge, NSUserDefaults | SwiftUI сохраняет нативный iOS UX, а shared ViewModel и use cases обеспечивают одинаковые правила приложения. |
-| AI/внешние источники | GigaChat, OpenFoodFacts, GS1, Firebase Cloud Messaging | GigaChat используется как улучшение, а не единственная точка отказа. OpenFoodFacts/GS1 дают данные по штрихкодам. FCM нужен для фоновых push на Android/iOS. |
+| Android | Compose Multiplatform/Jetpack Compose, Navigation Compose, Room, DataStore, CameraX, ML Kit Barcode Scanning, Coil 3, Firebase Messaging | Compose дает декларативный UI, Room - надежный локальный кеш, DataStore - безопасное key-value хранение токенов, CameraX/ML Kit - нативное сканирование штрихкодов, Coil - загрузку local/remote изображений. |
+| iOS | SwiftUI, PhotosUI, KMP framework `Shared`, Firebase/APNs bridge, NSUserDefaults | SwiftUI сохраняет нативный iOS UX, PhotosPicker выбирает фото, а shared ViewModel и use cases обеспечивают одинаковые правила приложения. |
+| AI/внешние источники | GigaChat, OpenFoodFacts, GS1, S3-compatible storage/MinIO, Firebase Cloud Messaging | GigaChat используется как улучшение, а не единственная точка отказа. OpenFoodFacts/GS1 дают данные и изображения по штрихкодам. S3/MinIO хранит пользовательские фото. FCM нужен для фоновых push на Android/iOS. |
 
 ## 3. Общая карта модулей
 
@@ -52,6 +53,7 @@ flowchart TB
     Server --> FCM[Firebase Cloud Messaging]
     Server --> OFF[OpenFoodFacts]
     Server --> GS1[GS1 provider]
+    Server --> S3[S3-compatible product images]
     Server --> Giga[GigaChat]
 
     Android --> Room[(Room cache)]
@@ -190,6 +192,8 @@ Hexagonal separation дает преимущества:
 | Products | `GET /api/v1/households/{householdId}/products/{productId}` | Детали продукта. |
 | Products | `PUT /api/v1/households/{householdId}/products/{productId}` | Редактирование. |
 | Products | `POST /api/v1/households/{householdId}/products/{productId}/consume` | Расходование части продукта. |
+| Products | `POST /api/v1/households/{householdId}/products/{productId}/image` | Загрузка пользовательского фото продукта multipart-файлом в S3-compatible storage. |
+| Products | `DELETE /api/v1/households/{householdId}/products/{productId}/image` | Очистка ссылки на фото продукта. |
 | Products | `DELETE /api/v1/households/{householdId}/products/{productId}` | Удаление. |
 | Products | `GET /api/v1/households/{householdId}/products/expiring` | Продукты с близким сроком. |
 | Barcode | `GET /api/v1/households/{householdId}/barcodes/{barcode}` | Новый barcode draft lookup. |
@@ -228,6 +232,7 @@ Flyway хранит историю схемы в `server/src/main/resources/db/m
 | `V7__notification_reminders.sql` | Поля типа уведомления, связанного домохозяйства/продукта и `dedupe_key`. |
 | `V8__notification_preferences_and_device_tokens.sql` | Таблицы `notification_settings` и `notification_device_tokens`. |
 | `V9__localize_recipe_documents_ru.sql` | Русская локализация seed-рецептов. |
+| `V10__product_images.sql` | `image_url` для продуктов и barcode cache. |
 
 ```mermaid
 erDiagram
@@ -360,12 +365,15 @@ sequenceDiagram
 - нормализует `name`, `brand`, `barcode`, `ingredientsText`;
 - разрешает `categoryId` и legacy `ProductCategory`;
 - создает `Quantity`, `packageQuantity`, `ExpirationDate`;
+- выбирает `imageUrl`: сначала явный URL из barcode draft/клиента, затем barcode providers/cache, затем S3-compatible fallback по barcode;
 - выставляет `remainingAmount`, если клиент не передал его явно;
 - публикует `PRODUCT_CREATED`;
 - публикует state events `INVENTORY_LOW` или `EXPIRING_SOON`, если продукт уже попадает в критическое состояние;
 - создает in-app notifications для участников household;
 - отправляет push с backend `notificationId`;
 - сохраняет barcode metadata в `barcode_product_cache` как локальный источник с confidence `0.95`.
+
+Фото продукта хранится как две разные части состояния. `imageUrl` - каноническая ссылка, которая синхронизируется через backend и видна другим устройствам. `imageObjectKey` - внутренний ключ S3-объекта для удаления/замены пользовательского фото. `localImagePath` - только мобильный app-local путь к выбранному файлу; он используется для мгновенного офлайн-превью до загрузки. При успешной синхронизации shared repository сначала создает/обновляет продукт, затем загружает локальный файл в `/products/{productId}/image`, получает новый `imageUrl`, очищает `localImagePath` из product state и сохраняет серверную ссылку в локальный кеш.
 
 Редактирование работает похожим образом, но сравнивает old/new state:
 
@@ -424,7 +432,7 @@ flowchart LR
 3. Если правила не сработали, вызывается GigaChat category client.
 4. Если AI недоступен или ответ невалиден, используется `OTHER` с низкой confidence.
 
-Преимущество перед прямым запросом только в OpenFoodFacts: проект не ломается при отсутствии продукта в базе или недоступности внешнего API. Плюс локальная база продуктов домохозяйства постепенно улучшает последующие barcode lookups.
+Преимущество перед прямым запросом только в OpenFoodFacts: проект не ломается при отсутствии продукта в базе или недоступности внешнего API. Плюс локальная база продуктов домохозяйства постепенно улучшает последующие barcode lookups. Для изображений draft переносит `imageUrl`, чтобы найденное в OpenFoodFacts/GS1/локальной базе фото становилось дефолтной картинкой продукта.
 
 ## 12. Product enrichment
 
@@ -605,6 +613,9 @@ flowchart TB
 - при следующей возможности отправить очередь действий в порядке `createdAt`;
 - если локально созданный продукт после sync получил server UUID, remap queued actions с временного id на реальный id;
 - при получении remote list объединять его с pending local changes, чтобы pending add/update не исчезал из UI.
+- для фото хранить в очереди только путь к app-local файлу, а не base64; при sync загрузить файл multipart-ом после разрешения server product id.
+
+Автотесты проверяют DTO/mapping, offline queue и сборку upload-клиента. Реальный round-trip с MinIO/S3 требует настроенных `PRODUCT_IMAGES_S3_*` переменных и не запускается в дефолтном CI/локальном verification pass.
 
 Ограничение: если другой пользователь параллельно изменит тот же продукт на сервере, текущая реализация не выполняет semantic merge. Она последовательна и предсказуема, но не является конфликтно-свободной репликацией.
 

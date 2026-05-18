@@ -1,22 +1,36 @@
 package com.android.rut.miit.productinventory.ui.screen.products
 
+import android.content.Context
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import coil3.compose.AsyncImage
 import com.android.rut.miit.productinventory.R
 import com.android.rut.miit.productinventory.feature.products.api.models.ProductCategory
 import com.android.rut.miit.productinventory.feature.products.api.models.ProductCategoryOption
 import com.android.rut.miit.productinventory.feature.products.api.models.QuantityUnit
 import com.android.rut.miit.productinventory.feature.products.presentation.add.*
 import com.android.rut.miit.productinventory.ui.design.SectionCard
+import java.io.File
+import java.util.UUID
 import org.koin.compose.viewmodel.koinViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -31,6 +45,7 @@ fun AddProductScreen(
     initialPackageAmount: String? = null,
     initialPackageUnit: String? = null,
     initialIngredientsText: String? = null,
+    initialImageUrl: String? = null,
     initialCalories: String? = null,
     initialProtein: String? = null,
     initialFat: String? = null,
@@ -43,6 +58,14 @@ fun AddProductScreen(
     var categoryExpanded by remember { mutableStateOf(false) }
     var unitExpanded by remember { mutableStateOf(false) }
     var packageUnitExpanded by remember { mutableStateOf(false) }
+    val context = LocalContext.current
+    val photoPicker = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.PickVisualMedia()
+    ) { uri ->
+        uri?.copyProductImageToLocalFile(context)?.let { localPath ->
+            viewModel.onEvent(AddProductEvent.OnImageSelected(localPath))
+        }
+    }
 
     LaunchedEffect(
         householdId,
@@ -54,6 +77,7 @@ fun AddProductScreen(
         initialPackageAmount,
         initialPackageUnit,
         initialIngredientsText,
+        initialImageUrl,
         initialCalories,
         initialProtein,
         initialFat,
@@ -70,6 +94,7 @@ fun AddProductScreen(
                 packageAmount = initialPackageAmount,
                 packageUnit = initialPackageUnit?.let { runCatching { QuantityUnit.valueOf(it) }.getOrNull() },
                 ingredientsText = initialIngredientsText,
+                imageUrl = initialImageUrl,
                 calories = initialCalories,
                 protein = initialProtein,
                 fat = initialFat,
@@ -218,6 +243,22 @@ fun AddProductScreen(
                     }
                 }
             }
+            }
+
+            SectionCard(
+                title = stringResource(R.string.product_photo_section),
+                subtitle = stringResource(R.string.product_photo_section_hint)
+            ) {
+                ProductPhotoEditor(
+                    imageUrl = state.imageUrl,
+                    localImagePath = state.localImagePath,
+                    onPick = {
+                        photoPicker.launch(
+                            PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                        )
+                    },
+                    onRemove = { viewModel.onEvent(AddProductEvent.OnImageRemoved) }
+                )
             }
 
             SectionCard(
@@ -438,3 +479,68 @@ private fun unitDisplayName(unit: QuantityUnit): String = when (unit) {
     QuantityUnit.MILLILITERS -> stringResource(R.string.unit_milliliters)
     QuantityUnit.PIECES -> stringResource(R.string.unit_pieces)
 }
+
+@Composable
+private fun ProductPhotoEditor(
+    imageUrl: String?,
+    localImagePath: String?,
+    onPick: () -> Unit,
+    onRemove: () -> Unit
+) {
+    var useRemoteFallback by remember(localImagePath, imageUrl) { mutableStateOf(false) }
+    val localImageFile = localImagePath?.let(::File)?.takeIf { it.exists() }
+    val imageModel = if (!useRemoteFallback && localImageFile != null) localImageFile else imageUrl
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(180.dp)
+                .clip(RoundedCornerShape(16.dp))
+                .background(MaterialTheme.colorScheme.surfaceVariant),
+            contentAlignment = Alignment.Center
+        ) {
+            if (imageModel != null) {
+                AsyncImage(
+                    model = imageModel,
+                    contentDescription = stringResource(R.string.product_photo_placeholder),
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop,
+                    onError = {
+                        if (localImageFile != null && imageUrl != null) {
+                            useRemoteFallback = true
+                        }
+                    }
+                )
+            } else {
+                Text(
+                    text = stringResource(R.string.product_photo_placeholder),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Button(onClick = onPick) {
+                Text(
+                    stringResource(
+                        if (imageModel == null) R.string.product_photo_add else R.string.product_photo_replace
+                    )
+                )
+            }
+            if (imageModel != null) {
+                TextButton(onClick = onRemove) {
+                    Text(stringResource(R.string.product_photo_remove))
+                }
+            }
+        }
+    }
+}
+
+private fun Uri.copyProductImageToLocalFile(context: Context): String? =
+    runCatching {
+        val directory = File(context.filesDir, "product-images").apply { mkdirs() }
+        val target = File(directory, "${UUID.randomUUID()}.jpg")
+        context.contentResolver.openInputStream(this)?.use { input ->
+            target.outputStream().use { output -> input.copyTo(output) }
+        } ?: error("Cannot open image")
+        target.absolutePath
+    }.getOrNull()

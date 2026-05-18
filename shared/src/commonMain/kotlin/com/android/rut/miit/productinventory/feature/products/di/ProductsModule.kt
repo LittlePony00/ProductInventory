@@ -28,7 +28,7 @@ import org.koin.dsl.module
 val productsModule = module {
     factory { ProductRemoteDataSource(get()) }
     factory { CategoryRemoteDataSource(get()) }
-    single<ProductRepository> { ProductRepositoryImpl(get(), get(), get()) }
+    single<ProductRepository> { ProductRepositoryImpl(get(), get(), get(), get()) }
     factory<CategoryRepository> { CategoryRepositoryImpl(get()) }
     factoryOf(::GetProductsUseCase)
     factoryOf(::GetProductUseCase)

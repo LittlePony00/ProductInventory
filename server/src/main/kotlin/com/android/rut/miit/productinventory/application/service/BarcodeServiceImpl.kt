@@ -38,6 +38,7 @@ class BarcodeServiceImpl(
             packageAmount = draft.packageQuantity?.value,
             packageUnit = draft.packageQuantity?.unit,
             ingredientsText = draft.ingredients,
+            imageUrl = draft.imageUrl,
             calories = draft.nutrition?.caloriesKcal,
             protein = draft.nutrition?.proteinGrams,
             fat = draft.nutrition?.fatGrams,

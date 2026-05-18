@@ -9,6 +9,7 @@ data class BarcodeProductDraft(
     val brand: String?,
     val packageQuantity: Quantity?,
     val ingredients: String?,
+    val imageUrl: String? = null,
     val nutrition: NutritionFacts?,
     val category: ProductCategory?,
     val source: BarcodeProductSource,

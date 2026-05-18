@@ -25,6 +25,7 @@ class ProductDtoMapperTest {
             quantity = Quantity(4.0, QuantityUnit.PIECES),
             packageQuantity = Quantity(125.0, QuantityUnit.GRAMS),
             ingredientsText = "Milk, cultures",
+            imageUrl = "https://cdn.example.test/yogurt.jpg",
             calories = 80.0,
             protein = 4.0,
             fat = 2.5,
@@ -44,6 +45,7 @@ class ProductDtoMapperTest {
         assertEquals(product.packageQuantity?.value, response.packageAmount)
         assertEquals(product.packageQuantity?.unit, response.packageUnit)
         assertEquals(product.ingredientsText, response.ingredientsText)
+        assertEquals(product.imageUrl, response.imageUrl)
         assertEquals(product.calories, response.calories)
         assertEquals(product.protein, response.protein)
         assertEquals(product.fat, response.fat)

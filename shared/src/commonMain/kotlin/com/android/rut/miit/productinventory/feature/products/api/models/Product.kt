@@ -15,6 +15,8 @@ data class Product(
     val packageAmount: Double? = null,
     val packageUnit: QuantityUnit? = null,
     val ingredientsText: String? = null,
+    val imageUrl: String? = null,
+    val localImagePath: String? = null,
     val calories: Double? = null,
     val protein: Double? = null,
     val fat: Double? = null,
@@ -28,6 +30,9 @@ data class Product(
     val addedByUserId: String,
     val createdAt: String
 )
+
+val Product.displayImage: String?
+    get() = localImagePath?.takeIf { it.isNotBlank() } ?: imageUrl?.takeIf { it.isNotBlank() }
 
 enum class ProductCategory {
     DAIRY, MEAT_FISH, VEGETABLES_FRUITS, CEREALS, BEVERAGES, OTHER

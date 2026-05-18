@@ -1,4 +1,6 @@
 import SwiftUI
+import PhotosUI
+import UIKit
 import Shared
 
 struct AddProductScreen: View {
@@ -27,6 +29,9 @@ struct AddProductScreen: View {
             packageAmount: "",
             packageUnit: .pieces,
             ingredientsText: "",
+            imageUrl: nil,
+            localImagePath: nil,
+            isImageRemoved: false,
             calories: "",
             protein: "",
             fat: "",
@@ -38,6 +43,7 @@ struct AddProductScreen: View {
     )
     @EnvironmentObject private var router: AppRouter
     @State private var didApplyInitialDraft = false
+    @State private var selectedPhotoItem: PhotosPickerItem?
 
     init(householdId: String, productId: String? = nil, draft: ProductDraftInput? = nil) {
         self.householdId = householdId
@@ -126,6 +132,23 @@ struct AddProductScreen: View {
                     }
                 }
                 .disabled(state.isCreatingCategory || state.newCategoryName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            }
+            Section {
+                ProductPhotoEditor(
+                    imageUrl: state.imageUrl,
+                    localImagePath: state.localImagePath,
+                    selectedPhotoItem: $selectedPhotoItem,
+                    onImageSelected: { path in
+                        holder.sendEvent(AddProductEvent.OnImageSelected(localImagePath: path))
+                    },
+                    onRemove: {
+                        holder.sendEvent(AddProductEvent.OnImageRemoved())
+                    }
+                )
+            } header: {
+                Text("Фотография")
+            } footer: {
+                Text("Сначала показывается локальное фото на устройстве, затем изображение с сервера или OpenFoodFacts.")
             }
             Section("Количество") {
                 TextField("Количество", text: Binding(
@@ -229,6 +252,102 @@ struct AddProductScreen: View {
         }
     }
 
+    private struct ProductPhotoEditor: View {
+        let imageUrl: String?
+        let localImagePath: String?
+        @Binding var selectedPhotoItem: PhotosPickerItem?
+        let onImageSelected: (String) -> Void
+        let onRemove: () -> Void
+
+        var body: some View {
+            VStack(alignment: .leading, spacing: 12) {
+                ProductPhotoPreview(imageUrl: imageUrl, localImagePath: localImagePath)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 180)
+                    .clipShape(RoundedRectangle(cornerRadius: 16))
+
+                HStack {
+                    PhotosPicker(
+                        imageUrl == nil && localImagePath == nil ? "Добавить фото" : "Заменить фото",
+                        selection: $selectedPhotoItem,
+                        matching: .images
+                    )
+                    .buttonStyle(.borderedProminent)
+
+                    if imageUrl != nil || localImagePath != nil {
+                        Button("Удалить фото", role: .destructive, action: onRemove)
+                    }
+                }
+            }
+            .onChange(of: selectedPhotoItem) { _, item in
+                guard let item else { return }
+                Task {
+                    guard let data = try? await item.loadTransferable(type: Data.self),
+                          let path = writeProductImage(data: data)
+                    else { return }
+                    await MainActor.run {
+                        onImageSelected(path)
+                        selectedPhotoItem = nil
+                    }
+                }
+            }
+        }
+
+        private func writeProductImage(data: Data) -> String? {
+            do {
+                let directory = try FileManager.default.url(
+                    for: .documentDirectory,
+                    in: .userDomainMask,
+                    appropriateFor: nil,
+                    create: true
+                ).appendingPathComponent("product-images", isDirectory: true)
+                try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+                let url = directory.appendingPathComponent("\(UUID().uuidString).jpg")
+                try data.write(to: url, options: .atomic)
+                return url.path
+            } catch {
+                return nil
+            }
+        }
+    }
+
+    private struct ProductPhotoPreview: View {
+        let imageUrl: String?
+        let localImagePath: String?
+
+        var body: some View {
+            ZStack {
+                Rectangle().fill(Color(.secondarySystemBackground))
+                if let localImagePath,
+                   let image = UIImage(contentsOfFile: localImagePath) {
+                    Image(uiImage: image)
+                        .resizable()
+                        .scaledToFill()
+                } else if let imageUrl,
+                          let url = URL(string: imageUrl) {
+                    AsyncImage(url: url) { phase in
+                        switch phase {
+                        case let .success(image):
+                            image.resizable().scaledToFill()
+                        default:
+                            Image(systemName: "photo")
+                                .font(.largeTitle)
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                } else {
+                    VStack(spacing: 8) {
+                        Image(systemName: "camera")
+                            .font(.largeTitle)
+                        Text("Фото продукта")
+                    }
+                    .foregroundColor(.secondary)
+                }
+            }
+            .clipped()
+        }
+    }
+
     private func applyInitialDraftIfNeeded() {
         guard !didApplyInitialDraft, let draft else { return }
         didApplyInitialDraft = true
@@ -240,6 +359,7 @@ struct AddProductScreen: View {
             packageAmount: decimalString(draft.packageQuantity),
             packageUnit: quantityUnit(from: draft.packageQuantityUnit),
             ingredientsText: draft.ingredients,
+            imageUrl: draft.imageUrl,
             calories: decimalString(draft.caloriesKcal),
             protein: decimalString(draft.proteinGrams),
             fat: decimalString(draft.fatGrams),

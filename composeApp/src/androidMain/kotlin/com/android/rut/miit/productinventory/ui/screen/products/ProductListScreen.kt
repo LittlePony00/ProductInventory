@@ -1,13 +1,17 @@
 package com.android.rut.miit.productinventory.ui.screen.products
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
@@ -17,6 +21,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.Lifecycle
+import coil3.compose.AsyncImage
 import com.android.rut.miit.productinventory.R
 import com.android.rut.miit.productinventory.core.push.scheduleProductLocalReminders
 import com.android.rut.miit.productinventory.feature.products.api.models.ExpirationStatus
@@ -33,6 +38,7 @@ import com.android.rut.miit.productinventory.ui.design.ScreenMessage
 import com.android.rut.miit.productinventory.ui.design.StatusPill
 import com.android.rut.miit.productinventory.ui.design.UiTone
 import org.koin.compose.viewmodel.koinViewModel
+import java.io.File
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -380,6 +386,10 @@ private fun ProductCard(
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
+                ProductThumbnail(
+                    product = product,
+                    modifier = Modifier.padding(end = 12.dp)
+                )
                 Column(
                     modifier = Modifier.weight(1f).padding(end = 8.dp),
                     verticalArrangement = Arrangement.spacedBy(4.dp)
@@ -506,6 +516,41 @@ private fun ProductCard(
                 }
             }
         )
+    }
+}
+
+@Composable
+private fun ProductThumbnail(product: Product, modifier: Modifier = Modifier) {
+    var useRemoteFallback by remember(product.localImagePath, product.imageUrl) { mutableStateOf(false) }
+    val localImageFile = product.localImagePath?.let(::File)?.takeIf { it.exists() }
+    val imageModel = if (!useRemoteFallback && localImageFile != null) localImageFile else product.imageUrl
+    Box(
+        modifier = modifier
+            .size(64.dp)
+            .clip(RoundedCornerShape(14.dp))
+            .background(MaterialTheme.colorScheme.surfaceVariant),
+        contentAlignment = Alignment.Center
+    ) {
+        if (imageModel != null) {
+            AsyncImage(
+                model = imageModel,
+                contentDescription = product.name,
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Crop,
+                onError = {
+                    if (localImageFile != null && product.imageUrl != null) {
+                        useRemoteFallback = true
+                    }
+                }
+            )
+        } else {
+            Text(
+                text = stringResource(R.string.product_photo_placeholder),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1
+            )
+        }
     }
 }
 

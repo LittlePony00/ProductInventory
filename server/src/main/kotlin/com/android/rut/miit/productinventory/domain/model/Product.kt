@@ -15,6 +15,8 @@ data class Product(
     val quantity: Quantity,
     val packageQuantity: Quantity? = null,
     val ingredientsText: String? = null,
+    val imageUrl: String? = null,
+    val imageObjectKey: String? = null,
     val calories: Double? = null,
     val protein: Double? = null,
     val fat: Double? = null,

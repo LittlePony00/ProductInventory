@@ -1,6 +1,7 @@
 import SwiftUI
 import Shared
 import UserNotifications
+import UIKit
 
 struct ProductListScreen: View {
     let householdId: String
@@ -161,6 +162,7 @@ struct ProductRow: View {
 
     var body: some View {
         HStack {
+            ProductThumbnail(product: product)
             VStack(alignment: .leading, spacing: 4) {
                 Text(product.name).font(.headline)
                 Text("\(product.categoryName ?? categoryName(product.category)) • \(String(format: "%.0f", product.quantity)) \(unitName(product.quantityUnit))")
@@ -234,6 +236,39 @@ struct ProductRow: View {
             Button("Отмена", role: .cancel) { }
         } message: {
             Text("«\(product.name)» исчезнет из списка запасов.")
+        }
+    }
+
+    private struct ProductThumbnail: View {
+        let product: Product
+
+        var body: some View {
+            ZStack {
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(Color(.secondarySystemBackground))
+                if let localImagePath = product.localImagePath,
+                   let image = UIImage(contentsOfFile: localImagePath) {
+                    Image(uiImage: image)
+                        .resizable()
+                        .scaledToFill()
+                } else if let imageUrl = product.imageUrl,
+                          let url = URL(string: imageUrl) {
+                    AsyncImage(url: url) { phase in
+                        switch phase {
+                        case let .success(image):
+                            image.resizable().scaledToFill()
+                        default:
+                            Image(systemName: "photo")
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                } else {
+                    Image(systemName: "camera")
+                        .foregroundColor(.secondary)
+                }
+            }
+            .frame(width: 56, height: 56)
+            .clipShape(RoundedRectangle(cornerRadius: 12))
         }
     }
 

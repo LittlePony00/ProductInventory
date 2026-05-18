@@ -26,6 +26,7 @@ class LocalDatabaseBarcodeProductProvider(
                 brand = product.brand,
                 packageQuantity = product.packageQuantity ?: Quantity(product.quantity.value, product.quantity.unit),
                 ingredients = product.ingredientsText,
+                imageUrl = product.imageUrl,
                 nutrition = NutritionFacts(
                     caloriesKcal = product.calories,
                     proteinGrams = product.protein,

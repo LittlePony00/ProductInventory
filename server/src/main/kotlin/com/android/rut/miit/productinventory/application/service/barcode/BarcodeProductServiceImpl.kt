@@ -66,6 +66,7 @@ class BarcodeProductServiceImpl(
             brand = null,
             packageQuantity = null,
             ingredients = null,
+            imageUrl = null,
             nutrition = null,
             category = null,
             source = BarcodeProductSource.LOCAL_DATABASE,

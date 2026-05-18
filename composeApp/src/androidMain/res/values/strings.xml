@@ -89,6 +89,12 @@
     <string name="product_ai_suggestions_section_hint">Дополнительные данные для рекомендаций и карточки продукта</string>
     <string name="product_main_section">Основное</string>
     <string name="product_main_section_hint">Название, бренд, штрихкод и категория</string>
+    <string name="product_photo_section">Фотография</string>
+    <string name="product_photo_section_hint">Сначала используется локальное фото, затем изображение с сервера или внешнего сервиса</string>
+    <string name="product_photo_add">Добавить фото</string>
+    <string name="product_photo_replace">Заменить фото</string>
+    <string name="product_photo_remove">Удалить фото</string>
+    <string name="product_photo_placeholder">Фото продукта</string>
     <string name="product_expiration_section">Срок годности</string>
     <string name="product_expiration_section_hint">Используйте формат ГГГГ-ММ-ДД, например 2026-05-30</string>
     <string name="product_ai_suggest_button">Подсказать ИИ</string>

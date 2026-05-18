@@ -17,6 +17,7 @@ fun ProductResponseDto.toDomain() = Product(
     packageAmount = packageAmount,
     packageUnit = packageUnit?.let { runCatching { QuantityUnit.valueOf(it) }.getOrNull() },
     ingredientsText = ingredientsText,
+    imageUrl = imageUrl,
     calories = calories,
     protein = protein,
     fat = fat,

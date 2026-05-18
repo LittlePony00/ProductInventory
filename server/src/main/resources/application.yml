@@ -34,6 +34,15 @@ barcode:
   gs1:
     base-url: ${GS1_BASE_URL:}
 
+product-images:
+  s3:
+    endpoint: ${PRODUCT_IMAGES_S3_ENDPOINT:}
+    access-key: ${PRODUCT_IMAGES_S3_ACCESS_KEY:}
+    secret-key: ${PRODUCT_IMAGES_S3_SECRET_KEY:}
+    bucket: ${PRODUCT_IMAGES_S3_BUCKET:product-images}
+    public-base-url: ${PRODUCT_IMAGES_PUBLIC_BASE_URL:}
+    presigned-expiry-days: ${PRODUCT_IMAGES_PRESIGNED_EXPIRY_DAYS:7}
+
 gigachat:
   base-url: ${GIGACHAT_BASE_URL:https://gigachat.devices.sberbank.ru/api/v1}
   api-key: ${GIGACHAT_API_KEY:}

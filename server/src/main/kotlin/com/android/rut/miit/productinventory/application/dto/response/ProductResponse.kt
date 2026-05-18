@@ -20,6 +20,7 @@ data class ProductResponse(
     val packageAmount: Double?,
     val packageUnit: QuantityUnit?,
     val ingredientsText: String?,
+    val imageUrl: String?,
     val calories: Double?,
     val protein: Double?,
     val fat: Double?,

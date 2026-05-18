@@ -7,8 +7,10 @@ import com.android.rut.miit.productinventory.application.dto.response.ProductRes
 import com.android.rut.miit.productinventory.application.mapper.toResponse
 import com.android.rut.miit.productinventory.domain.port.inbound.IProductService
 import jakarta.validation.Valid
+import org.springframework.http.MediaType
 import org.springframework.http.HttpStatus
 import org.springframework.web.bind.annotation.*
+import org.springframework.web.multipart.MultipartFile
 import java.util.UUID
 
 @RestController
@@ -36,6 +38,7 @@ class ProductController(
             packageAmount = request.packageAmount,
             packageUnit = request.packageUnit,
             ingredientsText = request.ingredientsText,
+            imageUrl = request.imageUrl,
             calories = request.calories,
             protein = request.protein,
             fat = request.fat,
@@ -82,6 +85,8 @@ class ProductController(
             packageAmount = request.packageAmount,
             packageUnit = request.packageUnit,
             ingredientsText = request.ingredientsText,
+            imageUrl = request.imageUrl,
+            clearImage = request.clearImage,
             calories = request.calories,
             protein = request.protein,
             fat = request.fat,
@@ -105,6 +110,28 @@ class ProductController(
             amount = request.amount
         ).toResponse()
     }
+
+    @PostMapping("/{productId}/image", consumes = [MediaType.MULTIPART_FORM_DATA_VALUE])
+    fun uploadProductImage(
+        @PathVariable householdId: UUID,
+        @PathVariable productId: UUID,
+        @RequestPart("file") file: MultipartFile
+    ): ProductResponse =
+        productService.uploadProductImage(
+            userId = currentUserId(),
+            productId = productId,
+            originalFilename = file.originalFilename,
+            contentType = file.contentType,
+            size = file.size,
+            inputStream = file.inputStream
+        ).toResponse()
+
+    @DeleteMapping("/{productId}/image")
+    fun deleteProductImage(
+        @PathVariable householdId: UUID,
+        @PathVariable productId: UUID
+    ): ProductResponse =
+        productService.deleteProductImage(currentUserId(), productId).toResponse()
 
     @DeleteMapping("/{productId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)

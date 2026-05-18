@@ -9,6 +9,7 @@ struct ProductDraftInput: Hashable {
     let packageQuantity: Double?
     let packageQuantityUnit: String?
     let ingredients: String?
+    let imageUrl: String?
     let caloriesKcal: Double?
     let proteinGrams: Double?
     let fatGrams: Double?
@@ -22,6 +23,7 @@ struct ProductDraftInput: Hashable {
         packageQuantity: Double? = nil,
         packageQuantityUnit: String? = nil,
         ingredients: String? = nil,
+        imageUrl: String? = nil,
         caloriesKcal: Double? = nil,
         proteinGrams: Double? = nil,
         fatGrams: Double? = nil,
@@ -34,6 +36,7 @@ struct ProductDraftInput: Hashable {
         self.packageQuantity = packageQuantity
         self.packageQuantityUnit = packageQuantityUnit
         self.ingredients = ingredients
+        self.imageUrl = imageUrl
         self.caloriesKcal = caloriesKcal
         self.proteinGrams = proteinGrams
         self.fatGrams = fatGrams
@@ -49,6 +52,7 @@ struct ProductDraftInput: Hashable {
             packageQuantity: draft.packageQuantity?.doubleValue,
             packageQuantityUnit: draft.packageQuantityUnit?.name,
             ingredients: draft.ingredients,
+            imageUrl: draft.imageUrl,
             caloriesKcal: draft.caloriesKcal?.doubleValue,
             proteinGrams: draft.proteinGrams?.doubleValue,
             fatGrams: draft.fatGrams?.doubleValue,

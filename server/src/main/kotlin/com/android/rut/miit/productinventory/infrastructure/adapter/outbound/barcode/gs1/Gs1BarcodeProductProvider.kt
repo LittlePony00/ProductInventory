@@ -45,6 +45,7 @@ private fun Gs1ProductResponse.toDraft(barcode: String): BarcodeProductDraft =
         brand = brand?.takeIf(String::isNotBlank),
         packageQuantity = null,
         ingredients = null,
+        imageUrl = imageUrl?.takeIf(String::isNotBlank),
         nutrition = null,
         category = null,
         source = BarcodeProductSource.GS1,
@@ -54,5 +55,6 @@ private fun Gs1ProductResponse.toDraft(barcode: String): BarcodeProductDraft =
 @JsonIgnoreProperties(ignoreUnknown = true)
 data class Gs1ProductResponse(
     val name: String? = null,
-    val brand: String? = null
+    val brand: String? = null,
+    val imageUrl: String? = null
 )

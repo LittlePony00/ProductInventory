@@ -24,6 +24,9 @@ class BarcodeProductCacheEntity(
     @Column(columnDefinition = "TEXT")
     var ingredients: String? = null,
 
+    @Column(name = "image_url", columnDefinition = "TEXT")
+    var imageUrl: String? = null,
+
     @Column(name = "calories_kcal")
     var caloriesKcal: Double? = null,
 

@@ -35,6 +35,8 @@ data class CreateProductRequest(
 
     val ingredientsText: String? = null,
 
+    val imageUrl: String? = null,
+
     @field:PositiveOrZero(message = "Calories must be non-negative")
     val calories: Double? = null,
 
@@ -71,6 +73,8 @@ data class UpdateProductRequest(
     val packageAmount: Double? = null,
     val packageUnit: QuantityUnit? = null,
     val ingredientsText: String? = null,
+    val imageUrl: String? = null,
+    val clearImage: Boolean = false,
     @field:PositiveOrZero(message = "Calories must be non-negative")
     val calories: Double? = null,
     @field:PositiveOrZero(message = "Protein must be non-negative")

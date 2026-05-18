@@ -20,6 +20,7 @@ sealed interface Route {
         val packageAmount: String? = null,
         val packageUnit: String? = null,
         val ingredientsText: String? = null,
+        val imageUrl: String? = null,
         val calories: String? = null,
         val protein: String? = null,
         val fat: String? = null,

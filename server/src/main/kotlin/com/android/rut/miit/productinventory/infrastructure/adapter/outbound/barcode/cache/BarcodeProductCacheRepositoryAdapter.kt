@@ -30,6 +30,7 @@ private fun BarcodeProductCacheEntity.toDomain(): BarcodeProductDraft =
             packageQuantity?.let { Quantity(it, unit) }
         },
         ingredients = ingredients,
+        imageUrl = imageUrl,
         nutrition = NutritionFacts(caloriesKcal, proteinGrams, fatGrams, carbohydratesGrams),
         category = category?.let(ProductCategory::valueOf),
         source = BarcodeProductSource.valueOf(source),
@@ -44,6 +45,7 @@ private fun BarcodeProductDraft.toEntity(): BarcodeProductCacheEntity =
         packageQuantity = packageQuantity?.value,
         packageQuantityUnit = packageQuantity?.unit?.name,
         ingredients = ingredients,
+        imageUrl = imageUrl,
         caloriesKcal = nutrition?.caloriesKcal,
         proteinGrams = nutrition?.proteinGrams,
         fatGrams = nutrition?.fatGrams,

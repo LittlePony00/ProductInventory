@@ -44,6 +44,8 @@ fun ProductEntity.toDomain() = Product(
         Quantity(value = it, unit = QuantityUnit.valueOf(packageUnit ?: quantityUnit))
     },
     ingredientsText = ingredientsText,
+    imageUrl = imageUrl,
+    imageObjectKey = imageObjectKey,
     calories = calories,
     protein = protein,
     fat = fat,
@@ -69,6 +71,8 @@ fun Product.toEntity() = ProductEntity(
     packageAmount = packageQuantity?.value,
     packageUnit = packageQuantity?.unit?.name,
     ingredientsText = ingredientsText,
+    imageUrl = imageUrl,
+    imageObjectKey = imageObjectKey,
     calories = calories,
     protein = protein,
     fat = fat,

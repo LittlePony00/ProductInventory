@@ -29,7 +29,75 @@ interface ProductRepository {
         purchaseDate: LocalDate? = null,
         remainingAmount: Double? = null,
         lowStockThreshold: Double? = null
-    ): Product
+    ): Product =
+        addProduct(
+            householdId = householdId,
+            name = name,
+            category = category,
+            categoryId = categoryId,
+            quantity = quantity,
+            quantityUnit = quantityUnit,
+            expirationDate = expirationDate,
+            brand = brand,
+            barcode = barcode,
+            packageAmount = packageAmount,
+            packageUnit = packageUnit,
+            ingredientsText = ingredientsText,
+            imageUrl = null,
+            localImagePath = null,
+            calories = calories,
+            protein = protein,
+            fat = fat,
+            carbs = carbs,
+            purchaseDate = purchaseDate,
+            remainingAmount = remainingAmount,
+            lowStockThreshold = lowStockThreshold
+        )
+
+    suspend fun addProduct(
+        householdId: String,
+        name: String,
+        category: ProductCategory,
+        categoryId: String? = null,
+        quantity: Double,
+        quantityUnit: QuantityUnit,
+        expirationDate: LocalDate?,
+        brand: String? = null,
+        barcode: String? = null,
+        packageAmount: Double? = null,
+        packageUnit: QuantityUnit? = null,
+        ingredientsText: String? = null,
+        imageUrl: String?,
+        localImagePath: String?,
+        calories: Double? = null,
+        protein: Double? = null,
+        fat: Double? = null,
+        carbs: Double? = null,
+        purchaseDate: LocalDate? = null,
+        remainingAmount: Double? = null,
+        lowStockThreshold: Double? = null
+    ): Product =
+        addProduct(
+            householdId = householdId,
+            name = name,
+            category = category,
+            categoryId = categoryId,
+            quantity = quantity,
+            quantityUnit = quantityUnit,
+            expirationDate = expirationDate,
+            brand = brand,
+            barcode = barcode,
+            packageAmount = packageAmount,
+            packageUnit = packageUnit,
+            ingredientsText = ingredientsText,
+            calories = calories,
+            protein = protein,
+            fat = fat,
+            carbs = carbs,
+            purchaseDate = purchaseDate,
+            remainingAmount = remainingAmount,
+            lowStockThreshold = lowStockThreshold
+        )
 
     suspend fun updateProduct(
         householdId: String,
@@ -52,7 +120,80 @@ interface ProductRepository {
         purchaseDate: LocalDate? = null,
         remainingAmount: Double? = null,
         lowStockThreshold: Double? = null
-    ): Product
+    ): Product =
+        updateProduct(
+            householdId = householdId,
+            productId = productId,
+            name = name,
+            category = category,
+            categoryId = categoryId,
+            quantity = quantity,
+            quantityUnit = quantityUnit,
+            expirationDate = expirationDate,
+            brand = brand,
+            barcode = barcode,
+            packageAmount = packageAmount,
+            packageUnit = packageUnit,
+            ingredientsText = ingredientsText,
+            imageUrl = null,
+            localImagePath = null,
+            clearImage = false,
+            calories = calories,
+            protein = protein,
+            fat = fat,
+            carbs = carbs,
+            purchaseDate = purchaseDate,
+            remainingAmount = remainingAmount,
+            lowStockThreshold = lowStockThreshold
+        )
+
+    suspend fun updateProduct(
+        householdId: String,
+        productId: String,
+        name: String?,
+        category: ProductCategory?,
+        categoryId: String? = null,
+        quantity: Double?,
+        quantityUnit: QuantityUnit?,
+        expirationDate: LocalDate?,
+        brand: String? = null,
+        barcode: String? = null,
+        packageAmount: Double? = null,
+        packageUnit: QuantityUnit? = null,
+        ingredientsText: String? = null,
+        imageUrl: String?,
+        localImagePath: String?,
+        clearImage: Boolean,
+        calories: Double? = null,
+        protein: Double? = null,
+        fat: Double? = null,
+        carbs: Double? = null,
+        purchaseDate: LocalDate? = null,
+        remainingAmount: Double? = null,
+        lowStockThreshold: Double? = null
+    ): Product =
+        updateProduct(
+            householdId = householdId,
+            productId = productId,
+            name = name,
+            category = category,
+            categoryId = categoryId,
+            quantity = quantity,
+            quantityUnit = quantityUnit,
+            expirationDate = expirationDate,
+            brand = brand,
+            barcode = barcode,
+            packageAmount = packageAmount,
+            packageUnit = packageUnit,
+            ingredientsText = ingredientsText,
+            calories = calories,
+            protein = protein,
+            fat = fat,
+            carbs = carbs,
+            purchaseDate = purchaseDate,
+            remainingAmount = remainingAmount,
+            lowStockThreshold = lowStockThreshold
+        )
 
     suspend fun consumeProduct(householdId: String, productId: String, amount: Double): Product
 

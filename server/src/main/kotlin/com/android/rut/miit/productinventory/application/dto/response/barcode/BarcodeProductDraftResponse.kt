@@ -11,6 +11,7 @@ data class BarcodeProductDraftResponse(
     val packageQuantity: Double?,
     val packageQuantityUnit: QuantityUnit?,
     val ingredients: String?,
+    val imageUrl: String?,
     val caloriesKcal: Double?,
     val proteinGrams: Double?,
     val fatGrams: Double?,

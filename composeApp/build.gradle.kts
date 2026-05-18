@@ -31,6 +31,8 @@ kotlin {
             implementation(libs.camerax.lifecycle)
             implementation(libs.camerax.view)
             implementation(libs.mlkit.barcode.scanning)
+            implementation(libs.coil.compose)
+            implementation(libs.coil.network.okhttp)
             implementation("com.google.guava:guava:33.4.0-android")
         }
         commonMain.dependencies {

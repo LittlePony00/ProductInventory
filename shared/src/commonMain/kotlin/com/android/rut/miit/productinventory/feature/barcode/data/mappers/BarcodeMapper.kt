@@ -14,6 +14,7 @@ fun BarcodeProductDraftResponseDto.toDomain(): BarcodeProductDraft =
         packageQuantity = packageQuantity,
         packageQuantityUnit = packageQuantityUnit?.toQuantityUnitOrNull(),
         ingredients = ingredients,
+        imageUrl = imageUrl,
         caloriesKcal = caloriesKcal,
         proteinGrams = proteinGrams,
         fatGrams = fatGrams,

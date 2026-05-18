@@ -29,6 +29,7 @@ fun Product.toResponse() = ProductResponse(
     packageAmount = packageQuantity?.value,
     packageUnit = packageQuantity?.unit,
     ingredientsText = ingredientsText,
+    imageUrl = imageUrl,
     calories = calories,
     protein = protein,
     fat = fat,

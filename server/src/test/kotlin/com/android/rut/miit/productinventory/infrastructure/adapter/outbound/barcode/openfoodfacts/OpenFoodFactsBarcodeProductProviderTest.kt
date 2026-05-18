@@ -37,6 +37,7 @@ class OpenFoodFactsBarcodeProductProviderTest {
                         "brands": "Brand A, Brand B",
                         "quantity": "1 l",
                         "ingredients_text": "milk",
+                        "image_front_url": "https://images.openfoodfacts.test/milk.jpg",
                         "categories_tags": ["en:dairies"],
                         "nutriments": {
                           "energy-kcal_100g": 60,
@@ -57,6 +58,7 @@ class OpenFoodFactsBarcodeProductProviderTest {
         assertEquals("Brand A", draft?.brand)
         assertEquals(1000.0, draft?.packageQuantity?.value)
         assertEquals(QuantityUnit.MILLILITERS, draft?.packageQuantity?.unit)
+        assertEquals("https://images.openfoodfacts.test/milk.jpg", draft?.imageUrl)
         assertEquals(60.0, draft?.nutrition?.caloriesKcal)
         assertEquals(ProductCategory.DAIRY, draft?.category)
         assertEquals(BarcodeProductSource.OPEN_FOOD_FACTS, draft?.source)

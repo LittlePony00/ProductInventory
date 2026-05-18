@@ -93,12 +93,17 @@ class ProductRepositoryImplTest {
             category = ProductCategory.DAIRY,
             quantity = 1.0,
             quantityUnit = QuantityUnit.PIECES,
-            expirationDate = LocalDate.parse("2026-05-20")
+            expirationDate = LocalDate.parse("2026-05-20"),
+            imageUrl = "https://cdn.example.test/milk.jpg",
+            localImagePath = "/local/product-images/milk.jpg"
         )
 
         assertEquals("Offline milk", localDataSource.getProduct("household-id", product.id)?.name)
+        assertEquals("https://cdn.example.test/milk.jpg", localDataSource.getProduct("household-id", product.id)?.imageUrl)
+        assertEquals("/local/product-images/milk.jpg", localDataSource.getProduct("household-id", product.id)?.localImagePath)
         assertEquals(listOf(SyncActionType.ADD_PRODUCT), syncQueue.actions.map { it.type })
         assertEquals(product.id, syncQueue.actions.single().entityId)
+        assertTrue(syncQueue.actions.single().payload.contains("\"localImagePath\":\"/local/product-images/milk.jpg\""))
     }
 
     @Test

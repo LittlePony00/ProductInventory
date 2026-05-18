@@ -40,6 +40,12 @@ class ProductEntity(
     @Column(name = "ingredients_text", columnDefinition = "TEXT")
     var ingredientsText: String? = null,
 
+    @Column(name = "image_url", columnDefinition = "TEXT")
+    var imageUrl: String? = null,
+
+    @Column(name = "image_object_key", columnDefinition = "TEXT")
+    var imageObjectKey: String? = null,
+
     var calories: Double? = null,
 
     var protein: Double? = null,

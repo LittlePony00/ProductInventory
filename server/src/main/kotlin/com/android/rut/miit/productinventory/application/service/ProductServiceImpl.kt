@@ -13,9 +13,12 @@ import com.android.rut.miit.productinventory.domain.port.outbound.IProductReposi
 import com.android.rut.miit.productinventory.domain.model.barcode.BarcodeProductDraft
 import com.android.rut.miit.productinventory.domain.model.barcode.BarcodeProductSource
 import com.android.rut.miit.productinventory.domain.model.barcode.NutritionFacts
+import com.android.rut.miit.productinventory.domain.port.inbound.IBarcodeProductService
 import com.android.rut.miit.productinventory.domain.port.outbound.barcode.IBarcodeProductCacheRepository
+import com.android.rut.miit.productinventory.domain.port.outbound.IProductImageStorage
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
+import java.io.InputStream
 import java.time.LocalDate
 import java.util.UUID
 
@@ -27,7 +30,9 @@ class ProductServiceImpl(
     private val notificationSender: INotificationSender,
     private val householdEventPublisher: IHouseholdEventPublisher,
     private val categoryRepository: ICategoryRepository,
-    private val barcodeProductCacheRepository: IBarcodeProductCacheRepository
+    private val barcodeProductCacheRepository: IBarcodeProductCacheRepository,
+    private val barcodeProductService: IBarcodeProductService = NoopBarcodeProductService,
+    private val productImageStorage: IProductImageStorage = NoopProductImageStorage
 ) : IProductService {
 
     @Transactional
@@ -44,6 +49,7 @@ class ProductServiceImpl(
         packageAmount: Double?,
         packageUnit: QuantityUnit?,
         ingredientsText: String?,
+        imageUrl: String?,
         calories: Double?,
         protein: Double?,
         fat: Double?,
@@ -55,18 +61,20 @@ class ProductServiceImpl(
     ): Product {
         requireMembership(userId, householdId)
         val resolvedCategory = resolveCategory(householdId, category, categoryId)
+        val normalizedBarcode = barcode?.trimToNull()
 
         val product = productRepository.save(
             Product(
                 name = name.trim(),
                 brand = brand?.trimToNull(),
-                barcode = barcode?.trimToNull(),
+                barcode = normalizedBarcode,
                 category = resolvedCategory.legacyCategory,
                 categoryId = resolvedCategory.id,
                 categoryName = resolvedCategory.name,
                 quantity = Quantity(value = quantity, unit = quantityUnit),
                 packageQuantity = packageAmount?.let { Quantity(value = it, unit = packageUnit ?: quantityUnit) },
                 ingredientsText = ingredientsText?.trimToNull(),
+                imageUrl = resolveProductImageUrl(userId, householdId, imageUrl, normalizedBarcode, null),
                 calories = calories,
                 protein = protein,
                 fat = fat,
@@ -106,6 +114,8 @@ class ProductServiceImpl(
         packageAmount: Double?,
         packageUnit: QuantityUnit?,
         ingredientsText: String?,
+        imageUrl: String?,
+        clearImage: Boolean,
         calories: Double?,
         protein: Double?,
         fat: Double?,
@@ -126,10 +136,14 @@ class ProductServiceImpl(
         }
 
         val updatedQuantityUnit = quantityUnit ?: existing.quantity.unit
+        val updatedBarcode = barcode?.trimToNull() ?: existing.barcode
+        if (clearImage) {
+            existing.imageObjectKey?.let(productImageStorage::deleteObject)
+        }
         val updated = existing.copy(
             name = name?.trim() ?: existing.name,
             brand = brand?.trimToNull() ?: existing.brand,
-            barcode = barcode?.trimToNull() ?: existing.barcode,
+            barcode = updatedBarcode,
             category = resolvedCategory?.legacyCategory ?: category ?: existing.category,
             categoryId = resolvedCategory?.id ?: existing.categoryId,
             categoryName = resolvedCategory?.name ?: existing.categoryName,
@@ -143,6 +157,23 @@ class ProductServiceImpl(
                 else -> existing.packageQuantity
             },
             ingredientsText = ingredientsText?.trimToNull() ?: existing.ingredientsText,
+            imageUrl = when {
+                clearImage -> null
+                imageUrl != null -> imageUrl.trimToNull()
+                existing.imageUrl == null -> resolveProductImageUrl(
+                    userId = userId,
+                    householdId = existing.householdId,
+                    requestedImageUrl = null,
+                    barcode = updatedBarcode,
+                    currentImageUrl = existing.imageUrl
+                )
+                else -> existing.imageUrl
+            },
+            imageObjectKey = when {
+                clearImage -> null
+                imageUrl != null -> null
+                else -> existing.imageObjectKey
+            },
             calories = calories ?: existing.calories,
             protein = protein ?: existing.protein,
             fat = fat ?: existing.fat,
@@ -181,6 +212,55 @@ class ProductServiceImpl(
     }
 
     @Transactional
+    override fun uploadProductImage(
+        userId: UUID,
+        productId: UUID,
+        originalFilename: String?,
+        contentType: String?,
+        size: Long,
+        inputStream: InputStream
+    ): Product {
+        require(size > 0L) { "Image file is empty" }
+        require(size <= MAX_PRODUCT_IMAGE_BYTES) { "Image file is too large" }
+        require(contentType?.startsWith("image/") == true) { "File must be an image" }
+
+        val existing = productRepository.findById(productId)
+            ?: throw EntityNotFoundException("Product", productId)
+        requireMembership(userId, existing.householdId)
+
+        val storedImage = productImageStorage.uploadProductImage(
+            householdId = existing.householdId,
+            productId = existing.id,
+            originalFilename = originalFilename,
+            contentType = contentType,
+            size = size,
+            inputStream = inputStream
+        )
+        existing.imageObjectKey?.let(productImageStorage::deleteObject)
+        val saved = productRepository.save(
+            existing.copy(
+                imageUrl = storedImage.url,
+                imageObjectKey = storedImage.objectKey
+            )
+        )
+        publishProductEvent(HouseholdEventType.PRODUCT_UPDATED, userId, saved)
+        saveBarcodeMetadata(saved)
+        return saved.withCategoryDetails(saved.householdId)
+    }
+
+    @Transactional
+    override fun deleteProductImage(userId: UUID, productId: UUID): Product {
+        val existing = productRepository.findById(productId)
+            ?: throw EntityNotFoundException("Product", productId)
+        requireMembership(userId, existing.householdId)
+        existing.imageObjectKey?.let(productImageStorage::deleteObject)
+        val saved = productRepository.save(existing.copy(imageUrl = null, imageObjectKey = null))
+        publishProductEvent(HouseholdEventType.PRODUCT_UPDATED, userId, saved)
+        saveBarcodeMetadata(saved)
+        return saved.withCategoryDetails(saved.householdId)
+    }
+
+    @Transactional
     override fun consumeProduct(userId: UUID, productId: UUID, amount: Double): Product {
         require(amount > 0) { "Consumption amount must be positive" }
         val existing = productRepository.findById(productId)
@@ -210,6 +290,7 @@ class ProductServiceImpl(
             ?: throw EntityNotFoundException("Product", productId)
 
         requireMembership(userId, product.householdId)
+        product.imageObjectKey?.let(productImageStorage::deleteObject)
         productRepository.deleteById(productId)
         publishProductEvent(HouseholdEventType.PRODUCT_DELETED, userId, product)
         notifyHouseholdMembers(
@@ -320,6 +401,22 @@ class ProductServiceImpl(
     private fun Product.isExpiringSoon(): Boolean =
         expirationDate?.status == ExpirationStatus.EXPIRING_SOON
 
+    private fun resolveProductImageUrl(
+        userId: UUID,
+        householdId: UUID,
+        requestedImageUrl: String?,
+        barcode: String?,
+        currentImageUrl: String?
+    ): String? {
+        requestedImageUrl?.trimToNull()?.let { return it }
+        currentImageUrl?.trimToNull()?.let { return it }
+        val normalizedBarcode = barcode?.trimToNull() ?: return null
+        val draftImageUrl = runCatching {
+            barcodeProductService.getProductDraft(userId, householdId, normalizedBarcode).imageUrl?.trimToNull()
+        }.getOrNull()
+        return draftImageUrl ?: productImageStorage.findBarcodeImageUrl(normalizedBarcode)
+    }
+
     private fun saveBarcodeMetadata(product: Product) {
         val barcode = product.barcode?.trimToNull() ?: return
         val name = product.name.trimToNull() ?: return
@@ -331,6 +428,7 @@ class ProductServiceImpl(
                 brand = product.brand,
                 packageQuantity = product.packageQuantity ?: product.quantity,
                 ingredients = product.ingredientsText,
+                imageUrl = product.imageUrl,
                 nutrition = NutritionFacts(
                     caloriesKcal = product.calories,
                     proteinGrams = product.protein,
@@ -346,10 +444,43 @@ class ProductServiceImpl(
 
     private companion object {
         const val LOCAL_DATABASE_CACHE_CONFIDENCE = 0.95
+        const val MAX_PRODUCT_IMAGE_BYTES = 5L * 1024L * 1024L
     }
 }
 
 private fun String.trimToNull(): String? = trim().takeIf { it.isNotEmpty() }
+
+private object NoopBarcodeProductService : IBarcodeProductService {
+    override fun getProductDraft(userId: UUID, householdId: UUID, barcode: String): BarcodeProductDraft =
+        BarcodeProductDraft(
+            barcode = barcode,
+            name = null,
+            brand = null,
+            packageQuantity = null,
+            ingredients = null,
+            imageUrl = null,
+            nutrition = null,
+            category = null,
+            source = BarcodeProductSource.LOCAL_DATABASE,
+            confidence = 0.0
+        )
+}
+
+private object NoopProductImageStorage : IProductImageStorage {
+    override fun uploadProductImage(
+        householdId: UUID,
+        productId: UUID,
+        originalFilename: String?,
+        contentType: String?,
+        size: Long,
+        inputStream: InputStream
+    ): com.android.rut.miit.productinventory.domain.port.outbound.StoredProductImage =
+        throw IllegalStateException("Product image storage is not configured")
+
+    override fun findBarcodeImageUrl(barcode: String): String? = null
+
+    override fun deleteObject(objectKey: String) = Unit
+}
 
 private data class ResolvedCategory(
     val id: UUID,

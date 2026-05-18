@@ -10,6 +10,7 @@ import com.android.rut.miit.productinventory.feature.products.data.models.Update
 import io.ktor.client.*
 import io.ktor.client.call.*
 import io.ktor.client.request.*
+import io.ktor.client.request.forms.*
 import io.ktor.http.*
 
 class ProductRemoteDataSource(private val httpClient: HttpClient) {
@@ -34,6 +35,33 @@ class ProductRemoteDataSource(private val httpClient: HttpClient) {
         return httpClient.put("${ApiConstants.API_V1}/households/$householdId/products/$productId") {
             setBody(request)
         }.body()
+    }
+
+    suspend fun uploadProductImage(
+        householdId: String,
+        productId: String,
+        image: ProductImageFileContent
+    ): ProductResponseDto {
+        return httpClient.submitFormWithBinaryData(
+            url = "${ApiConstants.API_V1}/households/$householdId/products/$productId/image",
+            formData = formData {
+                append(
+                    key = "file",
+                    value = image.bytes,
+                    headers = Headers.build {
+                        append(HttpHeaders.ContentType, image.contentType)
+                        append(
+                            HttpHeaders.ContentDisposition,
+                            "form-data; name=\"file\"; filename=\"${image.fileName.replace("\"", "")}\""
+                        )
+                    }
+                )
+            }
+        ).body()
+    }
+
+    suspend fun deleteProductImage(householdId: String, productId: String): ProductResponseDto {
+        return httpClient.delete("${ApiConstants.API_V1}/households/$householdId/products/$productId/image").body()
     }
 
     suspend fun consumeProduct(

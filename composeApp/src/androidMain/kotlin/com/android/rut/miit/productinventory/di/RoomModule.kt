@@ -19,7 +19,7 @@ import org.koin.dsl.module
 val roomModule = module {
     single {
         Room.databaseBuilder(get(), AppDatabase::class.java, "product_inventory_db")
-            .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
+            .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
             .build()
     }
     single { get<AppDatabase>().productDao() }
@@ -55,6 +55,13 @@ internal val MIGRATION_2_3 = object : Migration(2, 3) {
         db.addColumnIfMissing("products", "categoryId", "TEXT")
         db.addColumnIfMissing("products", "categoryName", "TEXT")
         db.addColumnIfMissing("products", "isPendingSync", "INTEGER NOT NULL DEFAULT 0")
+    }
+}
+
+internal val MIGRATION_3_4 = object : Migration(3, 4) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.addColumnIfMissing("products", "imageUrl", "TEXT")
+        db.addColumnIfMissing("products", "localImagePath", "TEXT")
     }
 }
 

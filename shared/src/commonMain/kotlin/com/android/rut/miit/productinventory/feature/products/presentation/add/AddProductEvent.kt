@@ -15,6 +15,7 @@ sealed class AddProductEvent : UiEvent {
         val packageAmount: String? = null,
         val packageUnit: QuantityUnit? = null,
         val ingredientsText: String? = null,
+        val imageUrl: String? = null,
         val calories: String? = null,
         val protein: String? = null,
         val fat: String? = null,
@@ -29,6 +30,7 @@ sealed class AddProductEvent : UiEvent {
         val packageAmount: String?,
         val packageUnit: QuantityUnit?,
         val ingredientsText: String?,
+        val imageUrl: String?,
         val calories: String?,
         val protein: String?,
         val fat: String?,
@@ -52,6 +54,8 @@ sealed class AddProductEvent : UiEvent {
     data class OnPackageAmountChanged(val amount: String) : AddProductEvent()
     data class OnPackageUnitChanged(val unit: QuantityUnit) : AddProductEvent()
     data class OnIngredientsChanged(val ingredients: String) : AddProductEvent()
+    data class OnImageSelected(val localImagePath: String) : AddProductEvent()
+    data object OnImageRemoved : AddProductEvent()
     data class OnCaloriesChanged(val calories: String) : AddProductEvent()
     data class OnProteinChanged(val protein: String) : AddProductEvent()
     data class OnFatChanged(val fat: String) : AddProductEvent()

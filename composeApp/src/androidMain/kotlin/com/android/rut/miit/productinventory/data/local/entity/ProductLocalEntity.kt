@@ -17,6 +17,8 @@ data class ProductLocalEntity(
     val packageAmount: Double? = null,
     val packageUnit: String? = null,
     val ingredientsText: String? = null,
+    val imageUrl: String? = null,
+    val localImagePath: String? = null,
     val calories: Double? = null,
     val protein: Double? = null,
     val fat: Double? = null,

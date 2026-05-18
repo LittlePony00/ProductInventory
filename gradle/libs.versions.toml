@@ -31,6 +31,8 @@ camerax = "1.6.0"
 mlkit-barcode = "17.3.0"
 firebase-bom = "34.7.0"
 google-services = "4.4.4"
+minio = "8.5.17"
+coil = "3.3.0"
 
 [libraries]
 kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test", version.ref = "kotlin" }
@@ -98,6 +100,9 @@ camerax-view = { group = "androidx.camera", name = "camera-view", version.ref = 
 mlkit-barcode-scanning = { group = "com.google.mlkit", name = "barcode-scanning", version.ref = "mlkit-barcode" }
 firebase-bom = { module = "com.google.firebase:firebase-bom", version.ref = "firebase-bom" }
 firebase-messaging = { module = "com.google.firebase:firebase-messaging" }
+minio = { module = "io.minio:minio", version.ref = "minio" }
+coil-compose = { module = "io.coil-kt.coil3:coil-compose", version.ref = "coil" }
+coil-network-okhttp = { module = "io.coil-kt.coil3:coil-network-okhttp", version.ref = "coil" }
 
 [plugins]
 androidApplication = { id = "com.android.application", version.ref = "agp" }

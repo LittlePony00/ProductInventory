@@ -56,6 +56,8 @@ private fun OpenFoodFactsResponse.toDraft(barcode: String): BarcodeProductDraft?
         brand = product.brands?.split(",")?.firstOrNull()?.trim()?.takeIf(String::isNotBlank),
         packageQuantity = quantity,
         ingredients = product.ingredientsText?.takeIf(String::isNotBlank),
+        imageUrl = product.imageFrontUrl?.takeIf(String::isNotBlank)
+            ?: product.imageUrl?.takeIf(String::isNotBlank),
         nutrition = product.nutriments?.toNutritionFacts(),
         category = category,
         source = BarcodeProductSource.OPEN_FOOD_FACTS,
@@ -116,6 +118,10 @@ data class OpenFoodFactsProduct(
     val quantity: String? = null,
     @param:JsonProperty("ingredients_text")
     val ingredientsText: String? = null,
+    @param:JsonProperty("image_front_url")
+    val imageFrontUrl: String? = null,
+    @param:JsonProperty("image_url")
+    val imageUrl: String? = null,
     val categories: String? = null,
     @param:JsonProperty("categories_tags")
     val categoriesTags: List<String>? = null,

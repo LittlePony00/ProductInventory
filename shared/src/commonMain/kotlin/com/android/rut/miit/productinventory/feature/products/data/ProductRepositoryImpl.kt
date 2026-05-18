@@ -13,6 +13,8 @@ import com.android.rut.miit.productinventory.feature.products.api.models.Quantit
 import com.android.rut.miit.productinventory.feature.products.data.mappers.toDomain
 import com.android.rut.miit.productinventory.feature.products.data.models.CreateProductRequestDto
 import com.android.rut.miit.productinventory.feature.products.data.models.ConsumeProductRequestDto
+import com.android.rut.miit.productinventory.feature.products.data.models.PendingCreateProductPayloadDto
+import com.android.rut.miit.productinventory.feature.products.data.models.PendingUpdateProductPayloadDto
 import com.android.rut.miit.productinventory.feature.products.data.models.ProductEnrichmentSuggestionRequestDto
 import com.android.rut.miit.productinventory.feature.products.data.models.UpdateProductRequestDto
 import kotlin.random.Random
@@ -29,6 +31,7 @@ class ProductRepositoryImpl(
     private val remoteDataSource: ProductRemoteDataSource,
     private val localDataSource: ProductLocalDataSource,
     private val syncQueue: SyncQueue,
+    private val imageFileReader: ProductImageFileReader = NoopProductImageFileReader,
     private val json: Json = Json { ignoreUnknownKeys = true }
 ) : ProductRepository {
     private var lastActionCreatedAt = 0L
@@ -39,7 +42,8 @@ class ProductRepositoryImpl(
         return try {
             val remote = remoteDataSource.getProducts(householdId, categoryId).map { it.toDomain() }
             if (categoryId == null) {
-                val merged = mergeRemoteWithPendingLocal(householdId, remote)
+                val withLocalImages = preserveLocalImagePaths(householdId, remote)
+                val merged = mergeRemoteWithPendingLocal(householdId, withLocalImages)
                 localDataSource.saveProducts(householdId, merged)
                 merged
             } else {
@@ -55,8 +59,10 @@ class ProductRepositoryImpl(
     override suspend fun getProduct(householdId: String, productId: String): Product {
         return try {
             val remote = remoteDataSource.getProduct(householdId, productId).toDomain()
-            localDataSource.saveProduct(remote)
-            remote
+            val localImagePath = localDataSource.getProduct(householdId, productId)?.localImagePath
+            val product = remote.copy(localImagePath = localImagePath)
+            localDataSource.saveProduct(product)
+            product
         } catch (e: Exception) {
             localDataSource.getProduct(householdId, productId) ?: throw e
         }
@@ -75,6 +81,8 @@ class ProductRepositoryImpl(
         packageAmount: Double?,
         packageUnit: QuantityUnit?,
         ingredientsText: String?,
+        imageUrl: String?,
+        localImagePath: String?,
         calories: Double?,
         protein: Double?,
         fat: Double?,
@@ -94,6 +102,7 @@ class ProductRepositoryImpl(
             packageAmount = packageAmount,
             packageUnit = packageUnit?.name,
             ingredientsText = ingredientsText,
+            imageUrl = imageUrl,
             calories = calories,
             protein = protein,
             fat = fat,
@@ -105,17 +114,34 @@ class ProductRepositoryImpl(
         )
         runCatching { syncPendingActions(householdId) }
         return try {
-            val product = remoteDataSource.addProduct(householdId, request).toDomain()
+            val created = remoteDataSource.addProduct(householdId, request).toDomain()
+            val product = runCatching {
+                uploadLocalImageIfNeeded(householdId, created.id, localImagePath, created)
+            }.getOrElse {
+                if (!localImagePath.isNullOrBlank()) {
+                    queueAction(
+                        type = SyncActionType.UPDATE_PRODUCT,
+                        entityId = created.id,
+                        householdId = householdId,
+                        payload = json.encodeToString(PendingUpdateProductPayloadDto(UpdateProductRequestDto(), localImagePath))
+                    )
+                }
+                created.copy(localImagePath = localImagePath)
+            }
             localDataSource.saveProduct(product)
             product
         } catch (e: Exception) {
-            val localProduct = request.toLocalProduct(householdId = householdId, id = generateUuid())
+            val localProduct = request.toLocalProduct(
+                householdId = householdId,
+                id = generateUuid(),
+                localImagePath = localImagePath
+            )
             localDataSource.saveProduct(localProduct)
             queueAction(
                 type = SyncActionType.ADD_PRODUCT,
                 entityId = localProduct.id,
                 householdId = householdId,
-                payload = json.encodeToString(request)
+                payload = json.encodeToString(PendingCreateProductPayloadDto(request, localImagePath))
             )
             localProduct
         }
@@ -135,6 +161,9 @@ class ProductRepositoryImpl(
         packageAmount: Double?,
         packageUnit: QuantityUnit?,
         ingredientsText: String?,
+        imageUrl: String?,
+        localImagePath: String?,
+        clearImage: Boolean,
         calories: Double?,
         protein: Double?,
         fat: Double?,
@@ -154,6 +183,8 @@ class ProductRepositoryImpl(
             packageAmount = packageAmount,
             packageUnit = packageUnit?.name,
             ingredientsText = ingredientsText,
+            imageUrl = imageUrl,
+            clearImage = clearImage,
             calories = calories,
             protein = protein,
             fat = fat,
@@ -165,14 +196,15 @@ class ProductRepositoryImpl(
         )
         runCatching { syncPendingActions(householdId) }
         if (hasPendingActionForProduct(productId)) {
-            return updateLocalAndQueue(householdId, productId, request)
+            return updateLocalAndQueue(householdId, productId, request, localImagePath)
         }
         return try {
-            val product = remoteDataSource.updateProduct(householdId, productId, request).toDomain()
+            val updated = remoteDataSource.updateProduct(householdId, productId, request).toDomain()
+            val product = uploadLocalImageIfNeeded(householdId, productId, localImagePath, updated)
             localDataSource.saveProduct(product)
             product
         } catch (e: Exception) {
-            updateLocalAndQueue(householdId, productId, request)
+            updateLocalAndQueue(householdId, productId, request, localImagePath)
         }
     }
 
@@ -254,17 +286,18 @@ class ProductRepositoryImpl(
     private suspend fun updateLocalAndQueue(
         householdId: String,
         productId: String,
-        request: UpdateProductRequestDto
+        request: UpdateProductRequestDto,
+        localImagePath: String? = null
     ): Product {
         val current = localDataSource.getProduct(householdId, productId)
             ?: throw IllegalStateException("Product is not cached for offline update")
-        val updated = current.applyUpdate(request)
+        val updated = current.applyUpdate(request, localImagePath)
         localDataSource.saveProduct(updated)
         queueAction(
             type = SyncActionType.UPDATE_PRODUCT,
             entityId = productId,
             householdId = householdId,
-            payload = json.encodeToString(request)
+            payload = json.encodeToString(PendingUpdateProductPayloadDto(request, localImagePath))
         )
         return updated
     }
@@ -304,15 +337,28 @@ class ProductRepositoryImpl(
         val resolvedProductId = idMappings[action.entityId] ?: action.entityId
         when (action.type) {
             SyncActionType.ADD_PRODUCT -> {
+                val payload = decodeCreatePayload(action.payload)
                 val product = remoteDataSource.addProduct(
                     action.householdId,
-                    json.decodeFromString<CreateProductRequestDto>(action.payload)
+                    payload.request
                 ).toDomain()
+                val uploadedProduct = uploadLocalImageIfNeeded(
+                    householdId = action.householdId,
+                    productId = product.id,
+                    localImagePath = payload.localImagePath,
+                    fallback = product
+                )
                 val pendingLocal = localDataSource.getProduct(action.householdId, action.entityId)
                 localDataSource.saveProduct(
                     pendingLocal
-                        ?.copy(id = product.id, addedByUserId = product.addedByUserId, createdAt = product.createdAt)
-                        ?: product
+                        ?.copy(
+                            id = uploadedProduct.id,
+                            imageUrl = uploadedProduct.imageUrl,
+                            localImagePath = uploadedProduct.localImagePath,
+                            addedByUserId = uploadedProduct.addedByUserId,
+                            createdAt = uploadedProduct.createdAt
+                        )
+                        ?: uploadedProduct
                 )
                 if (product.id != action.entityId) {
                     localDataSource.deleteProduct(action.entityId)
@@ -326,11 +372,18 @@ class ProductRepositoryImpl(
                 }
             }
             SyncActionType.UPDATE_PRODUCT -> {
-                val product = remoteDataSource.updateProduct(
+                val payload = decodeUpdatePayload(action.payload)
+                val updated = remoteDataSource.updateProduct(
                     action.householdId,
                     resolvedProductId,
-                    json.decodeFromString<UpdateProductRequestDto>(action.payload)
+                    payload.request
                 ).toDomain()
+                val product = uploadLocalImageIfNeeded(
+                    householdId = action.householdId,
+                    productId = resolvedProductId,
+                    localImagePath = payload.localImagePath,
+                    fallback = updated
+                )
                 localDataSource.saveProduct(product)
             }
             SyncActionType.CONSUME_PRODUCT -> {
@@ -381,6 +434,13 @@ class ProductRepositoryImpl(
         return remoteWithoutPending + localPending
     }
 
+    private suspend fun preserveLocalImagePaths(householdId: String, remote: List<Product>): List<Product> {
+        val localById = localDataSource.getProducts(householdId).associateBy { it.id }
+        return remote.map { product ->
+            product.copy(localImagePath = localById[product.id]?.localImagePath)
+        }
+    }
+
     private suspend fun hasPendingActionForProduct(productId: String): Boolean =
         syncQueue.getPendingActions().any { it.entityId == productId }
 
@@ -418,6 +478,7 @@ class ProductRepositoryImpl(
             packageAmount = packageAmount ?: current.packageAmount,
             packageUnit = packageUnit ?: current.packageUnit?.name,
             ingredientsText = ingredientsText ?: current.ingredientsText,
+            imageUrl = if (clearImage) null else imageUrl ?: current.imageUrl,
             calories = calories ?: current.calories,
             protein = protein ?: current.protein,
             fat = fat ?: current.fat,
@@ -428,13 +489,14 @@ class ProductRepositoryImpl(
             expirationDate = expirationDate ?: current.expirationDate?.toString()
         )
 
-    private fun Product.applyUpdate(request: UpdateProductRequestDto): Product =
+    private fun Product.applyUpdate(request: UpdateProductRequestDto, localImagePath: String?): Product =
         request.toCreateRequest(this).toLocalProduct(
             householdId = householdId,
             id = id,
             addedByUserId = addedByUserId,
             createdAt = createdAt,
-            expirationStatus = expirationStatus
+            expirationStatus = expirationStatus,
+            localImagePath = if (request.clearImage) null else localImagePath ?: this.localImagePath
         ).copy(categoryName = categoryName)
 
     private fun CreateProductRequestDto.toLocalProduct(
@@ -442,7 +504,8 @@ class ProductRepositoryImpl(
         id: String,
         addedByUserId: String = "",
         createdAt: String = nowMillis().toString(),
-        expirationStatus: ExpirationStatus = ExpirationStatus.UNKNOWN
+        expirationStatus: ExpirationStatus = ExpirationStatus.UNKNOWN,
+        localImagePath: String? = null
     ): Product =
         Product(
             id = id,
@@ -456,6 +519,8 @@ class ProductRepositoryImpl(
             packageAmount = packageAmount,
             packageUnit = packageUnit?.let { runCatching { QuantityUnit.valueOf(it) }.getOrNull() },
             ingredientsText = ingredientsText,
+            imageUrl = imageUrl,
+            localImagePath = localImagePath,
             calories = calories,
             protein = protein,
             fat = fat,
@@ -469,6 +534,25 @@ class ProductRepositoryImpl(
             addedByUserId = addedByUserId,
             createdAt = createdAt
         )
+
+    private suspend fun uploadLocalImageIfNeeded(
+        householdId: String,
+        productId: String,
+        localImagePath: String?,
+        fallback: Product
+    ): Product {
+        val path = localImagePath?.takeIf { it.isNotBlank() } ?: return fallback
+        val image = imageFileReader.read(path) ?: return fallback.copy(localImagePath = null)
+        return remoteDataSource.uploadProductImage(householdId, productId, image).toDomain()
+    }
+
+    private fun decodeCreatePayload(payload: String): PendingCreateProductPayloadDto =
+        runCatching { json.decodeFromString<PendingCreateProductPayloadDto>(payload) }
+            .getOrElse { PendingCreateProductPayloadDto(json.decodeFromString(payload), null) }
+
+    private fun decodeUpdatePayload(payload: String): PendingUpdateProductPayloadDto =
+        runCatching { json.decodeFromString<PendingUpdateProductPayloadDto>(payload) }
+            .getOrElse { PendingUpdateProductPayloadDto(json.decodeFromString(payload), null) }
 
     private fun generateUuid(): String {
         val bytes = Random.nextBytes(16)

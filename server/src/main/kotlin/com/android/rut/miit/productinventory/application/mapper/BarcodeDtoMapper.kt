@@ -10,6 +10,7 @@ fun BarcodeProductDraft.toResponse() = BarcodeProductDraftResponse(
     packageQuantity = packageQuantity?.value,
     packageQuantityUnit = packageQuantity?.unit,
     ingredients = ingredients,
+    imageUrl = imageUrl,
     caloriesKcal = nutrition?.caloriesKcal,
     proteinGrams = nutrition?.proteinGrams,
     fatGrams = nutrition?.fatGrams,

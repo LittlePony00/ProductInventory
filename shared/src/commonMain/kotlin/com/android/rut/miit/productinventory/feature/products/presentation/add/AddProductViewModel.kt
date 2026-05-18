@@ -64,6 +64,10 @@ class AddProductViewModel(
                 updateState { copy(packageUnit = event.unit) }
             is AddProductEvent.OnIngredientsChanged ->
                 updateState { copy(ingredientsText = event.ingredients) }
+            is AddProductEvent.OnImageSelected ->
+                updateState { copy(localImagePath = event.localImagePath, isImageRemoved = false) }
+            is AddProductEvent.OnImageRemoved ->
+                updateState { copy(localImagePath = null, imageUrl = null, isImageRemoved = true) }
             is AddProductEvent.OnCaloriesChanged ->
                 updateState { copy(calories = event.calories) }
             is AddProductEvent.OnProteinChanged ->
@@ -110,6 +114,7 @@ class AddProductViewModel(
                 packageAmount = event.packageAmount ?: packageAmount,
                 packageUnit = event.packageUnit ?: packageUnit,
                 ingredientsText = event.ingredientsText ?: ingredientsText,
+                imageUrl = event.imageUrl ?: imageUrl,
                 calories = event.calories ?: calories,
                 protein = event.protein ?: protein,
                 fat = event.fat ?: fat,
@@ -146,6 +151,7 @@ class AddProductViewModel(
                 packageAmount = event.packageAmount ?: packageAmount,
                 packageUnit = event.packageUnit ?: packageUnit,
                 ingredientsText = event.ingredientsText ?: ingredientsText,
+                imageUrl = event.imageUrl ?: imageUrl,
                 calories = event.calories ?: calories,
                 protein = event.protein ?: protein,
                 fat = event.fat ?: fat,
@@ -294,6 +300,8 @@ class AddProductViewModel(
                         packageAmount = packageAmount,
                         packageUnit = state.packageUnit.takeIf { packageAmount != null },
                         ingredientsText = state.ingredientsText.trim().ifBlank { null },
+                        imageUrl = state.imageUrl,
+                        localImagePath = state.localImagePath,
                         calories = calories,
                         protein = protein,
                         fat = fat,
@@ -316,6 +324,9 @@ class AddProductViewModel(
                         packageAmount = packageAmount,
                         packageUnit = state.packageUnit.takeIf { packageAmount != null },
                         ingredientsText = state.ingredientsText.trim().ifBlank { null },
+                        imageUrl = state.imageUrl,
+                        localImagePath = state.localImagePath,
+                        clearImage = state.isImageRemoved,
                         calories = calories,
                         protein = protein,
                         fat = fat,
@@ -386,6 +397,9 @@ class AddProductViewModel(
             packageAmount = product.packageAmount?.formatNumber().orEmpty(),
             packageUnit = product.packageUnit ?: product.quantityUnit,
             ingredientsText = product.ingredientsText.orEmpty(),
+            imageUrl = product.imageUrl,
+            localImagePath = product.localImagePath,
+            isImageRemoved = false,
             calories = product.calories?.formatNumber().orEmpty(),
             protein = product.protein?.formatNumber().orEmpty(),
             fat = product.fat?.formatNumber().orEmpty(),

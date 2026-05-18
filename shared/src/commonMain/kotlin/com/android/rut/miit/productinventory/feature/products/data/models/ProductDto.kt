@@ -16,6 +16,7 @@ data class ProductResponseDto(
     val packageAmount: Double? = null,
     val packageUnit: String? = null,
     val ingredientsText: String? = null,
+    val imageUrl: String? = null,
     val calories: Double? = null,
     val protein: Double? = null,
     val fat: Double? = null,
@@ -42,6 +43,7 @@ data class CreateProductRequestDto(
     val packageAmount: Double? = null,
     val packageUnit: String? = null,
     val ingredientsText: String? = null,
+    val imageUrl: String? = null,
     val calories: Double? = null,
     val protein: Double? = null,
     val fat: Double? = null,
@@ -64,6 +66,8 @@ data class UpdateProductRequestDto(
     val packageAmount: Double? = null,
     val packageUnit: String? = null,
     val ingredientsText: String? = null,
+    val imageUrl: String? = null,
+    val clearImage: Boolean = false,
     val calories: Double? = null,
     val protein: Double? = null,
     val fat: Double? = null,
@@ -72,6 +76,18 @@ data class UpdateProductRequestDto(
     val remainingAmount: Double? = null,
     val lowStockThreshold: Double? = null,
     val expirationDate: String? = null
+)
+
+@Serializable
+data class PendingCreateProductPayloadDto(
+    val request: CreateProductRequestDto,
+    val localImagePath: String? = null
+)
+
+@Serializable
+data class PendingUpdateProductPayloadDto(
+    val request: UpdateProductRequestDto,
+    val localImagePath: String? = null
 )
 
 @Serializable
