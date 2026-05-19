@@ -21,8 +21,6 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.LifecycleEventObserver
-import androidx.lifecycle.ProcessLifecycleOwner
 import coil3.compose.AsyncImage
 import com.android.rut.miit.productinventory.core.R
 import com.android.rut.miit.productinventory.core.push.scheduleProductLocalReminders
@@ -66,9 +64,6 @@ fun ProductListScreen(
     }
 
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
-        viewModel.onEvent(ProductListEvent.OnResume)
-    }
-    ProcessResumeEffect {
         viewModel.onEvent(ProductListEvent.OnResume)
     }
 
@@ -280,24 +275,6 @@ fun ProductListScreen(
                 }
             }
         )
-    }
-}
-
-@Composable
-private fun ProcessResumeEffect(onResume: () -> Unit) {
-    val currentOnResume by rememberUpdatedState(onResume)
-    DisposableEffect(Unit) {
-        val lifecycle = ProcessLifecycleOwner.get().lifecycle
-        val observer = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_RESUME) {
-                currentOnResume()
-            }
-        }
-        lifecycle.addObserver(observer)
-        if (lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) {
-            currentOnResume()
-        }
-        onDispose { lifecycle.removeObserver(observer) }
     }
 }
 

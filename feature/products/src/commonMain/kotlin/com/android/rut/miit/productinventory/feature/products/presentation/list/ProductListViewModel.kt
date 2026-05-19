@@ -65,11 +65,8 @@ class ProductListViewModel(
     }
 
     private fun onResume() {
-        if (householdId.isBlank()) return
-        when (currentState) {
-            is ProductListState.Content -> refreshProducts(showRefreshing = false, showError = false)
-            is ProductListState.Error -> loadProducts()
-            ProductListState.Loading -> Unit
+        if (householdId.isNotBlank() && currentState is ProductListState.Content) {
+            refreshProducts(showRefreshing = false, showError = false)
         }
     }
 

@@ -33,9 +33,6 @@ struct ProductListScreen: View {
             .onAppear {
                 holder.sendEvent(ProductListEvent.OnResume())
             }
-            .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
-                holder.sendEvent(ProductListEvent.OnResume())
-            }
             .navigationTitle("Продукты")
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
