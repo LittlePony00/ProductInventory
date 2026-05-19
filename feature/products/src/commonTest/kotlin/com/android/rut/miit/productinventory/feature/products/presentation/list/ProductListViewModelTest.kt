@@ -244,6 +244,58 @@ class ProductListViewModelTest {
 
     @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
     @Test
+    fun `resume refreshes content with latest remote image url`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        try {
+            val productRepository = FakeProductRepository(products = listOf(product(id = "milk")))
+            val viewModel = viewModel(productRepository, FakeRealtimeRepository())
+
+            viewModel.onEvent(ProductListEvent.OnCreate("household-id"))
+            advanceUntilIdle()
+            productRepository.products = listOf(
+                product(id = "milk", imageUrl = "http://10.8.0.2:9000/product-images/products/milk.jpg")
+            )
+            viewModel.onEvent(ProductListEvent.OnResume)
+            advanceUntilIdle()
+
+            val state = assertIs<ProductListState.Content>(viewModel.viewState.value)
+            assertEquals(
+                "http://10.8.0.2:9000/product-images/products/milk.jpg",
+                state.products.single().imageUrl
+            )
+            assertEquals(false, state.isRefreshing)
+        } finally {
+            Dispatchers.resetMain()
+        }
+    }
+
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    @Test
+    fun `resume retries product load after transient error`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        try {
+            val productRepository = FakeProductRepository(products = listOf(product(id = "milk"))).apply {
+                getProductsError = IllegalStateException("offline")
+            }
+            val viewModel = viewModel(productRepository, FakeRealtimeRepository())
+
+            viewModel.onEvent(ProductListEvent.OnCreate("household-id"))
+            advanceUntilIdle()
+            assertIs<ProductListState.Error>(viewModel.viewState.value)
+
+            productRepository.getProductsError = null
+            viewModel.onEvent(ProductListEvent.OnResume)
+            advanceUntilIdle()
+
+            val state = assertIs<ProductListState.Content>(viewModel.viewState.value)
+            assertEquals(listOf("milk"), state.products.map { it.id })
+        } finally {
+            Dispatchers.resetMain()
+        }
+    }
+
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    @Test
     fun `plans local Russian reminders from loaded products and notification settings`() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
         try {
@@ -466,7 +518,8 @@ class ProductListViewModelTest {
         lowStockThreshold: Double? = null,
         expirationStatus: ExpirationStatus = ExpirationStatus.FRESH,
         expirationDate: LocalDate? = null,
-        imageUrl: String? = null
+        imageUrl: String? = null,
+        localImagePath: String? = null
     ): Product =
         Product(
             id = id,
@@ -478,6 +531,7 @@ class ProductListViewModelTest {
             remainingAmount = remainingAmount,
             lowStockThreshold = lowStockThreshold,
             imageUrl = imageUrl,
+            localImagePath = localImagePath,
             expirationDate = expirationDate,
             expirationStatus = expirationStatus,
             householdId = "household-id",

@@ -405,6 +405,38 @@ class ProductRepositoryImplTest {
     }
 
     @Test
+    fun `refresh products caches remote image url for another device without local preview`() = runTest {
+        val localDataSource = FakeProductLocalDataSource()
+        val engine = MockEngine { request ->
+            when {
+                request.method == HttpMethod.Get &&
+                    request.url.encodedPath == "/api/v1/households/household-id/products" ->
+                    respondProductJson(
+                        "[${productJson(
+                            id = "product-id",
+                            name = "Milk",
+                            imageUrl = "http://10.8.0.2:9000/product-images/products/product-id.jpg"
+                        )}]"
+                    )
+                else -> error("Unexpected request ${request.method} ${request.url.encodedPath}")
+            }
+        }
+
+        val products = repository(
+            engine = engine,
+            localDataSource = localDataSource
+        ).refreshProducts("household-id")
+
+        assertEquals("http://10.8.0.2:9000/product-images/products/product-id.jpg", products.single().imageUrl)
+        assertNull(products.single().localImagePath)
+        assertEquals(
+            "http://10.8.0.2:9000/product-images/products/product-id.jpg",
+            localDataSource.getProduct("household-id", "product-id")?.imageUrl
+        )
+        assertNull(localDataSource.getProduct("household-id", "product-id")?.localImagePath)
+    }
+
+    @Test
     fun `refresh products replays offline add then remapped image upload`() = runTest {
         val localDataSource = FakeProductLocalDataSource()
         val syncQueue = FakeSyncQueue()
