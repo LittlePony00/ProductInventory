@@ -23,17 +23,16 @@ kotlin {
             implementation(libs.compose.uiToolingPreview)
             implementation(libs.androidx.activity.compose)
             implementation(libs.koin.android)
-            implementation(libs.ktor.client.core)
             implementation(libs.androidx.navigation.compose)
-            implementation(libs.androidx.room.runtime)
-            implementation(libs.androidx.room.ktx)
-            implementation(libs.camerax.camera2)
-            implementation(libs.camerax.lifecycle)
-            implementation(libs.camerax.view)
-            implementation(libs.mlkit.barcode.scanning)
-            implementation(libs.coil.compose)
-            implementation(libs.coil.network.okhttp)
-            implementation("com.google.guava:guava:33.4.0-android")
+            implementation(projects.shared)
+            implementation(projects.core)
+            implementation(projects.feature.auth)
+            implementation(projects.feature.barcode)
+            implementation(projects.feature.household)
+            implementation(projects.feature.notifications)
+            implementation(projects.feature.products)
+            implementation(projects.feature.profile)
+            implementation(projects.feature.recommendations)
         }
         commonMain.dependencies {
             implementation(libs.compose.runtime)
@@ -48,7 +47,6 @@ kotlin {
             implementation(libs.koin.compose.viewmodel)
             implementation(libs.kotlinx.datetime)
             implementation(libs.kotlinx.serialization.json)
-            implementation(projects.shared)
         }
         commonTest.dependencies {
             implementation(libs.kotlin.test)
@@ -98,5 +96,4 @@ android {
 dependencies {
     debugImplementation(libs.compose.uiTooling)
     debugImplementation("androidx.compose.ui:ui-test-manifest:1.10.5")
-    add("kspAndroid", libs.androidx.room.compiler)
 }

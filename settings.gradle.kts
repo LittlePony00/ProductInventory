@@ -29,5 +29,13 @@ dependencyResolutionManagement {
 }
 
 include(":composeApp")
+include(":core")
+include(":feature:auth")
+include(":feature:barcode")
+include(":feature:household")
+include(":feature:notifications")
+include(":feature:products")
+include(":feature:profile")
+include(":feature:recommendations")
 include(":server")
 include(":shared")
