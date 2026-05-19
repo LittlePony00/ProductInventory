@@ -10,6 +10,8 @@ import com.android.rut.miit.productinventory.feature.products.api.DeleteProductU
 import com.android.rut.miit.productinventory.feature.products.api.GetProductCategoriesUseCase
 import com.android.rut.miit.productinventory.feature.products.api.GetProductsUseCase
 import com.android.rut.miit.productinventory.feature.products.api.ProductLocalReminderPlanner
+import com.android.rut.miit.productinventory.feature.products.api.RefreshProductCategoriesUseCase
+import com.android.rut.miit.productinventory.feature.products.api.RefreshProductsUseCase
 import com.android.rut.miit.productinventory.feature.products.api.models.Product
 import com.android.rut.miit.productinventory.feature.products.api.models.ProductCategoryOption
 import com.android.rut.miit.productinventory.feature.realtime.api.ObserveHouseholdEventsUseCase
@@ -23,7 +25,9 @@ import kotlinx.coroutines.launch
 
 class ProductListViewModel(
     private val getProductsUseCase: GetProductsUseCase,
+    private val refreshProductsUseCase: RefreshProductsUseCase,
     private val getProductCategoriesUseCase: GetProductCategoriesUseCase,
+    private val refreshProductCategoriesUseCase: RefreshProductCategoriesUseCase,
     private val deleteProductUseCase: DeleteProductUseCase,
     private val consumeProductUseCase: ConsumeProductUseCase,
     private val applyRealtimeProductEventUseCase: ApplyRealtimeProductEventUseCase,
@@ -42,7 +46,7 @@ class ProductListViewModel(
         when (event) {
             is ProductListEvent.OnCreate -> onCreate(event.householdId)
             is ProductListEvent.OnResume -> onResume()
-            is ProductListEvent.OnRetry -> loadProducts()
+            is ProductListEvent.OnRetry -> refreshProducts(showRefreshing = true, showError = true)
             is ProductListEvent.OnProductClick -> onProductClick(event.productId)
             is ProductListEvent.OnDeleteProduct -> onDeleteProduct(event.productId)
             is ProductListEvent.OnConsumeProduct -> onConsumeProduct(event.productId, event.amount)
@@ -62,13 +66,19 @@ class ProductListViewModel(
 
     private fun onResume() {
         if (householdId.isNotBlank() && currentState is ProductListState.Content) {
-            loadProducts()
+            refreshProducts(showRefreshing = false, showError = false)
         }
     }
 
     private fun loadProducts() {
         viewModelScope.launch {
-            updateState { ProductListState.Loading }
+            val hadContent = currentState is ProductListState.Content
+            updateState {
+                when (this) {
+                    is ProductListState.Content -> copy(isRefreshing = true, syncErrorMessage = null)
+                    else -> ProductListState.Loading
+                }
+            }
             runCatching {
                 coroutineScope {
                     val categories = async { getProductCategoriesUseCase(householdId) }
@@ -86,8 +96,19 @@ class ProductListViewModel(
             }
                 .onSuccess { content ->
                     showContent(content.products, content.categories, content.notificationSettings)
+                    refreshProducts(showRefreshing = false, showError = false)
                 }
-                .onFailure { error -> updateState { ProductListState.Error(error.message) } }
+                .onFailure { error ->
+                    updateState {
+                        when {
+                            hadContent && this is ProductListState.Content -> copy(
+                                isRefreshing = false,
+                                syncErrorMessage = error.message
+                            )
+                            else -> ProductListState.Error(error.message)
+                        }
+                    }
+                }
         }
     }
 
@@ -97,9 +118,12 @@ class ProductListViewModel(
 
     private fun onDeleteProduct(productId: String) {
         viewModelScope.launch {
+            val previousState = currentState as? ProductListState.Content
+            removeProduct(productId)
             runCatching { deleteProductUseCase(householdId, productId) }
-                .onSuccess { loadProducts() }
-                .onFailure { /* silently fail, could show snackbar */ }
+                .onFailure { error ->
+                    updateState { previousState ?: ProductListState.Error(error.message) }
+                }
         }
     }
 
@@ -142,7 +166,51 @@ class ProductListViewModel(
             is HouseholdRealtimeEvent.ProductCreated -> upsertProduct(event.product)
             is HouseholdRealtimeEvent.ProductUpdated -> upsertProduct(event.product)
             is HouseholdRealtimeEvent.ProductDeleted -> removeProduct(event.productId)
-            is HouseholdRealtimeEvent.ResyncRequired -> loadProducts()
+            is HouseholdRealtimeEvent.ResyncRequired -> refreshProducts(showRefreshing = false, showError = false)
+        }
+    }
+
+    private fun refreshProducts(showRefreshing: Boolean, showError: Boolean) {
+        viewModelScope.launch {
+            val hadContent = currentState is ProductListState.Content
+            if (showRefreshing) {
+                updateState {
+                    when (this) {
+                        is ProductListState.Content -> copy(isRefreshing = true, syncErrorMessage = null)
+                        else -> ProductListState.Loading
+                    }
+                }
+            }
+            runCatching {
+                coroutineScope {
+                    val categories = async { refreshProductCategoriesUseCase(householdId) }
+                    val products = async { refreshProductsUseCase(householdId) }
+                    val settings = async {
+                        runCatching { getNotificationSettingsUseCase() }
+                            .getOrDefault(NotificationSettings())
+                    }
+                    ProductsContent(
+                        products = products.await(),
+                        categories = categories.await(),
+                        notificationSettings = settings.await()
+                    )
+                }
+            }
+                .onSuccess { content ->
+                    showContent(content.products, content.categories, content.notificationSettings)
+                }
+                .onFailure { error ->
+                    if (!showError) return@onFailure
+                    updateState {
+                        when {
+                            hadContent && this is ProductListState.Content -> copy(
+                                isRefreshing = false,
+                                syncErrorMessage = error.message
+                            )
+                            else -> ProductListState.Error(error.message)
+                        }
+                    }
+                }
         }
     }
 
@@ -183,6 +251,8 @@ class ProductListViewModel(
                         categories = categories,
                         visibleProducts = nextProducts.applyFilters(filters),
                         filters = filters,
+                        isRefreshing = false,
+                        syncErrorMessage = null,
                         localReminders = localReminderPlanner.plan(nextProducts, notificationSettings)
                     )
                 }
@@ -205,6 +275,8 @@ class ProductListViewModel(
                 visibleProducts = products.applyFilters(filters),
                 filters = filters,
                 isRealtimeActive = isRealtimeActive,
+                isRefreshing = false,
+                syncErrorMessage = null,
                 localReminders = localReminderPlanner.plan(products, notificationSettings),
                 notificationSettings = notificationSettings
             )

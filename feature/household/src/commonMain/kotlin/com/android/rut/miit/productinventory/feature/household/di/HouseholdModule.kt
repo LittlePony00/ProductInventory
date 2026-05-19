@@ -12,6 +12,7 @@ val householdModule = module {
     factory { HouseholdRemoteDataSource(get()) }
     factory<HouseholdRepository> { HouseholdRepositoryImpl(get(), get()) }
     factoryOf(::GetHouseholdsUseCase)
+    factoryOf(::RefreshHouseholdsUseCase)
     factoryOf(::CreateHouseholdUseCase)
     factoryOf(::JoinHouseholdUseCase)
     factoryOf(::GetMembersUseCase)

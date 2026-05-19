@@ -11,6 +11,7 @@ import io.ktor.http.headersOf
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertNotNull
 import kotlinx.coroutines.test.runTest
 
 class HttpClientFactoryTest {
@@ -58,5 +59,34 @@ class HttpClientFactoryTest {
 
         assertEquals(401, error.statusCode)
         assertEquals("Invalid credentials", error.message)
+    }
+
+    @Test
+    fun `refresh network failure does not clear stored offline session`() = runTest {
+        val tokenStorage = InMemoryTokenStorage()
+        tokenStorage.saveTokens(accessToken = "expired-token", refreshToken = "refresh-token")
+        val engine = MockEngine { request ->
+            when (request.url.encodedPath) {
+                "/api/v1/protected" -> respond(
+                    content = """{"message":"Expired","code":"UNAUTHORIZED"}""",
+                    status = HttpStatusCode.Unauthorized,
+                    headers = headersOf(HttpHeaders.ContentType, "application/json")
+                )
+                "/api/v1/auth/refresh" -> error("offline")
+                else -> respond(
+                    content = "{}",
+                    status = HttpStatusCode.NotFound,
+                    headers = headersOf(HttpHeaders.ContentType, "application/json")
+                )
+            }
+        }
+        val client = HttpClientFactory(tokenStorage).create(engine)
+
+        assertFailsWith<ApiException> {
+            client.get("${ApiConstants.API_V1}/protected").bodyAsText()
+        }
+
+        assertNotNull(tokenStorage.getAccessToken())
+        assertNotNull(tokenStorage.getRefreshToken())
     }
 }

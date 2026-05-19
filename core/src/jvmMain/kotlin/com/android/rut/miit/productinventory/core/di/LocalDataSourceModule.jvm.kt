@@ -7,6 +7,7 @@ import org.koin.dsl.module
 actual fun localDataSourceModule(): Module = module {
     single<ProductLocalDataSource> { JvmInMemoryProductLocalDataSource() }
     single<HouseholdLocalDataSource> { JvmInMemoryHouseholdLocalDataSource() }
+    single<CategoryLocalDataSource> { JvmInMemoryCategoryLocalDataSource() }
     single<BarcodeLocalDataSource> { JvmInMemoryBarcodeLocalDataSource() }
     single<SyncQueue> { JvmInMemorySyncQueue() }
 }

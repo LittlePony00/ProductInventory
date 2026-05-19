@@ -12,6 +12,7 @@ data class BarcodeProductDraft(
     val packageQuantityUnit: QuantityUnit?,
     val ingredients: String?,
     val imageUrl: String? = null,
+    val localImagePath: String? = null,
     val caloriesKcal: Double?,
     val proteinGrams: Double?,
     val fatGrams: Double?,

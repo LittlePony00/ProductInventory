@@ -25,7 +25,7 @@ class PersistentLocalDataSourceTest {
 
         assertEquals(listOf(product(id = "p1", barcode = "4607000000012")), restored.getProducts("h1"))
         assertEquals("p1", restored.getProduct("h1", "p1")?.id)
-        assertEquals("p1", restored.getProductByBarcode("4607000000012")?.id)
+        assertEquals("p1", restored.getProductByBarcode("h1", "4607000000012")?.id)
     }
 
     @Test
@@ -59,13 +59,13 @@ class PersistentLocalDataSourceTest {
     fun barcodeDataSourceRestoresCachedBarcodesFromPersistentStore() = runTest {
         val store = InMemoryPersistentKeyValueStore()
         val original = PersistentBarcodeLocalDataSource(store)
-        original.saveBarcode(CachedBarcodeProduct("4607000000012", "Milk", "DAIRY", null))
+        original.saveBarcode(cachedBarcodeProduct("h1", "4607000000012", "Milk"))
 
         val restored = PersistentBarcodeLocalDataSource(store)
 
-        assertTrue(restored.isBarcodeKnown("4607000000012"))
-        assertEquals("Milk", restored.getCachedBarcode("4607000000012")?.name)
-        assertFalse(restored.isBarcodeKnown("missing"))
+        assertTrue(restored.isBarcodeKnown("h1", "4607000000012"))
+        assertEquals("Milk", restored.getCachedBarcode("h1", "4607000000012")?.name)
+        assertFalse(restored.isBarcodeKnown("h1", "missing"))
     }
 
     @Test
@@ -111,6 +111,31 @@ class PersistentLocalDataSourceTest {
         householdId = householdId,
         addedByUserId = "u1",
         createdAt = "2026-05-14T00:00:00Z"
+    )
+
+    private fun cachedBarcodeProduct(
+        householdId: String,
+        barcode: String,
+        name: String
+    ) = CachedBarcodeProduct(
+        householdId = householdId,
+        barcode = barcode,
+        name = name,
+        brand = null,
+        category = ProductCategory.DAIRY.name,
+        categoryId = null,
+        categoryName = null,
+        packageQuantity = null,
+        packageQuantityUnit = null,
+        ingredients = null,
+        imageUrl = null,
+        localImagePath = null,
+        caloriesKcal = null,
+        proteinGrams = null,
+        fatGrams = null,
+        carbohydratesGrams = null,
+        source = "LOCAL_CACHE",
+        updatedAt = 0L
     )
 }
 

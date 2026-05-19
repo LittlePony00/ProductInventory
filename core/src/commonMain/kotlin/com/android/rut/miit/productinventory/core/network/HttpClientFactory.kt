@@ -41,6 +41,12 @@ class HttpClientFactory(private val tokenStorage: TokenStorage) {
             level = LogLevel.BODY
         }
 
+        install(HttpTimeout) {
+            connectTimeoutMillis = 5_000
+            requestTimeoutMillis = 12_000
+            socketTimeoutMillis = 12_000
+        }
+
         install(SSE)
 
         install(Auth) {
@@ -69,8 +75,10 @@ class HttpClientFactory(private val tokenStorage: TokenStorage) {
                             setBody(mapOf("refreshToken" to refresh))
                             markAsRefreshTokenRequest()
                         }
-                    }.getOrElse {
-                        tokenStorage.clearTokens()
+                    }.getOrElse { error ->
+                        if (error.isAuthenticationRejected()) {
+                            tokenStorage.clearTokens()
+                        }
                         return@refreshTokens null
                     }
 
@@ -110,6 +118,9 @@ class ApiException(
     val statusCode: Int,
     override val message: String
 ) : RuntimeException(message)
+
+private fun Throwable.isAuthenticationRejected(): Boolean =
+    this is ApiException && statusCode in setOf(401, 403)
 
 @Serializable
 private data class ErrorResponseDto(

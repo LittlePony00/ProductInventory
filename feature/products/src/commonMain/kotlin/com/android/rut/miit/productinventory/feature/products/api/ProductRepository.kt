@@ -8,6 +8,8 @@ import kotlinx.datetime.LocalDate
 
 interface ProductRepository {
     suspend fun getProducts(householdId: String, categoryId: String? = null): List<Product>
+    suspend fun refreshProducts(householdId: String, categoryId: String? = null): List<Product> =
+        getProducts(householdId, categoryId)
     suspend fun getProduct(householdId: String, productId: String): Product
     suspend fun addProduct(
         householdId: String,

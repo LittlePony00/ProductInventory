@@ -4,11 +4,13 @@ import androidx.room.Room
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 import com.android.rut.miit.productinventory.core.local.BarcodeLocalDataSource
+import com.android.rut.miit.productinventory.core.local.CategoryLocalDataSource
 import com.android.rut.miit.productinventory.core.local.HouseholdLocalDataSource
 import com.android.rut.miit.productinventory.core.local.ProductLocalDataSource
 import com.android.rut.miit.productinventory.core.local.SyncQueue
 import com.android.rut.miit.productinventory.data.local.AppDatabase
 import com.android.rut.miit.productinventory.data.local.adapter.RoomBarcodeLocalDataSource
+import com.android.rut.miit.productinventory.data.local.adapter.RoomCategoryLocalDataSource
 import com.android.rut.miit.productinventory.data.local.adapter.RoomHouseholdLocalDataSource
 import com.android.rut.miit.productinventory.data.local.adapter.RoomProductLocalDataSource
 import com.android.rut.miit.productinventory.data.local.adapter.RoomSyncQueue
@@ -17,15 +19,17 @@ import org.koin.dsl.module
 val roomModule = module {
     single {
         Room.databaseBuilder(get(), AppDatabase::class.java, "product_inventory_db")
-            .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
+            .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
             .build()
     }
     single { get<AppDatabase>().productDao() }
     single { get<AppDatabase>().householdDao() }
+    single { get<AppDatabase>().categoryDao() }
     single { get<AppDatabase>().barcodeDao() }
     single { get<AppDatabase>().syncDao() }
     single<ProductLocalDataSource> { RoomProductLocalDataSource(get()) }
     single<HouseholdLocalDataSource> { RoomHouseholdLocalDataSource(get()) }
+    single<CategoryLocalDataSource> { RoomCategoryLocalDataSource(get()) }
     single<BarcodeLocalDataSource> { RoomBarcodeLocalDataSource(get()) }
     single<SyncQueue> { RoomSyncQueue(get()) }
 }
@@ -62,6 +66,69 @@ internal val MIGRATION_3_4 = object : Migration(3, 4) {
     }
 }
 
+internal val MIGRATION_4_5 = object : Migration(4, 5) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS categories (
+                id TEXT NOT NULL PRIMARY KEY,
+                householdId TEXT,
+                code TEXT,
+                name TEXT NOT NULL,
+                system INTEGER NOT NULL,
+                archived INTEGER NOT NULL,
+                createdAt TEXT NOT NULL,
+                isPendingSync INTEGER NOT NULL DEFAULT 0
+            )
+            """.trimIndent()
+        )
+        db.execSQL("CREATE INDEX IF NOT EXISTS index_categories_householdId ON categories(householdId)")
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS barcode_cache_new (
+                householdId TEXT NOT NULL,
+                barcode TEXT NOT NULL,
+                name TEXT,
+                brand TEXT,
+                category TEXT,
+                categoryId TEXT,
+                categoryName TEXT,
+                packageQuantity REAL,
+                packageQuantityUnit TEXT,
+                ingredients TEXT,
+                imageUrl TEXT,
+                localImagePath TEXT,
+                caloriesKcal REAL,
+                proteinGrams REAL,
+                fatGrams REAL,
+                carbohydratesGrams REAL,
+                source TEXT NOT NULL,
+                updatedAt INTEGER NOT NULL,
+                PRIMARY KEY(householdId, barcode)
+            )
+            """.trimIndent()
+        )
+        if (db.hasTable("barcode_cache")) {
+            db.execSQL(
+                """
+                INSERT OR REPLACE INTO barcode_cache_new (
+                    householdId, barcode, name, brand, category, categoryId, categoryName,
+                    packageQuantity, packageQuantityUnit, ingredients, imageUrl, localImagePath,
+                    caloriesKcal, proteinGrams, fatGrams, carbohydratesGrams, source, updatedAt
+                )
+                SELECT
+                    '__global__', barcode, name, NULL, category, NULL, NULL,
+                    NULL, NULL, NULL, imageUrl, NULL,
+                    NULL, NULL, NULL, NULL, 'LOCAL_CACHE', 0
+                FROM barcode_cache
+                """.trimIndent()
+            )
+            db.execSQL("DROP TABLE barcode_cache")
+        }
+        db.execSQL("ALTER TABLE barcode_cache_new RENAME TO barcode_cache")
+    }
+}
+
 private fun SupportSQLiteDatabase.addColumnIfMissing(table: String, column: String, definition: String) {
     val cursor = query("PRAGMA table_info($table)")
     cursor.use {
@@ -71,4 +138,10 @@ private fun SupportSQLiteDatabase.addColumnIfMissing(table: String, column: Stri
         }
     }
     execSQL("ALTER TABLE $table ADD COLUMN $column $definition")
+}
+
+private fun SupportSQLiteDatabase.hasTable(table: String): Boolean {
+    query("SELECT name FROM sqlite_master WHERE type='table' AND name=?", arrayOf(table)).use {
+        return it.moveToFirst()
+    }
 }

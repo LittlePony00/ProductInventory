@@ -12,11 +12,16 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.toRoute
 import com.android.rut.miit.productinventory.feature.auth.api.RestoreSessionUseCase
+import com.android.rut.miit.productinventory.feature.auth.api.ValidateSessionUseCase
+import com.android.rut.miit.productinventory.feature.household.api.GetHouseholdsUseCase
+import com.android.rut.miit.productinventory.feature.products.api.OutboxSyncCoordinator
+import com.android.rut.miit.productinventory.core.push.AndroidProductLocalReminderRescheduler
 import com.android.rut.miit.productinventory.navigation.Route
 import com.android.rut.miit.productinventory.ui.screen.auth.LoginScreen
 import com.android.rut.miit.productinventory.feature.barcode.api.models.BarcodeProductDraft
@@ -38,13 +43,19 @@ fun App() {
     ProductInventoryTheme {
         val navController = rememberNavController()
         val restoreSessionUseCase = koinInject<RestoreSessionUseCase>()
+        val validateSessionUseCase = koinInject<ValidateSessionUseCase>()
+        val getHouseholdsUseCase = koinInject<GetHouseholdsUseCase>()
+        val outboxSyncCoordinator = koinInject<OutboxSyncCoordinator>()
+        val localReminderRescheduler = koinInject<AndroidProductLocalReminderRescheduler>()
         var isAuthenticated by rememberSaveable { mutableStateOf(false) }
 
-        LaunchedEffect(restoreSessionUseCase) {
-            isAuthenticated = restoreSessionUseCase()
-        }
-
         AndroidNotificationBootstrap(isAuthenticated = isAuthenticated)
+        AuthenticatedOutboxBootstrap(
+            isAuthenticated = isAuthenticated,
+            getHouseholdsUseCase = getHouseholdsUseCase,
+            outboxSyncCoordinator = outboxSyncCoordinator,
+            localReminderRescheduler = localReminderRescheduler
+        )
 
         NavHost(navController = navController, startDestination = Route.AuthBootstrap) {
             composable<Route.AuthBootstrap> {
@@ -58,10 +69,11 @@ fun App() {
                     onUnauthenticated = {
                         isAuthenticated = false
                         navController.navigate(Route.Login) {
-                            popUpTo(Route.AuthBootstrap) { inclusive = true }
+                            popUpTo(0) { inclusive = true }
                         }
                     },
-                    restoreSessionUseCase = restoreSessionUseCase
+                    restoreSessionUseCase = restoreSessionUseCase,
+                    validateSessionUseCase = validateSessionUseCase
                 )
             }
 
@@ -123,6 +135,7 @@ fun App() {
                     initialPackageUnit = route.packageUnit,
                     initialIngredientsText = route.ingredientsText,
                     initialImageUrl = route.imageUrl,
+                    initialLocalImagePath = route.localImagePath,
                     initialCalories = route.calories,
                     initialProtein = route.protein,
                     initialFat = route.fat,
@@ -183,6 +196,25 @@ fun App() {
     }
 }
 
+@Composable
+private fun AuthenticatedOutboxBootstrap(
+    isAuthenticated: Boolean,
+    getHouseholdsUseCase: GetHouseholdsUseCase,
+    outboxSyncCoordinator: OutboxSyncCoordinator,
+    localReminderRescheduler: AndroidProductLocalReminderRescheduler
+) {
+    val context = LocalContext.current.applicationContext
+    LaunchedEffect(isAuthenticated, getHouseholdsUseCase, outboxSyncCoordinator, localReminderRescheduler) {
+        if (!isAuthenticated) return@LaunchedEffect
+        runCatching { getHouseholdsUseCase() }
+            .getOrDefault(emptyList())
+            .forEach { household ->
+                runCatching { outboxSyncCoordinator.sync(household.id) }
+            }
+        runCatching { localReminderRescheduler.reschedule(context) }
+    }
+}
+
 private fun BarcodeProductDraft.toAddProductRoute(householdId: String): Route.AddProduct =
     Route.AddProduct(
         householdId = householdId,
@@ -195,6 +227,7 @@ private fun BarcodeProductDraft.toAddProductRoute(householdId: String): Route.Ad
         packageUnit = packageQuantityUnit?.name,
         ingredientsText = ingredients,
         imageUrl = imageUrl,
+        localImagePath = localImagePath,
         calories = caloriesKcal?.toString(),
         protein = proteinGrams?.toString(),
         fat = fatGrams?.toString(),
@@ -205,12 +238,18 @@ private fun BarcodeProductDraft.toAddProductRoute(householdId: String): Route.Ad
 private fun AuthBootstrapScreen(
     onAuthenticated: () -> Unit,
     onUnauthenticated: () -> Unit,
-    restoreSessionUseCase: RestoreSessionUseCase = koinInject()
+    restoreSessionUseCase: RestoreSessionUseCase = koinInject(),
+    validateSessionUseCase: ValidateSessionUseCase = koinInject()
 ) {
-    LaunchedEffect(restoreSessionUseCase) {
-        if (restoreSessionUseCase()) {
-            onAuthenticated()
-        } else {
+    LaunchedEffect(restoreSessionUseCase, validateSessionUseCase) {
+        if (!restoreSessionUseCase()) {
+            onUnauthenticated()
+            return@LaunchedEffect
+        }
+
+        onAuthenticated()
+
+        if (!validateSessionUseCase()) {
             onUnauthenticated()
         }
     }

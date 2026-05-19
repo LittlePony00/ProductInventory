@@ -3,11 +3,9 @@ package com.android.rut.miit.productinventory.feature.realtime.data
 import com.android.rut.miit.productinventory.core.network.ApiConstants
 import com.android.rut.miit.productinventory.feature.realtime.data.models.RealtimeEventDto
 import io.ktor.client.HttpClient
-import io.ktor.client.call.body
 import io.ktor.client.plugins.HttpRequestTimeoutException
 import io.ktor.client.plugins.sse.sse
 import io.ktor.client.request.accept
-import io.ktor.client.request.get
 import io.ktor.client.request.header
 import io.ktor.http.ContentType
 import kotlinx.coroutines.channels.awaitClose
@@ -42,17 +40,6 @@ class KtorSseRealtimeEventSource(
             }
         }
 
-        val missedEventPoller = launch {
-            while (isActive) {
-                runCatching {
-                    fetchMissedEvents(householdId, currentLastEventId()).forEach { event ->
-                        sendIfNew(event)
-                    }
-                }
-                delay(MISSED_EVENT_POLL_INTERVAL_MILLIS)
-            }
-        }
-
         val streamObserver = launch {
             while (isActive) {
                 runCatching {
@@ -84,22 +71,13 @@ class KtorSseRealtimeEventSource(
         }
 
         awaitClose {
-            missedEventPoller.cancel()
             streamObserver.cancel()
         }
     }
 
-    private suspend fun fetchMissedEvents(householdId: String, lastEventId: String): List<RealtimeEventDto> =
-        httpClient.get("${ApiConstants.API_V1}/households/$householdId/events/missed") {
-            header("Last-Event-ID", lastEventId)
-        }.body()
-
     private companion object {
-        const val INITIAL_LAST_EVENT_ID = "00000000-0000-0000-0000-000000000000"
         const val INITIAL_RETRY_DELAY_MILLIS = 1_000L
         const val MAX_RETRY_DELAY_MILLIS = 30_000L
-        const val MISSED_EVENT_POLL_INTERVAL_MILLIS = 3_000L
-        const val SEEN_EVENT_LIMIT = 512
     }
 }
 

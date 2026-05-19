@@ -4,6 +4,7 @@ import com.android.rut.miit.productinventory.feature.products.api.ArchiveProduct
 import com.android.rut.miit.productinventory.feature.products.api.CategoryRepository
 import com.android.rut.miit.productinventory.feature.products.api.CreateProductCategoryUseCase
 import com.android.rut.miit.productinventory.feature.products.api.GetProductCategoriesUseCase
+import com.android.rut.miit.productinventory.feature.products.api.RefreshProductCategoriesUseCase
 import com.android.rut.miit.productinventory.feature.products.api.UpdateProductCategoryUseCase
 import com.android.rut.miit.productinventory.feature.products.api.models.ProductCategoryOption
 import kotlin.test.AfterTest
@@ -59,6 +60,7 @@ class CategoryManagementViewModelTest {
     private fun viewModel(repository: CategoryRepository): CategoryManagementViewModel =
         CategoryManagementViewModel(
             getProductCategoriesUseCase = GetProductCategoriesUseCase(repository),
+            refreshProductCategoriesUseCase = RefreshProductCategoriesUseCase(repository),
             createProductCategoryUseCase = CreateProductCategoryUseCase(repository),
             updateProductCategoryUseCase = UpdateProductCategoryUseCase(repository),
             archiveProductCategoryUseCase = ArchiveProductCategoryUseCase(repository)

@@ -10,7 +10,10 @@ import com.android.rut.miit.productinventory.feature.products.api.DeleteProductU
 import com.android.rut.miit.productinventory.feature.products.api.GetProductCategoriesUseCase
 import com.android.rut.miit.productinventory.feature.products.api.GetProductUseCase
 import com.android.rut.miit.productinventory.feature.products.api.GetProductsUseCase
+import com.android.rut.miit.productinventory.feature.products.api.OutboxSyncCoordinator
 import com.android.rut.miit.productinventory.feature.products.api.ProductRepository
+import com.android.rut.miit.productinventory.feature.products.api.RefreshProductsUseCase
+import com.android.rut.miit.productinventory.feature.products.api.RefreshProductCategoriesUseCase
 import com.android.rut.miit.productinventory.feature.products.api.SuggestProductEnrichmentUseCase
 import com.android.rut.miit.productinventory.feature.products.api.UpdateProductCategoryUseCase
 import com.android.rut.miit.productinventory.feature.products.api.UpdateProductUseCase
@@ -33,11 +36,14 @@ val productsModule = module {
     includes(realtimeModule, productPlatformModule())
     factory { ProductRemoteDataSource(get()) }
     factory { CategoryRemoteDataSource(get()) }
-    single<ProductRepository> { ProductRepositoryImpl(get(), get(), get(), get()) }
-    factory<CategoryRepository> { CategoryRepositoryImpl(get()) }
+    single<ProductRepository> { ProductRepositoryImpl(get(), get(), get(), get(), get()) }
+    factory<CategoryRepository> { CategoryRepositoryImpl(get(), get(), get(), get()) }
+    single { OutboxSyncCoordinator(get(), get()) }
     factoryOf(::GetProductsUseCase)
+    factoryOf(::RefreshProductsUseCase)
     factoryOf(::GetProductUseCase)
     factoryOf(::GetProductCategoriesUseCase)
+    factoryOf(::RefreshProductCategoriesUseCase)
     factoryOf(::CreateProductCategoryUseCase)
     factoryOf(::UpdateProductCategoryUseCase)
     factoryOf(::ArchiveProductCategoryUseCase)

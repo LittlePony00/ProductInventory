@@ -5,12 +5,14 @@ import com.android.rut.miit.productinventory.common.SharedViewModel
 import com.android.rut.miit.productinventory.feature.products.api.ArchiveProductCategoryUseCase
 import com.android.rut.miit.productinventory.feature.products.api.CreateProductCategoryUseCase
 import com.android.rut.miit.productinventory.feature.products.api.GetProductCategoriesUseCase
+import com.android.rut.miit.productinventory.feature.products.api.RefreshProductCategoriesUseCase
 import com.android.rut.miit.productinventory.feature.products.api.UpdateProductCategoryUseCase
 import com.android.rut.miit.productinventory.feature.products.api.models.ProductCategoryOption
 import kotlinx.coroutines.launch
 
 class CategoryManagementViewModel(
     private val getProductCategoriesUseCase: GetProductCategoriesUseCase,
+    private val refreshProductCategoriesUseCase: RefreshProductCategoriesUseCase,
     private val createProductCategoryUseCase: CreateProductCategoryUseCase,
     private val updateProductCategoryUseCase: UpdateProductCategoryUseCase,
     private val archiveProductCategoryUseCase: ArchiveProductCategoryUseCase
@@ -51,10 +53,27 @@ class CategoryManagementViewModel(
                             isLoading = false
                         )
                     }
+                    refreshCategoriesSilently()
                 }
                 .onFailure { error ->
                     updateState { copy(isLoading = false, error = error.message) }
                     sendAction(CategoryManagementAction.ShowError(error.message ?: "Ошибка"))
+                }
+        }
+    }
+
+    private fun refreshCategoriesSilently() {
+        viewModelScope.launch {
+            runCatching { refreshProductCategoriesUseCase(householdId) }
+                .onSuccess { categories ->
+                    updateState {
+                        copy(
+                            categories = categories.sortForDisplay(),
+                            editableNames = categories.associate { it.id to it.name },
+                            isLoading = false,
+                            error = null
+                        )
+                    }
                 }
         }
     }

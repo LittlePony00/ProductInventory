@@ -14,27 +14,30 @@ class HouseholdRepositoryImpl(
     private val localDataSource: HouseholdLocalDataSource
 ) : HouseholdRepository {
 
+    override suspend fun getCachedHouseholds(): List<Household> =
+        localDataSource.getHouseholds()
+
     override suspend fun getMyHouseholds(): List<Household> {
-        return try {
-            val remote = remoteDataSource.getMyHouseholds().map { it.toDomain() }
-            localDataSource.saveHouseholds(remote)
-            remote
-        } catch (e: Exception) {
-            val local = localDataSource.getHouseholds()
-            if (local.isNotEmpty()) local else throw e
-        }
+        val local = localDataSource.getHouseholds()
+        if (local.isNotEmpty()) return local
+        return refreshMyHouseholds()
+    }
+
+    override suspend fun refreshMyHouseholds(): List<Household> {
+        val remote = remoteDataSource.getMyHouseholds().map { it.toDomain() }
+        localDataSource.saveHouseholds(remote)
+        return remote
     }
 
     override suspend fun getHousehold(householdId: String): Household {
-        return try {
-            remoteDataSource.getHousehold(householdId).toDomain()
-        } catch (e: Exception) {
-            localDataSource.getHouseholdById(householdId) ?: throw e
-        }
+        localDataSource.getHouseholdById(householdId)?.let { return it }
+        return remoteDataSource.getHousehold(householdId).toDomain()
+            .also { saveHousehold(it) }
     }
 
     override suspend fun createHousehold(name: String): Household {
         return remoteDataSource.createHousehold(CreateHouseholdRequestDto(name)).toDomain()
+            .also { saveHousehold(it) }
     }
 
     override suspend fun getMembers(householdId: String): List<Member> {
@@ -47,6 +50,7 @@ class HouseholdRepositoryImpl(
 
     override suspend fun joinByInviteCode(inviteCode: String): Household {
         return remoteDataSource.joinByInviteCode(JoinHouseholdRequestDto(inviteCode)).toDomain()
+            .also { saveHousehold(it) }
     }
 
     override suspend fun removeMember(householdId: String, memberId: String) {
@@ -55,5 +59,12 @@ class HouseholdRepositoryImpl(
 
     override suspend fun leaveHousehold(householdId: String) {
         remoteDataSource.leaveHousehold(householdId)
+        localDataSource.saveHouseholds(localDataSource.getHouseholds().filterNot { it.id == householdId })
+    }
+
+    private suspend fun saveHousehold(household: Household) {
+        val households = localDataSource.getHouseholds()
+            .filterNot { it.id == household.id } + household
+        localDataSource.saveHouseholds(households)
     }
 }

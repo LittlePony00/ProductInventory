@@ -1,15 +1,12 @@
 package com.android.rut.miit.productinventory.feature.barcode.presentation
 
 import com.android.rut.miit.productinventory.common.SharedViewModel
-import com.android.rut.miit.productinventory.feature.barcode.api.AddBarcodeProductUseCase
-import com.android.rut.miit.productinventory.feature.barcode.api.BarcodeAddProductResult
 import com.android.rut.miit.productinventory.feature.barcode.api.BarcodeLookupResult
 import com.android.rut.miit.productinventory.feature.barcode.api.LookupBarcodeUseCase
 import com.android.rut.miit.productinventory.feature.barcode.api.models.BarcodeProductDraft
 
 class BarcodeScanViewModel(
-    private val lookupBarcodeUseCase: LookupBarcodeUseCase,
-    private val addBarcodeProductUseCase: AddBarcodeProductUseCase
+    private val lookupBarcodeUseCase: LookupBarcodeUseCase
 ) : SharedViewModel<BarcodeScanState, BarcodeScanEvent, BarcodeScanAction>(
     initialState = BarcodeScanState.Scanning
 ) {
@@ -21,7 +18,7 @@ class BarcodeScanViewModel(
     override suspend fun handleEvent(event: BarcodeScanEvent) {
         when (event) {
             is BarcodeScanEvent.OnBarcodeScanned -> handleBarcode(event.code)
-            is BarcodeScanEvent.OnUseDraftClick -> addBarcodeProduct(event.barcode)
+            is BarcodeScanEvent.OnUseDraftClick -> useDraft(event.barcode)
             is BarcodeScanEvent.OnDraftManualEntryClick ->
                 sendDraftManualEntryAction(event.draft)
             is BarcodeScanEvent.OnRetry -> {
@@ -35,6 +32,15 @@ class BarcodeScanViewModel(
                 updateState { BarcodeScanState.Scanning }
                 lastScannedCode = null
             }
+        }
+    }
+
+    private fun useDraft(barcode: String) {
+        val draft = (currentState as? BarcodeScanState.DraftFound)?.draft
+        if (draft != null) {
+            sendDraftManualEntryAction(draft)
+        } else {
+            sendAction(BarcodeScanAction.NavigateToManualEntry(barcode, householdId))
         }
     }
 
@@ -52,23 +58,6 @@ class BarcodeScanViewModel(
                 sendAction(BarcodeScanAction.NavigateToManualEntry(result.barcode, householdId))
             }
             is BarcodeLookupResult.Error -> {
-                updateState { BarcodeScanState.Error(result.message) }
-            }
-        }
-    }
-
-    private suspend fun addBarcodeProduct(barcode: String) {
-        updateState { BarcodeScanState.Loading }
-        when (val result = addBarcodeProductUseCase(householdId, barcode)) {
-            is BarcodeAddProductResult.ProductAdded -> {
-                updateState { BarcodeScanState.ProductFound(result.product) }
-                sendAction(BarcodeScanAction.ProductAdded)
-            }
-            is BarcodeAddProductResult.NeedsManualEntry -> {
-                updateState { BarcodeScanState.ManualEntry(result.barcode) }
-                sendAction(BarcodeScanAction.NavigateToManualEntry(result.barcode, householdId))
-            }
-            is BarcodeAddProductResult.Error -> {
                 updateState { BarcodeScanState.Error(result.message) }
             }
         }

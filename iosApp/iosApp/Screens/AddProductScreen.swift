@@ -258,6 +258,8 @@ struct AddProductScreen: View {
         @Binding var selectedPhotoItem: PhotosPickerItem?
         let onImageSelected: (String) -> Void
         let onRemove: () -> Void
+        @State private var isProcessingPhoto = false
+        @State private var photoError: String?
 
         var body: some View {
             VStack(alignment: .leading, spacing: 12) {
@@ -273,20 +275,43 @@ struct AddProductScreen: View {
                         matching: .images
                     )
                     .buttonStyle(.borderedProminent)
+                    .disabled(isProcessingPhoto)
 
                     if imageUrl != nil || localImagePath != nil {
                         Button("Удалить фото", role: .destructive, action: onRemove)
+                            .disabled(isProcessingPhoto)
                     }
+                }
+                if isProcessingPhoto {
+                    HStack(spacing: 8) {
+                        ProgressView()
+                        Text("Подготавливаем фото...")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                }
+                if let photoError {
+                    Text(photoError)
+                        .font(.caption)
+                        .foregroundColor(.red)
                 }
             }
             .onChange(of: selectedPhotoItem) { _, item in
                 guard let item else { return }
                 Task {
-                    guard let data = try? await item.loadTransferable(type: Data.self),
-                          let path = writeProductImage(data: data)
-                    else { return }
                     await MainActor.run {
-                        onImageSelected(path)
+                        isProcessingPhoto = true
+                        photoError = nil
+                    }
+                    let data = try? await item.loadTransferable(type: Data.self)
+                    let path = data.flatMap { writeProductImage(data: $0) }
+                    await MainActor.run {
+                        if let path {
+                            onImageSelected(path)
+                        } else {
+                            photoError = "Не удалось подготовить фото"
+                        }
+                        isProcessingPhoto = false
                         selectedPhotoItem = nil
                     }
                 }
@@ -295,6 +320,10 @@ struct AddProductScreen: View {
 
         private func writeProductImage(data: Data) -> String? {
             do {
+                guard let sourceImage = UIImage(data: data),
+                      let compressed = sourceImage.resized(maxDimension: 800)
+                        .jpegData(compressionQuality: 0.35)
+                else { return nil }
                 let directory = try FileManager.default.url(
                     for: .documentDirectory,
                     in: .userDomainMask,
@@ -303,7 +332,7 @@ struct AddProductScreen: View {
                 ).appendingPathComponent("product-images", isDirectory: true)
                 try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
                 let url = directory.appendingPathComponent("\(UUID().uuidString).jpg")
-                try data.write(to: url, options: .atomic)
+                try compressed.write(to: url, options: .atomic)
                 return url.path
             } catch {
                 return nil
@@ -360,6 +389,7 @@ struct AddProductScreen: View {
             packageUnit: quantityUnit(from: draft.packageQuantityUnit),
             ingredientsText: draft.ingredients,
             imageUrl: draft.imageUrl,
+            localImagePath: draft.localImagePath,
             calories: decimalString(draft.caloriesKcal),
             protein: decimalString(draft.proteinGrams),
             fat: decimalString(draft.fatGrams),
@@ -393,6 +423,19 @@ struct AddProductScreen: View {
         case "MILLILITERS": return .milliliters
         case "PIECES": return .pieces
         default: return nil
+        }
+    }
+}
+
+private extension UIImage {
+    func resized(maxDimension: CGFloat) -> UIImage {
+        let maxCurrentDimension = max(size.width, size.height)
+        guard maxCurrentDimension > maxDimension else { return self }
+        let scale = maxDimension / maxCurrentDimension
+        let targetSize = CGSize(width: size.width * scale, height: size.height * scale)
+        let renderer = UIGraphicsImageRenderer(size: targetSize)
+        return renderer.image { _ in
+            draw(in: CGRect(origin: .zero, size: targetSize))
         }
     }
 }

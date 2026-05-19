@@ -26,8 +26,17 @@ class RoomProductLocalDataSource(
         productDao.insertAll(products.map { it.toEntity() })
     }
 
-    override suspend fun getProductByBarcode(barcode: String): Product? {
-        return productDao.getByBarcode(barcode)?.toDomain()
+    override suspend fun getProductByBarcode(householdId: String, barcode: String): Product? {
+        return productDao.getByHouseholdIdAndBarcode(householdId, barcode)?.toDomain()
+    }
+
+    override suspend fun remapCategoryId(
+        householdId: String,
+        oldCategoryId: String,
+        newCategoryId: String,
+        newCategoryName: String
+    ) {
+        productDao.remapCategoryId(householdId, oldCategoryId, newCategoryId, newCategoryName)
     }
 
     override suspend fun deleteProduct(id: String) {

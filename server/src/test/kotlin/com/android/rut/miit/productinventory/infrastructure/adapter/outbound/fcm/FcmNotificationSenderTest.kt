@@ -123,7 +123,8 @@ class FcmNotificationSenderTest {
             restClientBuilder = builder,
             projectId = projectId,
             serviceAccountJson = serviceAccountJson,
-            serviceAccountPath = serviceAccountPath
+            serviceAccountPath = serviceAccountPath,
+            androidNotificationChannelId = "product_reminders"
         )
 
     private fun serviceAccountJson(tokenUri: String): String {

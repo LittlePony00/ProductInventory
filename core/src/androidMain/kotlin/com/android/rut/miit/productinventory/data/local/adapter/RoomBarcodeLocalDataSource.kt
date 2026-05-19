@@ -9,29 +9,65 @@ class RoomBarcodeLocalDataSource(
     private val barcodeDao: BarcodeDao
 ) : BarcodeLocalDataSource {
 
-    override suspend fun getCachedBarcode(code: String): CachedBarcodeProduct? {
-        return barcodeDao.getByBarcode(code)?.toDomain()
+    override suspend fun getCachedBarcode(householdId: String, code: String): CachedBarcodeProduct? {
+        val normalizedBarcode = code.trim()
+        return barcodeDao.getByHouseholdIdAndBarcode(householdId, normalizedBarcode)?.toDomain()
+            ?: barcodeDao.getByHouseholdIdAndBarcode(LEGACY_HOUSEHOLD_ID, normalizedBarcode)?.toDomain()
     }
 
     override suspend fun saveBarcode(product: CachedBarcodeProduct) {
-        barcodeDao.insert(product.toEntity())
+        barcodeDao.insert(product.copy(barcode = product.barcode.trim()).toEntity())
     }
 
-    override suspend fun isBarcodeKnown(code: String): Boolean {
-        return barcodeDao.exists(code)
+    override suspend fun isBarcodeKnown(householdId: String, code: String): Boolean {
+        val normalizedBarcode = code.trim()
+        return barcodeDao.exists(householdId, normalizedBarcode) ||
+            barcodeDao.exists(LEGACY_HOUSEHOLD_ID, normalizedBarcode)
     }
 
     private fun BarcodeEntity.toDomain() = CachedBarcodeProduct(
+        householdId = householdId,
         barcode = barcode,
         name = name,
+        brand = brand,
         category = category,
-        imageUrl = imageUrl
+        categoryId = categoryId,
+        categoryName = categoryName,
+        packageQuantity = packageQuantity,
+        packageQuantityUnit = packageQuantityUnit,
+        ingredients = ingredients,
+        imageUrl = imageUrl,
+        localImagePath = localImagePath,
+        caloriesKcal = caloriesKcal,
+        proteinGrams = proteinGrams,
+        fatGrams = fatGrams,
+        carbohydratesGrams = carbohydratesGrams,
+        source = source,
+        updatedAt = updatedAt
     )
 
     private fun CachedBarcodeProduct.toEntity() = BarcodeEntity(
+        householdId = householdId,
         barcode = barcode,
         name = name,
+        brand = brand,
         category = category,
-        imageUrl = imageUrl
+        categoryId = categoryId,
+        categoryName = categoryName,
+        packageQuantity = packageQuantity,
+        packageQuantityUnit = packageQuantityUnit,
+        ingredients = ingredients,
+        imageUrl = imageUrl,
+        localImagePath = localImagePath,
+        caloriesKcal = caloriesKcal,
+        proteinGrams = proteinGrams,
+        fatGrams = fatGrams,
+        carbohydratesGrams = carbohydratesGrams,
+        source = source,
+        updatedAt = updatedAt
     )
+
+    private companion object {
+        const val LEGACY_HOUSEHOLD_ID = "__global__"
+    }
 }

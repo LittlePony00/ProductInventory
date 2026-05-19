@@ -11,6 +11,8 @@ import com.android.rut.miit.productinventory.feature.products.api.GetProductCate
 import com.android.rut.miit.productinventory.feature.products.api.GetProductsUseCase
 import com.android.rut.miit.productinventory.feature.products.api.ApplyRealtimeProductEventUseCase
 import com.android.rut.miit.productinventory.feature.products.api.ProductRepository
+import com.android.rut.miit.productinventory.feature.products.api.RefreshProductsUseCase
+import com.android.rut.miit.productinventory.feature.products.api.RefreshProductCategoriesUseCase
 import com.android.rut.miit.productinventory.feature.products.api.models.ExpirationStatus
 import com.android.rut.miit.productinventory.feature.products.api.models.Product
 import com.android.rut.miit.productinventory.feature.products.api.models.ProductCategory
@@ -54,7 +56,9 @@ class ProductListViewModelRealtimeTest {
         val realtime = FakeRealtimeRepository()
         val viewModel = ProductListViewModel(
             getProductsUseCase = GetProductsUseCase(products),
+            refreshProductsUseCase = RefreshProductsUseCase(products),
             getProductCategoriesUseCase = GetProductCategoriesUseCase(FakeCategoryRepository()),
+            refreshProductCategoriesUseCase = RefreshProductCategoriesUseCase(FakeCategoryRepository()),
             deleteProductUseCase = DeleteProductUseCase(products),
             consumeProductUseCase = ConsumeProductUseCase(products),
             applyRealtimeProductEventUseCase = ApplyRealtimeProductEventUseCase(products),
@@ -89,7 +93,9 @@ class ProductListViewModelRealtimeTest {
         val realtime = FakeRealtimeRepository()
         val viewModel = ProductListViewModel(
             getProductsUseCase = GetProductsUseCase(products),
+            refreshProductsUseCase = RefreshProductsUseCase(products),
             getProductCategoriesUseCase = GetProductCategoriesUseCase(FakeCategoryRepository()),
+            refreshProductCategoriesUseCase = RefreshProductCategoriesUseCase(FakeCategoryRepository()),
             deleteProductUseCase = DeleteProductUseCase(products),
             consumeProductUseCase = ConsumeProductUseCase(products),
             applyRealtimeProductEventUseCase = ApplyRealtimeProductEventUseCase(products),

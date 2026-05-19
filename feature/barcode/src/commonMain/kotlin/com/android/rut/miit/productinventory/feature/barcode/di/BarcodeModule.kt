@@ -13,7 +13,7 @@ import org.koin.dsl.module
 
 val barcodeModule = module {
     factory { BarcodeRemoteDataSource(get()) }
-    factory<BarcodeRepository> { BarcodeRepositoryImpl(get(), get()) }
+    factory<BarcodeRepository> { BarcodeRepositoryImpl(get(), get(), get()) }
     factoryOf(::LookupBarcodeUseCase)
     factoryOf(::AddBarcodeProductUseCase)
     factoryOf(::ScanBarcodeUseCase)

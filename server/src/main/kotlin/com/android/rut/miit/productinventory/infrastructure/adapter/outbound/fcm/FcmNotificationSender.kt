@@ -32,7 +32,8 @@ class FcmNotificationSender(
     restClientBuilder: RestClient.Builder,
     @param:Value("\${firebase.project-id:}") private val projectId: String,
     @param:Value("\${firebase.service-account-json:}") private val serviceAccountJson: String,
-    @param:Value("\${firebase.service-account-path:}") private val serviceAccountPath: String
+    @param:Value("\${firebase.service-account-path:}") private val serviceAccountPath: String,
+    @param:Value("\${notifications.android-channel-id:product_reminders}") private val androidNotificationChannelId: String
 ) : INotificationSender {
 
     private val log = LoggerFactory.getLogger(FcmNotificationSender::class.java)
@@ -72,7 +73,7 @@ class FcmNotificationSender(
                 .uri("https://fcm.googleapis.com/v1/projects/$projectId/messages:send")
                 .header("Authorization", "Bearer $accessToken")
                 .contentType(MediaType.APPLICATION_JSON)
-                .body(FcmSendRequest.from(token, title, message, notificationId))
+                .body(FcmSendRequest.from(token, title, message, notificationId, androidNotificationChannelId))
                 .retrieve()
                 .toBodilessEntity()
             log.debug("FCM push sent [user={}, tokenId={}]", token.userId, token.id)
@@ -131,7 +132,13 @@ private data class FcmSendRequest(
     val message: FcmMessage
 ) {
     companion object {
-        fun from(token: NotificationDeviceToken, title: String, body: String, notificationId: UUID?): FcmSendRequest {
+        fun from(
+            token: NotificationDeviceToken,
+            title: String,
+            body: String,
+            notificationId: UUID?,
+            androidNotificationChannelId: String
+        ): FcmSendRequest {
             val data = buildMap {
                 put("title", title)
                 put("body", body)
@@ -142,8 +149,12 @@ private data class FcmSendRequest(
                 FcmSendRequest(
                     FcmMessage(
                         token = token.token,
+                        notification = notification,
                         data = data,
-                        android = FcmAndroidConfig(priority = "HIGH")
+                        android = FcmAndroidConfig(
+                            priority = "HIGH",
+                            notification = FcmAndroidNotification(channelId = androidNotificationChannelId)
+                        )
                     )
                 )
             } else {
@@ -168,7 +179,13 @@ private data class FcmMessage(
 )
 
 private data class FcmAndroidConfig(
-    val priority: String
+    val priority: String,
+    val notification: FcmAndroidNotification? = null
+)
+
+private data class FcmAndroidNotification(
+    @param:JsonProperty("channel_id")
+    val channelId: String
 )
 
 private data class FcmNotification(

@@ -6,6 +6,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import com.android.rut.miit.productinventory.core.di.appModules
+import com.android.rut.miit.productinventory.core.push.ensureProductInventoryNotificationChannel
 import com.android.rut.miit.productinventory.di.roomModule
 import org.koin.android.ext.koin.androidContext
 import org.koin.core.context.GlobalContext.startKoin
@@ -13,6 +14,7 @@ import org.koin.core.context.GlobalContext.startKoin
 class ProductInventoryApp : Application() {
     override fun onCreate() {
         super.onCreate()
+        ensureProductInventoryNotificationChannel()
         startKoin {
             androidContext(this@ProductInventoryApp)
             modules(appModules + roomModule)

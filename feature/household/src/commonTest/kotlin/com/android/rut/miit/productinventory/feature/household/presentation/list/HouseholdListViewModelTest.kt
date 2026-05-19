@@ -5,6 +5,7 @@ import com.android.rut.miit.productinventory.feature.household.api.GenerateInvit
 import com.android.rut.miit.productinventory.feature.household.api.GetHouseholdsUseCase
 import com.android.rut.miit.productinventory.feature.household.api.HouseholdRepository
 import com.android.rut.miit.productinventory.feature.household.api.JoinHouseholdUseCase
+import com.android.rut.miit.productinventory.feature.household.api.RefreshHouseholdsUseCase
 import com.android.rut.miit.productinventory.feature.household.api.models.Household
 import com.android.rut.miit.productinventory.feature.household.api.models.InviteCode
 import com.android.rut.miit.productinventory.feature.household.api.models.Member
@@ -105,6 +106,7 @@ class HouseholdListViewModelTest {
     private fun viewModel(repository: HouseholdRepository): HouseholdListViewModel =
         HouseholdListViewModel(
             getHouseholdsUseCase = GetHouseholdsUseCase(repository),
+            refreshHouseholdsUseCase = RefreshHouseholdsUseCase(repository),
             createHouseholdUseCase = CreateHouseholdUseCase(repository),
             generateInviteCodeUseCase = GenerateInviteCodeUseCase(repository),
             joinHouseholdUseCase = JoinHouseholdUseCase(repository)

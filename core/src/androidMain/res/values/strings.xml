@@ -95,6 +95,8 @@
     <string name="product_photo_replace">Заменить фото</string>
     <string name="product_photo_remove">Удалить фото</string>
     <string name="product_photo_placeholder">Фото продукта</string>
+    <string name="product_photo_preparing">Подготавливаем фото...</string>
+    <string name="product_photo_prepare_error">Не удалось подготовить фото</string>
     <string name="product_expiration_section">Срок годности</string>
     <string name="product_expiration_section_hint">Используйте формат ГГГГ-ММ-ДД, например 2026-05-30</string>
     <string name="product_ai_suggest_button">Подсказать ИИ</string>

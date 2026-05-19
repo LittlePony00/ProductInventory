@@ -8,6 +8,7 @@ actual fun localDataSourceModule(): Module = module {
     single<PersistentKeyValueStore> { NSUserDefaultsPersistentKeyValueStore() }
     single<ProductLocalDataSource> { PersistentProductLocalDataSource(get()) }
     single<HouseholdLocalDataSource> { PersistentHouseholdLocalDataSource(get()) }
+    single<CategoryLocalDataSource> { PersistentCategoryLocalDataSource(get()) }
     single<BarcodeLocalDataSource> { PersistentBarcodeLocalDataSource(get()) }
     single<SyncQueue> { PersistentSyncQueue(get()) }
 }

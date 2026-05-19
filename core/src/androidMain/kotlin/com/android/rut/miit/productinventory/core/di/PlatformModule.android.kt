@@ -9,5 +9,5 @@ import org.koin.dsl.module
 
 actual fun platformModule(): Module = module {
     single<TokenStorage> { DataStoreTokenStorage(get()) }
-    single<DeviceTokenRegistrar> { AndroidFirebaseDeviceTokenRegistrar(get(), get()) }
+    single<DeviceTokenRegistrar> { AndroidFirebaseDeviceTokenRegistrar(get(), get(), get()) }
 }

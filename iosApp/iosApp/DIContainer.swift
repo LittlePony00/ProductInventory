@@ -21,6 +21,12 @@ final class DIContainer {
     func notificationListViewModel() -> NotificationListViewModel { koinHelper.notificationListViewModel() }
     func recipeListViewModel() -> RecipeListViewModel { koinHelper.recipeListViewModel() }
     func restoreSession() async throws -> Bool { try await koinHelper.restoreSession().boolValue }
+    func validateSession() async throws -> Bool { try await koinHelper.validateSession().boolValue }
+    func syncCachedOutbox() async throws { try await koinHelper.syncCachedOutbox() }
+    func currentProductLocalReminders() async throws -> [ProductLocalReminder] {
+        try await koinHelper.currentProductLocalReminders()
+    }
+    func registerCurrentDeviceToken() async throws { try await koinHelper.registerCurrentDeviceToken() }
     func cacheIosPushToken(_ token: String) { koinHelper.cacheIosPushToken(token: token) }
     func registerIosPushToken(_ token: String) async throws {
         try await koinHelper.registerIosPushToken(token: token)

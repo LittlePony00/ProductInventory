@@ -21,16 +21,8 @@ fun Context.showProductInventoryNotification(
 ) {
     if (!isPostNotificationsPermissionGranted()) return
 
+    ensureProductInventoryNotificationChannel()
     val manager = getSystemService(NotificationManager::class.java)
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-        manager.createNotificationChannel(
-            NotificationChannel(
-                PRODUCT_REMINDER_NOTIFICATION_CHANNEL_ID,
-                PRODUCT_REMINDER_NOTIFICATION_CHANNEL_NAME,
-                NotificationManager.IMPORTANCE_DEFAULT
-            )
-        )
-    }
 
     val launchIntent = packageManager.getLaunchIntentForPackage(packageName)
         ?: Intent(Intent.ACTION_MAIN).setPackage(packageName)
@@ -54,6 +46,17 @@ fun Context.showProductInventoryNotification(
     backendNotificationId?.let(::markProductInventoryNotificationShown)
 }
 
+fun Context.ensureProductInventoryNotificationChannel() {
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
+    getSystemService(NotificationManager::class.java).createNotificationChannel(
+        NotificationChannel(
+            PRODUCT_REMINDER_NOTIFICATION_CHANNEL_ID,
+            PRODUCT_REMINDER_NOTIFICATION_CHANNEL_NAME,
+            NotificationManager.IMPORTANCE_DEFAULT
+        )
+    )
+}
+
 fun Context.markProductInventoryNotificationShown(notificationId: String) {
     val preferences = getSharedPreferences(SHOWN_NOTIFICATIONS_PREFERENCES, Context.MODE_PRIVATE)
     val shownIds = preferences.getStringSet(SHOWN_NOTIFICATION_IDS_KEY, emptySet()).orEmpty()
@@ -64,7 +67,7 @@ fun Context.markProductInventoryNotificationShown(notificationId: String) {
         .apply()
 }
 
-private const val PRODUCT_REMINDER_NOTIFICATION_CHANNEL_ID = "product_reminders"
+const val PRODUCT_REMINDER_NOTIFICATION_CHANNEL_ID = "product_reminders"
 private const val PRODUCT_REMINDER_NOTIFICATION_CHANNEL_NAME = "Напоминания о продуктах"
 private const val SHOWN_NOTIFICATIONS_PREFERENCES = "shown_notifications"
 private const val SHOWN_NOTIFICATION_IDS_KEY = "shown_notification_ids"

@@ -5,7 +5,9 @@ import com.android.rut.miit.productinventory.feature.products.api.models.Product
 import com.android.rut.miit.productinventory.feature.products.api.models.QuantityUnit
 import kotlinx.datetime.DatePeriod
 import kotlinx.datetime.minus
+import kotlinx.serialization.Serializable
 
+@Serializable
 data class ProductLocalReminder(
     val id: String,
     val kind: ProductLocalReminderKind,

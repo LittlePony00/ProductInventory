@@ -13,7 +13,14 @@ data class PendingSyncAction(
 )
 
 enum class SyncActionType {
-    ADD_PRODUCT, UPDATE_PRODUCT, CONSUME_PRODUCT, DELETE_PRODUCT
+    ADD_PRODUCT,
+    UPDATE_PRODUCT,
+    CONSUME_PRODUCT,
+    DELETE_PRODUCT,
+    UPLOAD_PRODUCT_IMAGE,
+    CREATE_CATEGORY,
+    UPDATE_CATEGORY,
+    ARCHIVE_CATEGORY
 }
 
 interface SyncQueue {

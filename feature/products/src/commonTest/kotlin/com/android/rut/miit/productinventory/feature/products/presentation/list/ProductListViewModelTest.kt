@@ -11,6 +11,8 @@ import com.android.rut.miit.productinventory.feature.products.api.GetProductCate
 import com.android.rut.miit.productinventory.feature.products.api.GetProductsUseCase
 import com.android.rut.miit.productinventory.feature.products.api.ApplyRealtimeProductEventUseCase
 import com.android.rut.miit.productinventory.feature.products.api.ProductRepository
+import com.android.rut.miit.productinventory.feature.products.api.RefreshProductsUseCase
+import com.android.rut.miit.productinventory.feature.products.api.RefreshProductCategoriesUseCase
 import com.android.rut.miit.productinventory.feature.products.api.models.ExpirationStatus
 import com.android.rut.miit.productinventory.feature.products.api.models.Product
 import com.android.rut.miit.productinventory.feature.products.api.models.ProductCategory
@@ -151,7 +153,7 @@ class ProductListViewModelTest {
 
             viewModel.onEvent(ProductListEvent.OnCreate("household-id"))
             advanceUntilIdle()
-            productRepository.products = listOf(product(id = "fresh"))
+            productRepository.products = listOf(product(id = "fresh", imageUrl = "https://cdn.example.test/fresh.jpg"))
             realtimeRepository.emit(
                 HouseholdRealtimeEvent.ResyncRequired(
                     householdId = "household-id",
@@ -163,7 +165,9 @@ class ProductListViewModelTest {
 
             val state = assertIs<ProductListState.Content>(viewModel.viewState.value)
             assertEquals(listOf("fresh"), state.products.map { it.id })
-            assertEquals(2, productRepository.getProductsCalls)
+            assertEquals("https://cdn.example.test/fresh.jpg", state.products.single().imageUrl)
+            assertEquals(1, productRepository.getProductsCalls)
+            assertEquals(2, productRepository.refreshProductsCalls)
         } finally {
             Dispatchers.resetMain()
         }
@@ -187,6 +191,52 @@ class ProductListViewModelTest {
             val state = assertIs<ProductListState.Content>(viewModel.viewState.value)
             assertEquals(1.25, state.products.single().remainingAmount)
             assertEquals(1, productRepository.getProductsCalls)
+        } finally {
+            Dispatchers.resetMain()
+        }
+    }
+
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    @Test
+    fun `delete product removes item from content without reloading full list`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        try {
+            val productRepository = FakeProductRepository(
+                products = listOf(product(id = "milk"), product(id = "bread", category = ProductCategory.CEREALS))
+            )
+            val viewModel = viewModel(productRepository, FakeRealtimeRepository())
+
+            viewModel.onEvent(ProductListEvent.OnCreate("household-id"))
+            advanceUntilIdle()
+            viewModel.onEvent(ProductListEvent.OnDeleteProduct(productId = "milk"))
+            advanceUntilIdle()
+
+            val state = assertIs<ProductListState.Content>(viewModel.viewState.value)
+            assertEquals(listOf("bread"), state.products.map { it.id })
+            assertEquals(1, productRepository.getProductsCalls)
+        } finally {
+            Dispatchers.resetMain()
+        }
+    }
+
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    @Test
+    fun `resume refresh is silent and does not show sync progress or error`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        try {
+            val productRepository = FakeProductRepository(products = listOf(product(id = "milk")))
+            val viewModel = viewModel(productRepository, FakeRealtimeRepository())
+
+            viewModel.onEvent(ProductListEvent.OnCreate("household-id"))
+            advanceUntilIdle()
+            productRepository.refreshProductsError = IllegalStateException("offline")
+            viewModel.onEvent(ProductListEvent.OnResume)
+            advanceUntilIdle()
+
+            val state = assertIs<ProductListState.Content>(viewModel.viewState.value)
+            assertEquals(listOf("milk"), state.products.map { it.id })
+            assertEquals(false, state.isRefreshing)
+            assertEquals(null, state.syncErrorMessage)
         } finally {
             Dispatchers.resetMain()
         }
@@ -264,6 +314,27 @@ class ProductListViewModelTest {
         }
     }
 
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    @Test
+    fun `cold offline start with empty product cache shows empty content`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        try {
+            val productRepository = FakeProductRepository(products = emptyList()).apply {
+                refreshProductsError = IllegalStateException("offline")
+            }
+            val viewModel = viewModel(productRepository, FakeRealtimeRepository())
+
+            viewModel.onEvent(ProductListEvent.OnCreate("household-id"))
+            advanceUntilIdle()
+
+            val state = assertIs<ProductListState.Content>(viewModel.viewState.value)
+            assertEquals(emptyList(), state.products)
+            assertEquals(ProductCategoryOption.systemDefaults().map { it.id }, state.categories.map { it.id })
+        } finally {
+            Dispatchers.resetMain()
+        }
+    }
+
     private fun viewModel(
         productRepository: ProductRepository,
         realtimeRepository: RealtimeRepository,
@@ -271,7 +342,9 @@ class ProductListViewModelTest {
     ): ProductListViewModel =
         ProductListViewModel(
             getProductsUseCase = GetProductsUseCase(productRepository),
+            refreshProductsUseCase = RefreshProductsUseCase(productRepository),
             getProductCategoriesUseCase = GetProductCategoriesUseCase(FakeCategoryRepository()),
+            refreshProductCategoriesUseCase = RefreshProductCategoriesUseCase(FakeCategoryRepository()),
             deleteProductUseCase = DeleteProductUseCase(productRepository),
             consumeProductUseCase = ConsumeProductUseCase(productRepository),
             applyRealtimeProductEventUseCase = ApplyRealtimeProductEventUseCase(productRepository),
@@ -293,9 +366,19 @@ class ProductListViewModelTest {
         var products: List<Product>
     ) : ProductRepository {
         var getProductsCalls = 0
+        var refreshProductsCalls = 0
+        var getProductsError: Throwable? = null
+        var refreshProductsError: Throwable? = null
 
         override suspend fun getProducts(householdId: String, categoryId: String?): List<Product> {
             getProductsCalls += 1
+            getProductsError?.let { throw it }
+            return categoryId?.let { id -> products.filter { it.categoryId == id } } ?: products
+        }
+
+        override suspend fun refreshProducts(householdId: String, categoryId: String?): List<Product> {
+            refreshProductsCalls += 1
+            refreshProductsError?.let { throw it }
             return categoryId?.let { id -> products.filter { it.categoryId == id } } ?: products
         }
 
@@ -382,7 +465,8 @@ class ProductListViewModelTest {
         remainingAmount: Double = 1.0,
         lowStockThreshold: Double? = null,
         expirationStatus: ExpirationStatus = ExpirationStatus.FRESH,
-        expirationDate: LocalDate? = null
+        expirationDate: LocalDate? = null,
+        imageUrl: String? = null
     ): Product =
         Product(
             id = id,
@@ -393,6 +477,7 @@ class ProductListViewModelTest {
             quantityUnit = QuantityUnit.PIECES,
             remainingAmount = remainingAmount,
             lowStockThreshold = lowStockThreshold,
+            imageUrl = imageUrl,
             expirationDate = expirationDate,
             expirationStatus = expirationStatus,
             householdId = "household-id",

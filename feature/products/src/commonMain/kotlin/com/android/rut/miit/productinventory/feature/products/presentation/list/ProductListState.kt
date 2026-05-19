@@ -14,6 +14,8 @@ sealed class ProductListState : UiState {
         val visibleProducts: List<Product> = products,
         val filters: ProductListFilters = ProductListFilters(),
         val isRealtimeActive: Boolean = false,
+        val isRefreshing: Boolean = false,
+        val syncErrorMessage: String? = null,
         val localReminders: List<ProductLocalReminder> = emptyList(),
         val notificationSettings: NotificationSettings = NotificationSettings()
     ) : ProductListState()

@@ -1,6 +1,8 @@
 package com.android.rut.miit.productinventory.ui.screen.products
 
 import android.content.Context
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
@@ -31,6 +33,10 @@ import com.android.rut.miit.productinventory.feature.products.presentation.add.*
 import com.android.rut.miit.productinventory.ui.design.SectionCard
 import java.io.File
 import java.util.UUID
+import kotlin.math.roundToInt
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.koin.compose.viewmodel.koinViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -46,6 +52,7 @@ fun AddProductScreen(
     initialPackageUnit: String? = null,
     initialIngredientsText: String? = null,
     initialImageUrl: String? = null,
+    initialLocalImagePath: String? = null,
     initialCalories: String? = null,
     initialProtein: String? = null,
     initialFat: String? = null,
@@ -58,12 +65,26 @@ fun AddProductScreen(
     var categoryExpanded by remember { mutableStateOf(false) }
     var unitExpanded by remember { mutableStateOf(false) }
     var packageUnitExpanded by remember { mutableStateOf(false) }
+    var isProcessingPhoto by remember { mutableStateOf(false) }
+    var photoError by remember { mutableStateOf<String?>(null) }
     val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
     val photoPicker = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.PickVisualMedia()
     ) { uri ->
-        uri?.copyProductImageToLocalFile(context)?.let { localPath ->
-            viewModel.onEvent(AddProductEvent.OnImageSelected(localPath))
+        uri ?: return@rememberLauncherForActivityResult
+        coroutineScope.launch {
+            isProcessingPhoto = true
+            photoError = null
+            val localPath = withContext(Dispatchers.IO) {
+                uri.copyProductImageToLocalFile(context)
+            }
+            if (localPath != null) {
+                viewModel.onEvent(AddProductEvent.OnImageSelected(localPath))
+            } else {
+                photoError = context.getString(R.string.product_photo_prepare_error)
+            }
+            isProcessingPhoto = false
         }
     }
 
@@ -78,6 +99,7 @@ fun AddProductScreen(
         initialPackageUnit,
         initialIngredientsText,
         initialImageUrl,
+        initialLocalImagePath,
         initialCalories,
         initialProtein,
         initialFat,
@@ -95,6 +117,7 @@ fun AddProductScreen(
                 packageUnit = initialPackageUnit?.let { runCatching { QuantityUnit.valueOf(it) }.getOrNull() },
                 ingredientsText = initialIngredientsText,
                 imageUrl = initialImageUrl,
+                localImagePath = initialLocalImagePath,
                 calories = initialCalories,
                 protein = initialProtein,
                 fat = initialFat,
@@ -252,6 +275,8 @@ fun AddProductScreen(
                 ProductPhotoEditor(
                     imageUrl = state.imageUrl,
                     localImagePath = state.localImagePath,
+                    isProcessingPhoto = isProcessingPhoto,
+                    photoError = photoError,
                     onPick = {
                         photoPicker.launch(
                             PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
@@ -484,6 +509,8 @@ private fun unitDisplayName(unit: QuantityUnit): String = when (unit) {
 private fun ProductPhotoEditor(
     imageUrl: String?,
     localImagePath: String?,
+    isProcessingPhoto: Boolean,
+    photoError: String?,
     onPick: () -> Unit,
     onRemove: () -> Unit
 ) {
@@ -519,7 +546,7 @@ private fun ProductPhotoEditor(
             }
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Button(onClick = onPick) {
+            Button(onClick = onPick, enabled = !isProcessingPhoto) {
                 Text(
                     stringResource(
                         if (imageModel == null) R.string.product_photo_add else R.string.product_photo_replace
@@ -527,10 +554,27 @@ private fun ProductPhotoEditor(
                 )
             }
             if (imageModel != null) {
-                TextButton(onClick = onRemove) {
+                TextButton(onClick = onRemove, enabled = !isProcessingPhoto) {
                     Text(stringResource(R.string.product_photo_remove))
                 }
             }
+        }
+        if (isProcessingPhoto) {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
+                Text(
+                    text = stringResource(R.string.product_photo_preparing),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+        photoError?.let { error ->
+            Text(
+                text = error,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.error
+            )
         }
     }
 }
@@ -539,8 +583,42 @@ private fun Uri.copyProductImageToLocalFile(context: Context): String? =
     runCatching {
         val directory = File(context.filesDir, "product-images").apply { mkdirs() }
         val target = File(directory, "${UUID.randomUUID()}.jpg")
-        context.contentResolver.openInputStream(this)?.use { input ->
-            target.outputStream().use { output -> input.copyTo(output) }
-        } ?: error("Cannot open image")
+        val decoded = context.contentResolver.openInputStream(this)?.use { input ->
+            val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+            BitmapFactory.decodeStream(input, null, bounds)
+            bounds
+        }?.let { bounds ->
+            context.contentResolver.openInputStream(this)?.use { input ->
+                BitmapFactory.decodeStream(input, null, BitmapFactory.Options().apply {
+                    inSampleSize = bounds.inSampleSize(maxDimension = 800)
+                })
+            }
+        } ?: error("Cannot decode image")
+        val bitmap = decoded.resized(maxDimension = 800)
+        target.outputStream().use { output ->
+            bitmap.compress(Bitmap.CompressFormat.JPEG, 35, output)
+        }
+        if (bitmap != decoded) decoded.recycle()
+        bitmap.recycle()
         target.absolutePath
     }.getOrNull()
+
+private fun BitmapFactory.Options.inSampleSize(maxDimension: Int): Int {
+    var sampleSize = 1
+    while ((outWidth / sampleSize) > maxDimension || (outHeight / sampleSize) > maxDimension) {
+        sampleSize *= 2
+    }
+    return sampleSize.coerceAtLeast(1)
+}
+
+private fun Bitmap.resized(maxDimension: Int): Bitmap {
+    val maxCurrentDimension = maxOf(width, height)
+    if (maxCurrentDimension <= maxDimension) return this
+    val scale = maxDimension.toFloat() / maxCurrentDimension
+    return Bitmap.createScaledBitmap(
+        this,
+        (width * scale).roundToInt().coerceAtLeast(1),
+        (height * scale).roundToInt().coerceAtLeast(1),
+        true
+    )
+}

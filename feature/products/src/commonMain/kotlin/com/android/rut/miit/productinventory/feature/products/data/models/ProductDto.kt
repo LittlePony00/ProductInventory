@@ -91,6 +91,11 @@ data class PendingUpdateProductPayloadDto(
 )
 
 @Serializable
+data class PendingUploadProductImagePayloadDto(
+    val localImagePath: String
+)
+
+@Serializable
 data class ConsumeProductRequestDto(
     val amount: Double
 )

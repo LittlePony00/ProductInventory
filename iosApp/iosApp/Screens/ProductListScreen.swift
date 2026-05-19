@@ -100,6 +100,17 @@ struct ProductListScreen: View {
                                 onInventoryChanged: { holder.sendEvent(ProductListEvent.OnInventoryFilterChanged(filter: $0)) }
                             )
                                 .padding(.horizontal)
+                            if state.isRefreshing {
+                                ProgressView("Синхронизация...")
+                                    .font(.caption)
+                                    .padding(.horizontal)
+                            }
+                            if let syncError = state.syncErrorMessage {
+                                Text(syncError)
+                                    .font(.caption)
+                                    .foregroundColor(.red)
+                                    .padding(.horizontal)
+                            }
                             List(products, id: \.id) { product in
                                 ProductRow(
                                     product: product,
@@ -359,7 +370,7 @@ private func localReminderSignature(_ reminders: [ProductLocalReminder]) -> Stri
         .joined(separator: "|")
 }
 
-private enum ProductLocalReminderScheduler {
+enum ProductLocalReminderScheduler {
     private static let identifierPrefix = "product-inventory-local-reminder:"
     private static let scheduledIdentifiersKey = "scheduledProductLocalReminderIdentifiers"
 

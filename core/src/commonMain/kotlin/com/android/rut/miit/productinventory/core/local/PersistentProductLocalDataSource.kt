@@ -47,15 +47,40 @@ class PersistentProductLocalDataSource(
         }
     }
 
-    override suspend fun getProductByBarcode(barcode: String): Product? {
+    override suspend fun getProductByBarcode(householdId: String, barcode: String): Product? {
         return mutex.withLock {
             readCache()
                 .productsByHousehold
-                .values
+                .get(householdId)
+                .orEmpty()
                 .asSequence()
-                .flatten()
                 .firstOrNull { it.barcode == barcode }
                 ?.toDomain()
+        }
+    }
+
+    override suspend fun remapCategoryId(
+        householdId: String,
+        oldCategoryId: String,
+        newCategoryId: String,
+        newCategoryName: String
+    ) {
+        mutex.withLock {
+            val cache = readCache()
+            val products = cache.productsByHousehold[householdId].orEmpty()
+            writeCache(
+                cache.copy(
+                    productsByHousehold = cache.productsByHousehold + (
+                        householdId to products.map { product ->
+                            if (product.categoryId == oldCategoryId) {
+                                product.copy(categoryId = newCategoryId, categoryName = newCategoryName)
+                            } else {
+                                product
+                            }
+                        }
+                        )
+                )
+            )
         }
     }
 

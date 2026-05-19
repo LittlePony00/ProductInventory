@@ -20,6 +20,7 @@ import com.android.rut.miit.productinventory.core.push.isPostNotificationsPermis
 import com.android.rut.miit.productinventory.core.push.showUnreadProductInventoryNotifications
 import com.android.rut.miit.productinventory.feature.notifications.api.GetNotificationSettingsUseCase
 import com.android.rut.miit.productinventory.feature.notifications.api.GetNotificationsUseCase
+import com.android.rut.miit.productinventory.feature.notifications.api.models.NotificationSettings
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlin.time.Duration.Companion.seconds
@@ -68,7 +69,7 @@ internal fun AndroidNotificationBootstrap(
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return@LaunchedEffect
 
         val pushEnabled = runCatching { getNotificationSettingsUseCase().pushEnabled }
-            .getOrDefault(false)
+            .getOrDefault(NotificationSettings().pushEnabled)
         if (pushEnabled) {
             permissionRequestedThisSession = true
             permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
@@ -80,7 +81,7 @@ internal fun AndroidNotificationBootstrap(
 
         while (isActive) {
             val pushEnabled = runCatching { getNotificationSettingsUseCase().pushEnabled }
-                .getOrDefault(false)
+                .getOrDefault(NotificationSettings().pushEnabled)
             if (pushEnabled && context.isPostNotificationsPermissionGranted()) {
                 val notifications = runCatching { getNotificationsUseCase() }
                     .getOrDefault(emptyList())

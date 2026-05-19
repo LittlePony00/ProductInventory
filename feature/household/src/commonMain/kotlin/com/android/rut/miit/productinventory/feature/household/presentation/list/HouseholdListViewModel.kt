@@ -6,10 +6,12 @@ import com.android.rut.miit.productinventory.feature.household.api.CreateHouseho
 import com.android.rut.miit.productinventory.feature.household.api.GenerateInviteCodeUseCase
 import com.android.rut.miit.productinventory.feature.household.api.GetHouseholdsUseCase
 import com.android.rut.miit.productinventory.feature.household.api.JoinHouseholdUseCase
+import com.android.rut.miit.productinventory.feature.household.api.RefreshHouseholdsUseCase
 import kotlinx.coroutines.launch
 
 class HouseholdListViewModel(
     private val getHouseholdsUseCase: GetHouseholdsUseCase,
+    private val refreshHouseholdsUseCase: RefreshHouseholdsUseCase,
     private val createHouseholdUseCase: CreateHouseholdUseCase,
     private val generateInviteCodeUseCase: GenerateInviteCodeUseCase,
     private val joinHouseholdUseCase: JoinHouseholdUseCase
@@ -38,13 +40,33 @@ class HouseholdListViewModel(
 
     private fun loadHouseholds() {
         viewModelScope.launch {
-            updateState { HouseholdListState.Loading }
+            val hadContent = currentState is HouseholdListState.Content
+            if (!hadContent) {
+                updateState { HouseholdListState.Loading }
+            }
             runCatching { getHouseholdsUseCase() }
                 .onSuccess { households ->
                     updateState { HouseholdListState.Content(households) }
                 }
                 .onFailure { error ->
-                    updateState { HouseholdListState.Error(error.message) }
+                    if (!hadContent) {
+                        updateState { HouseholdListState.Error(error.message) }
+                    }
+                }
+            refreshHouseholds()
+        }
+    }
+
+    private fun refreshHouseholds() {
+        viewModelScope.launch {
+            runCatching { refreshHouseholdsUseCase() }
+                .onSuccess { households ->
+                    updateState { HouseholdListState.Content(households) }
+                }
+                .onFailure { error ->
+                    if (currentState !is HouseholdListState.Content) {
+                        updateState { HouseholdListState.Error(error.message) }
+                    }
                 }
         }
     }

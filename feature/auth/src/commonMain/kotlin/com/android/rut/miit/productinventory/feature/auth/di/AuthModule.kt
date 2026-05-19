@@ -4,6 +4,7 @@ import com.android.rut.miit.productinventory.feature.auth.api.AuthRepository
 import com.android.rut.miit.productinventory.feature.auth.api.LoginUseCase
 import com.android.rut.miit.productinventory.feature.auth.api.RegisterUseCase
 import com.android.rut.miit.productinventory.feature.auth.api.RestoreSessionUseCase
+import com.android.rut.miit.productinventory.feature.auth.api.ValidateSessionUseCase
 import com.android.rut.miit.productinventory.feature.auth.data.AuthRemoteDataSource
 import com.android.rut.miit.productinventory.feature.auth.data.AuthRepositoryImpl
 import com.android.rut.miit.productinventory.feature.auth.presentation.login.LoginViewModel
@@ -18,6 +19,7 @@ val authModule = module {
     factoryOf(::LoginUseCase)
     factoryOf(::RegisterUseCase)
     factoryOf(::RestoreSessionUseCase)
+    factoryOf(::ValidateSessionUseCase)
     viewModelOf(::LoginViewModel)
     viewModelOf(::RegisterViewModel)
 }

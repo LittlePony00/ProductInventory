@@ -5,7 +5,9 @@ import com.android.rut.miit.productinventory.feature.household.api.models.Invite
 import com.android.rut.miit.productinventory.feature.household.api.models.Member
 
 interface HouseholdRepository {
+    suspend fun getCachedHouseholds(): List<Household> = getMyHouseholds()
     suspend fun getMyHouseholds(): List<Household>
+    suspend fun refreshMyHouseholds(): List<Household> = getMyHouseholds()
     suspend fun getHousehold(householdId: String): Household
     suspend fun createHousehold(name: String): Household
     suspend fun getMembers(householdId: String): List<Member>

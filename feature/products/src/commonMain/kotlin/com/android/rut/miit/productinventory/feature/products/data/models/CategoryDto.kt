@@ -22,3 +22,17 @@ data class CreateCategoryRequestDto(
 data class UpdateCategoryRequestDto(
     val name: String
 )
+
+@Serializable
+data class PendingCreateCategoryPayloadDto(
+    val name: String,
+    val localCategoryId: String
+)
+
+@Serializable
+data class PendingUpdateCategoryPayloadDto(
+    val name: String
+)
+
+@Serializable
+data object PendingArchiveCategoryPayloadDto

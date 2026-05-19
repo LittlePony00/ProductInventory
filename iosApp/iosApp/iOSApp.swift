@@ -39,6 +39,9 @@ struct RootView: View {
         .task {
             await restoreSessionIfNeeded()
         }
+        .task(id: router.root) {
+            await syncOutboxIfAuthenticated()
+        }
     }
 
     @MainActor
@@ -52,6 +55,27 @@ struct RootView: View {
         }
         router.setRoot(restored ? .householdList : .login)
         isRestoringSession = false
+        if restored {
+            Task { try? await DIContainer.shared.registerCurrentDeviceToken() }
+            Task { await validateSessionAfterLocalEntry() }
+        }
+    }
+
+    @MainActor
+    private func syncOutboxIfAuthenticated() async {
+        guard router.root != .login, router.root != .register else { return }
+        try? await DIContainer.shared.syncCachedOutbox()
+        if let reminders = try? await DIContainer.shared.currentProductLocalReminders() {
+            await ProductLocalReminderScheduler.schedule(reminders)
+        }
+    }
+
+    @MainActor
+    private func validateSessionAfterLocalEntry() async {
+        let isValid = (try? await DIContainer.shared.validateSession()) ?? true
+        if !isValid {
+            router.setRoot(.login)
+        }
     }
 
     @ViewBuilder

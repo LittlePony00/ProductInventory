@@ -52,6 +52,13 @@ kotlin {
             implementation(libs.ktor.serialization.json)
             implementation(libs.kotlinx.serialization.json)
         }
+        androidUnitTest.dependencies {
+            implementation(libs.junit)
+            implementation("androidx.test:core:1.6.1")
+            implementation("org.robolectric:robolectric:4.13")
+            implementation(libs.kotlinx.coroutines.test)
+            implementation(libs.koin.core)
+        }
     }
 }
 

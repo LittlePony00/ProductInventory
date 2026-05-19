@@ -151,6 +151,17 @@ fun ProductListScreen(
                             },
                             modifier = Modifier.fillMaxWidth()
                         )
+                        if (currentState.isRefreshing) {
+                            LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                        }
+                        currentState.syncErrorMessage?.let { message ->
+                            Text(
+                                text = message,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.error,
+                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                            )
+                        }
                         if (currentState.visibleProducts.isEmpty()) {
                             ScreenMessage(
                                 title = stringResource(R.string.products_no_filter_results),

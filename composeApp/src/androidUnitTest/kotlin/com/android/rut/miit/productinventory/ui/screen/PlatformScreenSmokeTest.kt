@@ -23,6 +23,8 @@ import com.android.rut.miit.productinventory.feature.products.api.DeleteProductU
 import com.android.rut.miit.productinventory.feature.products.api.GetProductCategoriesUseCase
 import com.android.rut.miit.productinventory.feature.products.api.GetProductsUseCase
 import com.android.rut.miit.productinventory.feature.products.api.ProductRepository
+import com.android.rut.miit.productinventory.feature.products.api.RefreshProductsUseCase
+import com.android.rut.miit.productinventory.feature.products.api.RefreshProductCategoriesUseCase
 import com.android.rut.miit.productinventory.feature.products.api.models.ExpirationStatus
 import com.android.rut.miit.productinventory.feature.products.api.models.Product
 import com.android.rut.miit.productinventory.feature.products.api.models.ProductCategory
@@ -35,6 +37,7 @@ import com.android.rut.miit.productinventory.feature.household.api.GenerateInvit
 import com.android.rut.miit.productinventory.feature.household.api.GetHouseholdsUseCase
 import com.android.rut.miit.productinventory.feature.household.api.HouseholdRepository
 import com.android.rut.miit.productinventory.feature.household.api.JoinHouseholdUseCase
+import com.android.rut.miit.productinventory.feature.household.api.RefreshHouseholdsUseCase
 import com.android.rut.miit.productinventory.feature.household.api.models.Household
 import com.android.rut.miit.productinventory.feature.household.api.models.InviteCode
 import com.android.rut.miit.productinventory.feature.household.api.models.Member
@@ -344,6 +347,7 @@ class PlatformScreenSmokeTest {
     private fun householdListViewModel(repository: HouseholdRepository): HouseholdListViewModel =
         HouseholdListViewModel(
             getHouseholdsUseCase = GetHouseholdsUseCase(repository),
+            refreshHouseholdsUseCase = RefreshHouseholdsUseCase(repository),
             createHouseholdUseCase = CreateHouseholdUseCase(repository),
             generateInviteCodeUseCase = GenerateInviteCodeUseCase(repository),
             joinHouseholdUseCase = JoinHouseholdUseCase(repository)
@@ -352,7 +356,9 @@ class PlatformScreenSmokeTest {
     private fun productListViewModel(repository: ProductRepository): ProductListViewModel =
         ProductListViewModel(
             getProductsUseCase = GetProductsUseCase(repository),
+            refreshProductsUseCase = RefreshProductsUseCase(repository),
             getProductCategoriesUseCase = GetProductCategoriesUseCase(FakeCategoryRepository()),
+            refreshProductCategoriesUseCase = RefreshProductCategoriesUseCase(FakeCategoryRepository()),
             deleteProductUseCase = DeleteProductUseCase(repository),
             consumeProductUseCase = ConsumeProductUseCase(repository),
             applyRealtimeProductEventUseCase = ApplyRealtimeProductEventUseCase(repository),
