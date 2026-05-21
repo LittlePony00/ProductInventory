@@ -49,6 +49,7 @@ fun ProductListScreen(
     onBack: () -> Unit = {},
     onManageCategories: () -> Unit = {},
     onNavigateToRecipes: () -> Unit = {},
+    onNavigateToProfile: () -> Unit = {},
     onNavigateToNotifications: () -> Unit = {},
     onNavigateToBarcodeScan: () -> Unit = {},
     viewModel: ProductListViewModel = koinViewModel()
@@ -121,21 +122,30 @@ fun ProductListScreen(
                 }
 
                 if (currentState.products.isEmpty()) {
-                    ScreenMessage(
-                        title = stringResource(R.string.products_empty),
-                        message = stringResource(R.string.products_empty_hint),
-                        iconText = "+",
-                        primaryActionLabel = stringResource(R.string.add),
-                        onPrimaryAction = { viewModel.onEvent(ProductListEvent.OnAddProductClick) },
-                        secondaryActionLabel = stringResource(R.string.scan),
-                        onSecondaryAction = onNavigateToBarcodeScan,
-                        modifier = Modifier.fillMaxSize().padding(padding),
-                    )
+                    Column(modifier = Modifier.fillMaxSize().padding(padding)) {
+                        ProductQuickActions(
+                            onManageCategories = onManageCategories,
+                            onNavigateToRecipes = onNavigateToRecipes,
+                            onNavigateToProfile = onNavigateToProfile,
+                            onNavigateToNotifications = onNavigateToNotifications
+                        )
+                        ScreenMessage(
+                            title = stringResource(R.string.products_empty),
+                            message = stringResource(R.string.products_empty_hint),
+                            iconText = "+",
+                            primaryActionLabel = stringResource(R.string.add),
+                            onPrimaryAction = { viewModel.onEvent(ProductListEvent.OnAddProductClick) },
+                            secondaryActionLabel = stringResource(R.string.scan),
+                            onSecondaryAction = onNavigateToBarcodeScan,
+                            modifier = Modifier.fillMaxSize(),
+                        )
+                    }
                 } else {
                     Column(modifier = Modifier.fillMaxSize().padding(padding)) {
                         ProductQuickActions(
                             onManageCategories = onManageCategories,
                             onNavigateToRecipes = onNavigateToRecipes,
+                            onNavigateToProfile = onNavigateToProfile,
                             onNavigateToNotifications = onNavigateToNotifications,
                             modifier = Modifier.fillMaxWidth()
                         )
@@ -282,6 +292,7 @@ fun ProductListScreen(
 private fun ProductQuickActions(
     onManageCategories: () -> Unit,
     onNavigateToRecipes: () -> Unit,
+    onNavigateToProfile: () -> Unit,
     onNavigateToNotifications: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -299,6 +310,12 @@ private fun ProductQuickActions(
             AssistChip(
                 onClick = onNavigateToRecipes,
                 label = { Text(stringResource(R.string.recipes_title), maxLines = 1) }
+            )
+        }
+        item {
+            AssistChip(
+                onClick = onNavigateToProfile,
+                label = { Text(stringResource(R.string.profile_food_preferences), maxLines = 1) }
             )
         }
         item {

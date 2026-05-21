@@ -45,9 +45,12 @@ product-images:
 
 gigachat:
   base-url: ${GIGACHAT_BASE_URL:https://gigachat.devices.sberbank.ru/api/v1}
-  api-key: ${GIGACHAT_API_KEY:}
+  api-key: ${GIGACHAT_API_KEY:${GIGA_CHAT_API:}}
   oauth-url: ${GIGACHAT_OAUTH_URL:https://ngw.devices.sberbank.ru:9443/api/v2/oauth}
   scope: ${GIGACHAT_SCOPE:GIGACHAT_API_PERS}
+
+local-recipes:
+  enabled: ${LOCAL_RECIPES_ENABLED:false}
 
 firebase:
   project-id: ${FIREBASE_PROJECT_ID:}

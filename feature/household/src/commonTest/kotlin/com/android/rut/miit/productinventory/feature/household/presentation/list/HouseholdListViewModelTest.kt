@@ -85,6 +85,32 @@ class HouseholdListViewModelTest {
 
     @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
     @Test
+    fun `profile action carries household context for structured food preference options`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        try {
+            val viewModel = viewModel(
+                FakeHouseholdRepository(
+                    initialHouseholds = listOf(
+                        Household(id = "home-id", name = "Home", createdAt = "2026-05-15T00:00:00Z")
+                    )
+                )
+            )
+            val action = async { viewModel.viewAction.first { it is HouseholdListAction.OpenProfile } }
+
+            viewModel.onEvent(HouseholdListEvent.OnCreate)
+            advanceUntilIdle()
+            viewModel.onEvent(HouseholdListEvent.OnProfileClick)
+            advanceUntilIdle()
+
+            val profileAction = assertIs<HouseholdListAction.OpenProfile>(action.await())
+            assertEquals("home-id", profileAction.householdId)
+        } finally {
+            Dispatchers.resetMain()
+        }
+    }
+
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    @Test
     fun `failed join emits visible error message`() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
         try {
@@ -113,9 +139,10 @@ class HouseholdListViewModelTest {
         )
 
     private class FakeHouseholdRepository(
+        initialHouseholds: List<Household> = emptyList(),
         private val joinError: Throwable? = null
     ) : HouseholdRepository {
-        private val households = mutableListOf<Household>()
+        private val households = initialHouseholds.toMutableList()
         val createdNames = mutableListOf<String>()
         val joinedCodes = mutableListOf<String>()
 

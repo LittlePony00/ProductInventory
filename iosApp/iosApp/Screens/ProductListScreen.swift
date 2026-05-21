@@ -41,6 +41,8 @@ struct ProductListScreen: View {
                             .accessibilityIdentifier("productList.categories")
                         Button("Рецепты") { router.push(.recipes(householdId: householdId)) }
                             .accessibilityIdentifier("productList.recipes")
+                        Button("Питание") { router.push(.profile(householdId: householdId)) }
+                            .accessibilityIdentifier("productList.foodPreferences")
                         Button(action: { router.push(.notifications) }) {
                             Image(systemName: "bell")
                         }

@@ -10,8 +10,10 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextClearance
 import androidx.compose.ui.test.performTextInput
+import com.android.rut.miit.productinventory.core.storage.TokenStorage
 import com.android.rut.miit.productinventory.feature.auth.api.AuthRepository
 import com.android.rut.miit.productinventory.feature.auth.api.LoginUseCase
 import com.android.rut.miit.productinventory.feature.auth.api.models.AuthToken
@@ -51,22 +53,45 @@ import com.android.rut.miit.productinventory.feature.notifications.api.UpdateNot
 import com.android.rut.miit.productinventory.feature.notifications.api.models.Notification
 import com.android.rut.miit.productinventory.feature.notifications.api.models.NotificationSettings
 import com.android.rut.miit.productinventory.feature.notifications.presentation.NotificationListViewModel
+import com.android.rut.miit.productinventory.feature.profile.api.GetFoodPreferenceOptionsUseCase
+import com.android.rut.miit.productinventory.feature.profile.api.GetFoodPreferencesUseCase
+import com.android.rut.miit.productinventory.feature.profile.api.GetProfileUseCase
+import com.android.rut.miit.productinventory.feature.profile.api.ProfileRepository
+import com.android.rut.miit.productinventory.feature.profile.api.UpdateFoodPreferencesUseCase
+import com.android.rut.miit.productinventory.feature.profile.api.UpdateProfileUseCase
+import com.android.rut.miit.productinventory.feature.profile.api.models.FoodPreferenceOptions
+import com.android.rut.miit.productinventory.feature.profile.api.models.FoodPreferences
+import com.android.rut.miit.productinventory.feature.profile.api.models.UserProfile
+import com.android.rut.miit.productinventory.feature.profile.presentation.ProfileViewModel
 import com.android.rut.miit.productinventory.feature.realtime.api.ObserveHouseholdEventsUseCase
 import com.android.rut.miit.productinventory.feature.realtime.api.RealtimeRepository
 import com.android.rut.miit.productinventory.feature.realtime.api.models.HouseholdRealtimeEvent
+import com.android.rut.miit.productinventory.feature.recommendations.api.FindRecipesUseCase
+import com.android.rut.miit.productinventory.feature.recommendations.api.GetLikedRecipesUseCase
+import com.android.rut.miit.productinventory.feature.recommendations.api.GetRecipeIngredientOptionsUseCase
 import com.android.rut.miit.productinventory.feature.recommendations.api.GetRecipesUseCase
 import com.android.rut.miit.productinventory.feature.recommendations.api.GetRecipeSuggestionsUseCase
 import com.android.rut.miit.productinventory.feature.recommendations.api.RecipeRepository
+import com.android.rut.miit.productinventory.feature.recommendations.api.SetRecipeLikedUseCase
+import com.android.rut.miit.productinventory.feature.recommendations.api.models.AiRecipeGenerationRequest
 import com.android.rut.miit.productinventory.feature.recommendations.api.models.Recipe
+import com.android.rut.miit.productinventory.feature.recommendations.api.models.RecipeIngredient
+import com.android.rut.miit.productinventory.feature.recommendations.api.models.RecipeIngredientOption
+import com.android.rut.miit.productinventory.feature.recommendations.api.models.RecipeSearchRequest
+import com.android.rut.miit.productinventory.feature.recommendations.api.models.RecommendationMode
+import com.android.rut.miit.productinventory.feature.recommendations.api.models.localIdentity
 import com.android.rut.miit.productinventory.ui.screen.household.HouseholdListScreen
 import com.android.rut.miit.productinventory.feature.recommendations.presentation.RecipeListViewModel
 import com.android.rut.miit.productinventory.ui.screen.auth.LoginScreen
 import com.android.rut.miit.productinventory.ui.screen.notifications.NotificationListScreen
+import com.android.rut.miit.productinventory.ui.screen.profile.ProfileScreen
 import com.android.rut.miit.productinventory.ui.screen.products.ProductListScreen
 import com.android.rut.miit.productinventory.ui.screen.recipes.RecipeListScreen
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.datetime.LocalDate
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.After
 import org.junit.Before
 import org.junit.Rule
@@ -105,9 +130,132 @@ class PlatformScreenSmokeTest {
             }
         }
 
+        compose.waitUntil {
+            compose.onAllNodesWithText("Нет подходящих рецептов").fetchSemanticsNodes().isNotEmpty()
+        }
         compose.onNodeWithText("Рецепты").assertIsDisplayed()
-        compose.onAllNodesWithText("Сгенерировать")[0].assertIsDisplayed()
-        compose.onNodeWithText("Нет рецептов").assertIsDisplayed()
+        compose.onAllNodesWithText("Найти рецепт")[0].assertIsDisplayed()
+        compose.onNodeWithText("Нет подходящих рецептов").assertIsDisplayed()
+    }
+
+    @Test
+    fun recipeScreenHidesAiBadgesOnRecipeCards() {
+        compose.setContent {
+            MaterialTheme {
+                RecipeListScreen(
+                    householdId = "household-id",
+                    onBack = {},
+                    viewModel = recipeViewModel(
+                        FakeRecipeRepository(
+                            recipes = listOf(
+                                Recipe(
+                                    title = "AI-assisted rice",
+                                    ingredients = listOf(RecipeIngredient("rice", "1 cup")),
+                                    steps = listOf("Cook rice"),
+                                    time = "15 минут",
+                                    calories = 0,
+                                    caloriesKnown = false,
+                                    source = "AI_ASSISTED",
+                                    aiAssisted = true
+                                )
+                            )
+                        )
+                    )
+                )
+            }
+        }
+
+        compose.onNodeWithText("AI-assisted rice").assertIsDisplayed()
+        compose.onNodeWithText("15 минут • ккал неизвестно").assertIsDisplayed()
+        assertEquals(0, compose.onAllNodesWithText("AI-Assisted").fetchSemanticsNodes().size)
+        assertEquals(0, compose.onAllNodesWithText("ИИ-рецепт").fetchSemanticsNodes().size)
+        assertEquals(0, compose.onAllNodesWithText("ИИ").fetchSemanticsNodes().size)
+    }
+
+    @Test
+    fun recipeScreenLikesRecipeAndShowsLikedTab() {
+        compose.setContent {
+            MaterialTheme {
+                RecipeListScreen(
+                    householdId = "household-id",
+                    onBack = {},
+                    viewModel = recipeViewModel(
+                        FakeRecipeRepository(
+                            recipes = listOf(
+                                Recipe(
+                                    title = "Рис с овощами",
+                                    ingredients = listOf(RecipeIngredient("рис", "1 стакан")),
+                                    steps = listOf("Сварить рис"),
+                                    time = "20 минут",
+                                    calories = 300
+                                )
+                            )
+                        )
+                    )
+                )
+            }
+        }
+
+        compose.waitUntil {
+            compose.onAllNodesWithText("♡ В понравившиеся").fetchSemanticsNodes().isNotEmpty()
+        }
+        compose.onNodeWithText("♡ В понравившиеся").performClick()
+        compose.onNodeWithText("Понравившиеся").performClick()
+        compose.onNodeWithText("Рис с овощами").assertIsDisplayed()
+        compose.onNodeWithText("♥ Убрать").assertIsDisplayed()
+    }
+
+    @Test
+    fun recipeIngredientDialogUsesPluralRandomRecipesAction() {
+        compose.setContent {
+            MaterialTheme {
+                RecipeListScreen(
+                    householdId = "household-id",
+                    onBack = {},
+                    viewModel = recipeViewModel(FakeRecipeRepository())
+                )
+            }
+        }
+
+        compose.waitUntil {
+            compose.onAllNodesWithText("Нет подходящих рецептов").fetchSemanticsNodes().isNotEmpty()
+        }
+        compose.onAllNodesWithText("Найти рецепт")[0].performClick()
+        compose.onNodeWithText("Рандомные рецепты").assertIsDisplayed()
+    }
+
+    @Test
+    fun profileScreenUsesShortFoodPreferenceLabelsInSummaryAndEditMode() {
+        compose.setContent {
+            MaterialTheme {
+                ProfileScreen(
+                    householdId = "household-id",
+                    onNavigateToLogin = {},
+                    onBack = {},
+                    viewModel = profileViewModel(
+                        FakeProfileRepository(
+                            foodPreferences = FoodPreferences(
+                                preferredProducts = setOf("рис"),
+                                avoidedProducts = setOf("майонез")
+                            )
+                        )
+                    )
+                )
+            }
+        }
+
+        compose.waitUntil {
+            compose.onAllNodesWithText("Пищевые предпочтения").fetchSemanticsNodes().isNotEmpty()
+        }
+        assertTrue(compose.onAllNodesWithText("Любимые продукты").fetchSemanticsNodes().isNotEmpty())
+        assertTrue(compose.onAllNodesWithText("Продукты, которых избегать").fetchSemanticsNodes().isNotEmpty())
+        assertEquals(0, compose.onAllNodesWithText("(текстом)", substring = true).fetchSemanticsNodes().size)
+
+        compose.onAllNodesWithText("Изменить")[1].performScrollTo().performClick()
+
+        assertTrue(compose.onAllNodesWithText("Любимые продукты").fetchSemanticsNodes().isNotEmpty())
+        assertTrue(compose.onAllNodesWithText("Продукты, которых избегать").fetchSemanticsNodes().isNotEmpty())
+        assertEquals(0, compose.onAllNodesWithText("(текстом)", substring = true).fetchSemanticsNodes().size)
     }
 
     @Test
@@ -252,6 +400,34 @@ class PlatformScreenSmokeTest {
     }
 
     @Test
+    fun productListEmptyStateStillExposesRecipeNavigation() {
+        var recipeNavigationRequested = false
+
+        compose.setContent {
+            MaterialTheme {
+                ProductListScreen(
+                    householdId = "household-id",
+                    onAddProduct = {},
+                    onEditProduct = {},
+                    onBack = {},
+                    onManageCategories = {},
+                    onNavigateToRecipes = { recipeNavigationRequested = true },
+                    onNavigateToNotifications = {},
+                    onNavigateToBarcodeScan = {},
+                    viewModel = productListViewModel(FakeProductRepository(initialProducts = emptyList()))
+                )
+            }
+        }
+
+        compose.waitUntil {
+            compose.onAllNodesWithText("Нет продуктов").fetchSemanticsNodes().isNotEmpty()
+        }
+        compose.onNodeWithText("Рецепты").performClick()
+
+        assertTrue(recipeNavigationRequested)
+    }
+
+    @Test
     fun authenticatedNavigationSmokeCoversHouseholdProductsRecipesAndNotifications() {
         val householdRepository = FakeHouseholdRepository(
             households = listOf(Household(id = "household-id", name = "Home", createdAt = "2026-05-15T00:00:00Z"))
@@ -298,7 +474,7 @@ class PlatformScreenSmokeTest {
             }
         }
 
-        compose.onNodeWithText("Email").performTextInput("ui@test.com")
+        compose.onNodeWithText("Эл. почта").performTextInput("ui@test.com")
         compose.onNodeWithText("Пароль").performTextInput("password")
         compose.onNodeWithText("Войти").performClick()
 
@@ -315,7 +491,7 @@ class PlatformScreenSmokeTest {
 
         compose.onNodeWithText("Рецепты").performClick()
         compose.waitUntil {
-            compose.onAllNodesWithText("Нет рецептов").fetchSemanticsNodes().isNotEmpty()
+            compose.onAllNodesWithText("Нет подходящих рецептов").fetchSemanticsNodes().isNotEmpty()
         }
         compose.onNodeWithText("Назад").performClick()
 
@@ -341,7 +517,21 @@ class PlatformScreenSmokeTest {
     private fun recipeViewModel(repository: RecipeRepository): RecipeListViewModel =
         RecipeListViewModel(
             getRecipesUseCase = GetRecipesUseCase(repository),
-            getRecipeSuggestionsUseCase = GetRecipeSuggestionsUseCase(repository)
+            getRecipeSuggestionsUseCase = GetRecipeSuggestionsUseCase(repository),
+            getRecipeIngredientOptionsUseCase = GetRecipeIngredientOptionsUseCase(repository),
+            findRecipesUseCase = FindRecipesUseCase(repository),
+            getLikedRecipesUseCase = GetLikedRecipesUseCase(repository),
+            setRecipeLikedUseCase = SetRecipeLikedUseCase(repository)
+        )
+
+    private fun profileViewModel(repository: ProfileRepository): ProfileViewModel =
+        ProfileViewModel(
+            getProfileUseCase = GetProfileUseCase(repository),
+            getFoodPreferencesUseCase = GetFoodPreferencesUseCase(repository),
+            getFoodPreferenceOptionsUseCase = GetFoodPreferenceOptionsUseCase(repository),
+            updateProfileUseCase = UpdateProfileUseCase(repository),
+            updateFoodPreferencesUseCase = UpdateFoodPreferencesUseCase(repository),
+            tokenStorage = FakeTokenStorage()
         )
 
     private fun householdListViewModel(repository: HouseholdRepository): HouseholdListViewModel =
@@ -388,7 +578,9 @@ class PlatformScreenSmokeTest {
         private val suggestions: List<Recipe> = emptyList(),
         private val error: Throwable? = null
     ) : RecipeRepository {
-        override suspend fun getRecipes(householdId: String): List<Recipe> {
+        private var likedRecipes = emptyList<Recipe>()
+
+        override suspend fun getRecipes(householdId: String, mode: RecommendationMode): List<Recipe> {
             error?.let { throw it }
             return recipes
         }
@@ -396,6 +588,34 @@ class PlatformScreenSmokeTest {
         override suspend fun getRecipeSuggestions(householdId: String): List<Recipe> {
             error?.let { throw it }
             return suggestions
+        }
+
+        override suspend fun getIngredientOptions(householdId: String): List<RecipeIngredientOption> =
+            emptyList()
+
+        override suspend fun findRecipes(householdId: String, request: RecipeSearchRequest): List<Recipe> =
+            recipes
+
+        override suspend fun generateAiRecipe(householdId: String, request: AiRecipeGenerationRequest): Recipe =
+            recipes.firstOrNull() ?: Recipe(
+                title = "ИИ-рецепт",
+                ingredients = emptyList(),
+                steps = emptyList(),
+                time = "",
+                calories = 0,
+                aiGenerated = true
+            )
+
+        override suspend fun getLikedRecipes(householdId: String): List<Recipe> =
+            likedRecipes
+
+        override suspend fun setRecipeLiked(householdId: String, recipe: Recipe, liked: Boolean): List<Recipe> {
+            likedRecipes = if (liked) {
+                likedRecipes.filterNot { it.localIdentity() == recipe.localIdentity() } + recipe
+            } else {
+                likedRecipes.filterNot { it.localIdentity() == recipe.localIdentity() }
+            }
+            return likedRecipes
         }
     }
 
@@ -449,6 +669,51 @@ class PlatformScreenSmokeTest {
             expirationReminderDays: Int?
         ): NotificationSettings =
             getSettings()
+    }
+
+    private class FakeProfileRepository(
+        private var foodPreferences: FoodPreferences = FoodPreferences()
+    ) : ProfileRepository {
+        private var profile = UserProfile(id = "user-id", email = "user@example.com", name = "User")
+
+        override suspend fun getProfile(): UserProfile = profile
+
+        override suspend fun updateProfile(name: String): UserProfile {
+            profile = profile.copy(name = name)
+            return profile
+        }
+
+        override suspend fun getFoodPreferences(): FoodPreferences = foodPreferences
+
+        override suspend fun getFoodPreferenceOptions(householdId: String): FoodPreferenceOptions =
+            FoodPreferenceOptions()
+
+        override suspend fun updateFoodPreferences(preferences: FoodPreferences): FoodPreferences {
+            foodPreferences = preferences
+            return preferences
+        }
+    }
+
+    private class FakeTokenStorage : TokenStorage {
+        private var accessToken: String? = null
+        private var refreshToken: String? = null
+        private var userId: String? = null
+
+        override fun getAccessToken(): String? = accessToken
+        override fun getRefreshToken(): String? = refreshToken
+        override fun saveTokens(accessToken: String, refreshToken: String) {
+            this.accessToken = accessToken
+            this.refreshToken = refreshToken
+        }
+        override fun clearTokens() {
+            accessToken = null
+            refreshToken = null
+            userId = null
+        }
+        override fun getUserId(): String? = userId
+        override fun saveUserId(userId: String) {
+            this.userId = userId
+        }
     }
 
     private class FakeProductRepository(initialProducts: List<Product>) : ProductRepository {

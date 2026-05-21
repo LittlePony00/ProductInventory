@@ -9,5 +9,5 @@ sealed class HouseholdListAction : UiAction {
     data object CloseJoinDialog : HouseholdListAction()
     data class ShowInviteCode(val code: String, val expiresAt: String) : HouseholdListAction()
     data class ShowMessage(val message: String) : HouseholdListAction()
-    data object OpenProfile : HouseholdListAction()
+    data class OpenProfile(val householdId: String?) : HouseholdListAction()
 }

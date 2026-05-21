@@ -77,7 +77,7 @@ enum AppRoute: Hashable {
     case barcodeScan(householdId: String)
     case recipes(householdId: String)
     case notifications
-    case profile
+    case profile(householdId: String?)
 }
 
 final class AppRouter: ObservableObject {

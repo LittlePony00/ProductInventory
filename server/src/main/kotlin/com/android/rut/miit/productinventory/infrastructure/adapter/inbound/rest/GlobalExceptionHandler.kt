@@ -1,6 +1,7 @@
 package com.android.rut.miit.productinventory.infrastructure.adapter.inbound.rest
 
 import com.android.rut.miit.productinventory.application.dto.response.ErrorResponse
+import com.android.rut.miit.productinventory.application.service.AiRecipeUnavailableException
 import com.android.rut.miit.productinventory.domain.exception.*
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
@@ -64,6 +65,11 @@ class GlobalExceptionHandler {
     fun handleIllegalArgument(ex: IllegalArgumentException): ResponseEntity<ErrorResponse> =
         ResponseEntity.status(HttpStatus.BAD_REQUEST)
             .body(ErrorResponse(message = ex.message ?: "Invalid request", code = "BAD_REQUEST"))
+
+    @ExceptionHandler(AiRecipeUnavailableException::class)
+    fun handleAiRecipeUnavailable(ex: AiRecipeUnavailableException): ResponseEntity<ErrorResponse> =
+        ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+            .body(ErrorResponse(message = ex.message ?: "Генерация ИИ-рецепта недоступна", code = "AI_UNAVAILABLE"))
 
     @ExceptionHandler(Exception::class)
     fun handleGeneric(ex: Exception): ResponseEntity<ErrorResponse> =

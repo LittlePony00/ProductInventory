@@ -108,8 +108,8 @@ struct RootView: View {
             RecipeListScreen(householdId: id)
         case .notifications:
             NotificationListScreen()
-        case .profile:
-            ProfileScreen()
+        case .profile(let householdId):
+            ProfileScreen(householdId: householdId)
         }
     }
 }

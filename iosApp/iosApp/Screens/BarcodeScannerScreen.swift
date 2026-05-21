@@ -165,7 +165,7 @@ private struct DraftFoundView: View {
                     .font(.subheadline).foregroundColor(.secondary)
             }
             if draft.confidence > 0 {
-                Text("AI confidence: \(Int(draft.confidence * 100))%")
+                Text("Уверенность ИИ: \(Int(draft.confidence * 100))%")
                     .font(.caption).foregroundColor(.secondary)
             }
             Button("Сохранить") { onUseDraft() }

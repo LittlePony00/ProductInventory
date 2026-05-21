@@ -6,7 +6,9 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 import com.android.rut.miit.productinventory.core.local.BarcodeLocalDataSource
 import com.android.rut.miit.productinventory.core.local.CategoryLocalDataSource
 import com.android.rut.miit.productinventory.core.local.HouseholdLocalDataSource
+import com.android.rut.miit.productinventory.core.local.PersistentKeyValueStore
 import com.android.rut.miit.productinventory.core.local.ProductLocalDataSource
+import com.android.rut.miit.productinventory.core.local.SharedPreferencesPersistentKeyValueStore
 import com.android.rut.miit.productinventory.core.local.SyncQueue
 import com.android.rut.miit.productinventory.data.local.AppDatabase
 import com.android.rut.miit.productinventory.data.local.adapter.RoomBarcodeLocalDataSource
@@ -32,6 +34,7 @@ val roomModule = module {
     single<CategoryLocalDataSource> { RoomCategoryLocalDataSource(get()) }
     single<BarcodeLocalDataSource> { RoomBarcodeLocalDataSource(get()) }
     single<SyncQueue> { RoomSyncQueue(get()) }
+    single<PersistentKeyValueStore> { SharedPreferencesPersistentKeyValueStore(get()) }
 }
 
 private val MIGRATION_1_2 = object : Migration(1, 2) {

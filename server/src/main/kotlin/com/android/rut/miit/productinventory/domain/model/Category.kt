@@ -27,12 +27,12 @@ object SystemCategoryCatalog {
     val otherId: UUID = UUID.fromString("00000000-0000-0000-0000-000000000106")
 
     val categories: List<Category> = listOf(
-        Category(id = dairyId, code = ProductCategory.DAIRY, name = "Dairy"),
-        Category(id = meatFishId, code = ProductCategory.MEAT_FISH, name = "Meat/Fish"),
-        Category(id = vegetablesFruitsId, code = ProductCategory.VEGETABLES_FRUITS, name = "Vegetables/Fruits"),
-        Category(id = cerealsId, code = ProductCategory.CEREALS, name = "Cereals"),
-        Category(id = beveragesId, code = ProductCategory.BEVERAGES, name = "Beverages"),
-        Category(id = otherId, code = ProductCategory.OTHER, name = "Other")
+        Category(id = dairyId, code = ProductCategory.DAIRY, name = "Молочные продукты"),
+        Category(id = meatFishId, code = ProductCategory.MEAT_FISH, name = "Мясо и рыба"),
+        Category(id = vegetablesFruitsId, code = ProductCategory.VEGETABLES_FRUITS, name = "Овощи и фрукты"),
+        Category(id = cerealsId, code = ProductCategory.CEREALS, name = "Крупы и злаки"),
+        Category(id = beveragesId, code = ProductCategory.BEVERAGES, name = "Напитки"),
+        Category(id = otherId, code = ProductCategory.OTHER, name = "Другое")
     )
 
     fun idFor(category: ProductCategory): UUID =

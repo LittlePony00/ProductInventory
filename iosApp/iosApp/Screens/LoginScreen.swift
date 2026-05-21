@@ -43,7 +43,7 @@ struct LoginScreen: View {
                 .foregroundColor(.secondary)
 
             VStack(spacing: 16) {
-                TextField("Email", text: Binding(
+                TextField("Эл. почта", text: Binding(
                     get: { inputState?.email ?? "" },
                     set: { holder.sendEvent(LoginEvent.OnEmailChanged(email: $0)) }
                 ))

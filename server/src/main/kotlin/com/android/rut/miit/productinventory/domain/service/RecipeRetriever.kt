@@ -43,6 +43,19 @@ class RecipeRetriever(
             .toList()
     }
 
+    fun retrieveAny(limit: Int = DEFAULT_LIMIT): List<RecipeDocumentMatch> =
+        recipeKnowledgeRepository.findAll()
+            .shuffled()
+            .take(limit)
+            .map { document ->
+                RecipeDocumentMatch(
+                    document = document,
+                    score = RANDOM_RECIPE_SCORE,
+                    matchedProducts = emptyList(),
+                    appliedRules = document.rules
+                )
+            }
+
     private fun score(
         documentRequired: Set<String>,
         matchedProducts: List<Product>,
@@ -93,6 +106,7 @@ class RecipeRetriever(
 
     private companion object {
         const val DEFAULT_LIMIT = 3
+        const val RANDOM_RECIPE_SCORE = 50.0
         val INGREDIENT_ALIASES = mapOf(
             "milk" to setOf("молоко", "молоч"),
             "yogurt" to setOf("йогурт", "творог", "кефир", "ряженка"),

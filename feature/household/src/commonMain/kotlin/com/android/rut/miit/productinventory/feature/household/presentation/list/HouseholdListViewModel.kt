@@ -33,9 +33,16 @@ class HouseholdListViewModel(
                 generateInviteCode(event.householdId)
             is HouseholdListEvent.OnCreateHouseholdConfirm -> createHousehold(event.name)
             is HouseholdListEvent.OnJoinHouseholdConfirm -> joinHousehold(event.inviteCode)
-            is HouseholdListEvent.OnProfileClick ->
-                sendAction(HouseholdListAction.OpenProfile)
+            is HouseholdListEvent.OnProfileClick -> openProfile()
         }
+    }
+
+    private suspend fun openProfile() {
+        val householdId = (currentState as? HouseholdListState.Content)
+            ?.households
+            ?.firstOrNull()
+            ?.id
+        sendAction(HouseholdListAction.OpenProfile(householdId))
     }
 
     private fun loadHouseholds() {

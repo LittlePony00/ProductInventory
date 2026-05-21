@@ -49,6 +49,7 @@ final class ProductInventoryUITests: XCTestCase {
         XCTAssertTrue(app.buttons["productList.addProduct"].exists)
         XCTAssertTrue(app.buttons["productList.categories"].exists)
         XCTAssertTrue(app.buttons["productList.recipes"].exists)
+        XCTAssertTrue(app.buttons["productList.foodPreferences"].exists)
         XCTAssertTrue(app.buttons["productList.notifications"].exists)
     }
 }

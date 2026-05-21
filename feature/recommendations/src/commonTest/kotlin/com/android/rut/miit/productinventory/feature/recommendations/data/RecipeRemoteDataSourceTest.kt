@@ -4,6 +4,8 @@ import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.MockRequestHandleScope
 import io.ktor.client.engine.mock.respond
+import io.ktor.client.plugins.HttpTimeout
+import io.ktor.client.plugins.HttpTimeoutCapability
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.plugins.defaultRequest
 import io.ktor.client.request.header
@@ -48,8 +50,83 @@ class RecipeRemoteDataSourceTest {
         assertEquals("Rice Bowl", recipes.single().title)
     }
 
+    @Test
+    fun `get ingredient options decodes current products`() = runTest {
+        val engine = MockEngine { request ->
+            assertEquals("/api/v1/households/household-id/recipes/ingredients", request.url.encodedPath)
+            respond(
+                content = """
+                    [
+                      {
+                        "id": "product-id",
+                        "name": "Рис",
+                        "categoryName": "Крупы",
+                        "remainingAmount": 1.0,
+                        "unit": "PIECES",
+                        "expiring": false
+                      }
+                    ]
+                """.trimIndent(),
+                status = HttpStatusCode.OK,
+                headers = headersOf(HttpHeaders.ContentType, ContentType.Application.Json.toString())
+            )
+        }
+
+        val options = RecipeRemoteDataSource(httpClient(engine)).getIngredientOptions("household-id")
+
+        assertEquals("Рис", options.single().name)
+    }
+
+    @Test
+    fun `find recipes posts selected product ids`() = runTest {
+        val engine = MockEngine { request ->
+            assertEquals("/api/v1/households/household-id/recipes/search", request.url.encodedPath)
+            respondStrictRecipeJson()
+        }
+
+        val recipes = RecipeRemoteDataSource(httpClient(engine))
+            .findRecipes("household-id", com.android.rut.miit.productinventory.feature.recommendations.data.models.FindRecipeRequestDto(setOf("product-id")))
+
+        assertEquals("Rice Bowl", recipes.single().title)
+    }
+
+    @Test
+    fun `recipe discovery requests override timeout without affecting suggestions`() = runTest {
+        val observedTimeouts = mutableMapOf<String, Long?>()
+        val engine = MockEngine { request ->
+            observedTimeouts[request.url.encodedPath] =
+                request.getCapabilityOrNull(HttpTimeoutCapability)?.requestTimeoutMillis
+            if (request.url.encodedPath.endsWith("/ai-generated")) {
+                respondStrictRecipeObjectJson()
+            } else {
+                respondStrictRecipeJson()
+            }
+        }
+        val dataSource = RecipeRemoteDataSource(httpClient(engine))
+
+        dataSource.getRecipes("household-id")
+        dataSource.findRecipes(
+            "household-id",
+            com.android.rut.miit.productinventory.feature.recommendations.data.models.FindRecipeRequestDto(emptySet())
+        )
+        dataSource.generateAiRecipe(
+            "household-id",
+            com.android.rut.miit.productinventory.feature.recommendations.data.models.GenerateAiRecipeRequestDto()
+        )
+        dataSource.getRecipeSuggestions("household-id")
+
+        assertEquals(60_000L, observedTimeouts["/api/v1/households/household-id/recipes"])
+        assertEquals(60_000L, observedTimeouts["/api/v1/households/household-id/recipes/search"])
+        assertEquals(60_000L, observedTimeouts["/api/v1/households/household-id/recipes/ai-generated"])
+        assertEquals(12_000L, observedTimeouts["/api/v1/households/household-id/recipes/suggestions"])
+    }
+
     private fun httpClient(engine: MockEngine): HttpClient =
         HttpClient(engine) {
+            install(HttpTimeout) {
+                requestTimeoutMillis = 12_000
+                socketTimeoutMillis = 12_000
+            }
             install(ContentNegotiation) {
                 json(Json { ignoreUnknownKeys = true })
             }
@@ -75,6 +152,26 @@ class RecipeRemoteDataSourceTest {
                     "calories": 300
                   }
                 ]
+            """.trimIndent(),
+            status = HttpStatusCode.OK,
+            headers = headersOf(HttpHeaders.ContentType, ContentType.Application.Json.toString())
+        )
+
+    private fun MockRequestHandleScope.respondStrictRecipeObjectJson() =
+        respond(
+            content = """
+                {
+                  "title": "Rice Bowl",
+                  "ingredients": [
+                    {
+                      "name": "rice",
+                      "amount": "1 cup"
+                    }
+                  ],
+                  "steps": ["Cook rice"],
+                  "time": "15 minutes",
+                  "calories": 300
+                }
             """.trimIndent(),
             status = HttpStatusCode.OK,
             headers = headersOf(HttpHeaders.ContentType, ContentType.Application.Json.toString())

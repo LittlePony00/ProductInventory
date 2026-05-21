@@ -5,7 +5,8 @@ data class Recipe(
     val ingredients: List<RecipeIngredient>,
     val steps: List<String>,
     val time: String,
-    val calories: Int
+    val calories: Int,
+    val caloriesKnown: Boolean = true
 )
 
 data class RecipeIngredient(

@@ -196,7 +196,7 @@ struct AddProductScreen: View {
             } footer: {
                 Text("Используйте формат 2026-05-30. Статус срока годности появится в карточке продукта.")
             }
-            Section("AI-подсказки") {
+            Section("ИИ-подсказки") {
                 Button(action: { holder.sendEvent(AddProductEvent.OnSuggestProductClick()) }) {
                     HStack {
                         if state.isSuggestingProduct {

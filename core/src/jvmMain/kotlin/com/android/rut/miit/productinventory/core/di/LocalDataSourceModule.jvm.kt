@@ -5,6 +5,7 @@ import org.koin.core.module.Module
 import org.koin.dsl.module
 
 actual fun localDataSourceModule(): Module = module {
+    single<PersistentKeyValueStore> { InMemoryPersistentKeyValueStore() }
     single<ProductLocalDataSource> { JvmInMemoryProductLocalDataSource() }
     single<HouseholdLocalDataSource> { JvmInMemoryHouseholdLocalDataSource() }
     single<CategoryLocalDataSource> { JvmInMemoryCategoryLocalDataSource() }

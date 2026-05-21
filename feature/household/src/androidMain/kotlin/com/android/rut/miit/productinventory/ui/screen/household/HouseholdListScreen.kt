@@ -26,7 +26,7 @@ import kotlinx.coroutines.launch
 @Composable
 fun HouseholdListScreen(
     onNavigateToHousehold: (String) -> Unit,
-    onNavigateToProfile: () -> Unit,
+    onNavigateToProfile: (String?) -> Unit,
     viewModel: HouseholdListViewModel = koinViewModel()
 ) {
     val state by viewModel.viewState.collectAsStateWithLifecycle()
@@ -62,7 +62,7 @@ fun HouseholdListScreen(
                     }
                     snackbarHostState.showSnackbar(action.message)
                 }
-                is HouseholdListAction.OpenProfile -> onNavigateToProfile()
+                is HouseholdListAction.OpenProfile -> onNavigateToProfile(action.householdId)
             }
         }
     }

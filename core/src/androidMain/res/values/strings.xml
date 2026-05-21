@@ -18,7 +18,7 @@
     <!-- Auth -->
     <string name="login_title">Учёт продуктов</string>
     <string name="login_subtitle">Войдите в аккаунт</string>
-    <string name="login_email_label">Email</string>
+    <string name="login_email_label">Эл. почта</string>
     <string name="login_password_label">Пароль</string>
     <string name="login_button">Войти</string>
     <string name="login_no_account">Нет аккаунта? Зарегистрироваться</string>
@@ -56,7 +56,7 @@
     <string name="products_expiration">Годен до: %s</string>
     <string name="products_inventory_level">Остаток: %1$.2f / %2$.2f %3$s</string>
     <string name="products_low_stock_badge">Низкий запас</string>
-    <string name="products_realtime_active">Live</string>
+    <string name="products_realtime_active">Онлайн</string>
     <string name="filter_clear">Сбросить фильтры</string>
     <string name="expiration_fresh">Свежий</string>
     <string name="expiration_soon">Скоро истекает</string>
@@ -85,7 +85,7 @@
     <string name="product_delete_confirm_message">«%s» исчезнет из списка запасов. Это действие нельзя быстро отменить.</string>
     <string name="product_low_stock_threshold_label">Порог низкого запаса</string>
     <string name="product_expiration_label">Срок годности (ГГГГ-ММ-ДД)</string>
-    <string name="product_ai_suggestions_section">AI-подсказки</string>
+    <string name="product_ai_suggestions_section">ИИ-подсказки</string>
     <string name="product_ai_suggestions_section_hint">Дополнительные данные для рекомендаций и карточки продукта</string>
     <string name="product_main_section">Основное</string>
     <string name="product_main_section_hint">Название, бренд, штрихкод и категория</string>
@@ -135,9 +135,27 @@
 
     <!-- Profile -->
     <string name="profile_title">Профиль</string>
-    <string name="profile_email_label">Email</string>
+    <string name="profile_email_label">Эл. почта</string>
     <string name="profile_name_label">Имя</string>
     <string name="profile_edit">Изменить</string>
+    <string name="profile_food_preferences">Пищевые предпочтения</string>
+    <string name="profile_preferred_cuisines">Любимые кухни</string>
+    <string name="profile_disliked_ingredients">Нежелательные ингредиенты</string>
+    <string name="profile_allergies">Аллергии</string>
+    <string name="profile_dietary_restrictions">Ограничения питания</string>
+    <string name="profile_preferred_products">Любимые продукты</string>
+    <string name="profile_preferred_products_text">Любимые продукты</string>
+    <string name="profile_preferred_products_selected">Любимые продукты из запасов</string>
+    <string name="profile_avoided_products">Продукты, которых избегать</string>
+    <string name="profile_avoided_products_text">Продукты, которых избегать</string>
+    <string name="profile_avoided_products_selected">Продукты из запасов, которых избегать</string>
+    <string name="profile_preferred_categories">Любимые категории</string>
+    <string name="profile_avoided_categories">Категории, которых избегать</string>
+    <string name="profile_max_cooking_time">Макс. время, мин</string>
+    <string name="profile_preferred_difficulty">Сложность</string>
+    <string name="profile_servings">Порции</string>
+    <string name="profile_food_preferences_hint">Указывайте значения через запятую. Ограничения питания можно вводить по-русски: вегетарианство, веганство, без глютена, без молочного, без орехов, халяль, кошерно.</string>
+    <string name="profile_not_set">Не указано</string>
     <string name="profile_logout">Выйти из аккаунта</string>
     <string name="profile_logout_confirm_title">Выйти из аккаунта?</string>
     <string name="profile_logout_confirm_message">Для работы с домохозяйствами и запасами потребуется снова войти.</string>
@@ -163,10 +181,39 @@
     <!-- Recipes -->
     <string name="recipes_title">Рецепты</string>
     <string name="recipes_generate">Сгенерировать</string>
+    <string name="recipes_generate_current">Найти рецепт</string>
+    <string name="recipes_select_ingredients_title">Выберите продукты</string>
+    <string name="recipes_select_ingredients_hint">Отметьте продукты, из которых нужно найти рецепт.</string>
+    <string name="recipes_find_selected">Найти рецепт</string>
+    <string name="recipes_random_recipe">Рандомные рецепты</string>
+    <string name="recipes_tab_discover">Поиск</string>
+    <string name="recipes_tab_liked">Понравившиеся</string>
+    <string name="recipes_like_heart">♡ В понравившиеся</string>
+    <string name="recipes_unlike_heart">♥ Убрать</string>
+    <string name="recipes_no_ingredients">Нет доступных продуктов</string>
+    <string name="recipes_ai_assisted_badge">AI-Assisted</string>
+    <string name="recipes_ai_assisted_title">Что значит AI-Assisted?</string>
+    <string name="recipes_ai_assisted_message">ИИ помог найти идею рецепта с учётом сохранённых ограничений. Проверьте источник, ингредиенты и аллергены перед использованием.</string>
+    <string name="recipes_use_soon">Использовать скоро</string>
+    <string name="recipes_ai_recipe">ИИ-рецепт</string>
+    <string name="recipes_under_30">До 30 мин</string>
+    <string name="recipes_few_missing">Мало недостающих</string>
+    <string name="recipes_ai_generated_filter">Создано ИИ</string>
+    <string name="recipes_ai_badge">ИИ</string>
+    <string name="recipes_ai_warning_title">Создать ИИ-рецепт?</string>
+    <string name="recipes_ai_warning_message">Рецепт создан ИИ. Проверьте ингредиенты, аллергены и шаги приготовления перед использованием.</string>
+    <string name="recipes_ai_confirm">Создать</string>
+    <string name="recipes_used_products">Использует:</string>
+    <string name="recipes_expiring_products">Скоро использовать:</string>
+    <string name="recipes_missing_products">Не хватает:</string>
+    <string name="recipes_reasons">Почему подходит:</string>
+    <string name="recipes_warnings">Предупреждения:</string>
     <string name="recipes_empty">Нет рецептов</string>
     <string name="recipes_empty_hint">Сгенерируйте рекомендации из текущих запасов домохозяйства</string>
     <string name="recipes_no_suggestions">Нет подходящих рецептов</string>
     <string name="recipes_no_suggestions_hint">В текущих запасах не нашлось сочетаний для рекомендаций. Добавьте продукты или измените остатки.</string>
+    <string name="recipes_no_liked">Нет понравившихся рецептов</string>
+    <string name="recipes_no_liked_hint">Нажмите «В понравившиеся» на рецепте, чтобы сохранить его только на этом устройстве.</string>
     <string name="recipes_ingredients">Ингредиенты:</string>
     <string name="recipes_instructions">Приготовление:</string>
 

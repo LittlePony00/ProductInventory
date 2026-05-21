@@ -104,7 +104,7 @@ fun App() {
             composable<Route.HouseholdList> {
                 HouseholdListScreen(
                     onNavigateToHousehold = { id -> navController.navigate(Route.ProductList(id)) },
-                    onNavigateToProfile = { navController.navigate(Route.Profile) }
+                    onNavigateToProfile = { householdId -> navController.navigate(Route.Profile(householdId)) }
                 )
             }
 
@@ -117,6 +117,7 @@ fun App() {
                     onBack = { navController.popBackStack() },
                     onManageCategories = { navController.navigate(Route.Categories(route.householdId)) },
                     onNavigateToRecipes = { navController.navigate(Route.Recipes(route.householdId)) },
+                    onNavigateToProfile = { navController.navigate(Route.Profile(route.householdId)) },
                     onNavigateToNotifications = { navController.navigate(Route.Notifications) },
                     onNavigateToBarcodeScan = { navController.navigate(Route.BarcodeScan(route.householdId)) }
                 )
@@ -167,8 +168,10 @@ fun App() {
                 )
             }
 
-            composable<Route.Profile> {
+            composable<Route.Profile> { entry ->
+                val route = entry.toRoute<Route.Profile>()
                 ProfileScreen(
+                    householdId = route.householdId,
                     onNavigateToLogin = {
                         isAuthenticated = false
                         navController.navigate(Route.Login) {

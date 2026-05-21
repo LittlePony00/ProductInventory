@@ -29,8 +29,8 @@ struct HouseholdListScreen: View {
                             showJoinDialog = true
                         case let a as HouseholdListAction.ShowInviteCode:
                             inviteCodeDialog = InviteCodeDialogState(code: a.code, expiresAt: a.expiresAt)
-                        case is HouseholdListAction.OpenProfile:
-                            router.push(.profile)
+                        case let a as HouseholdListAction.OpenProfile:
+                            router.push(.profile(householdId: a.householdId))
                         default:
                             break
                         }

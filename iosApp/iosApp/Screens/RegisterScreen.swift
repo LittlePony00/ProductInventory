@@ -45,7 +45,7 @@ struct RegisterScreen: View {
                 ))
                 .textFieldStyle(.roundedBorder)
 
-                TextField("Email", text: Binding(
+                TextField("Эл. почта", text: Binding(
                     get: { inputState?.email ?? "" },
                     set: { holder.sendEvent(RegisterEvent.OnEmailChanged(email: $0)) }
                 ))

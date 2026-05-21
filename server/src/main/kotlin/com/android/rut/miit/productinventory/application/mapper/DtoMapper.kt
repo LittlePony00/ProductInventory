@@ -16,6 +16,40 @@ fun User.toResponse() = UserResponse(
     name = name
 )
 
+fun UserFoodPreferences.toResponse() = FoodPreferencesResponse(
+    preferredCuisines = preferredCuisines,
+    preferredProducts = preferredProducts,
+    dislikedIngredients = dislikedIngredients,
+    avoidedProducts = avoidedProducts,
+    allergies = allergies,
+    dietaryRestrictions = dietaryRestrictions,
+    preferredProductIds = preferredProductIds,
+    avoidedProductIds = avoidedProductIds,
+    preferredCategoryIds = preferredCategoryIds,
+    avoidedCategoryIds = avoidedCategoryIds,
+    maxCookingTimeMinutes = maxCookingTimeMinutes,
+    preferredDifficulty = preferredDifficulty,
+    servings = servings
+)
+
+fun FoodPreferencesOptions.toResponse() = FoodPreferencesOptionsResponse(
+    products = products.map {
+        FoodPreferenceProductOptionResponse(
+            id = it.id,
+            name = it.name,
+            categoryId = it.categoryId,
+            categoryName = it.categoryName
+        )
+    },
+    categories = categories.map {
+        FoodPreferenceCategoryOptionResponse(
+            id = it.id,
+            name = it.name,
+            system = it.system
+        )
+    }
+)
+
 fun Product.toResponse() = ProductResponse(
     id = id,
     name = name,
@@ -78,7 +112,41 @@ fun Recipe.toResponse() = RecipeResponse(
     },
     steps = steps,
     time = time,
-    calories = calories
+    calories = calories,
+    caloriesKnown = caloriesKnown
+)
+
+fun RecipeRecommendation.toResponse() = RecipeResponse(
+    id = id,
+    title = title,
+    ingredients = ingredients.map {
+        RecipeIngredientResponse(name = it.name, amount = it.amount)
+    },
+    steps = steps,
+    time = time,
+    cookingTimeMinutes = cookingTimeMinutes,
+    calories = calories,
+    caloriesKnown = caloriesKnown,
+    source = source,
+    sourceUrl = sourceUrl,
+    imageUrl = imageUrl,
+    score = score,
+    usedHouseholdProducts = usedHouseholdProducts,
+    usedExpiringProducts = usedExpiringProducts,
+    missingIngredients = missingIngredients,
+    reasons = reasons,
+    warnings = warnings,
+    aiAssisted = aiAssisted,
+    aiGenerated = aiGenerated
+)
+
+fun RecipeIngredientOption.toResponse() = RecipeIngredientOptionResponse(
+    id = id,
+    name = name,
+    categoryName = categoryName,
+    remainingAmount = remainingAmount,
+    unit = unit,
+    expiring = expiring
 )
 
 fun Membership.toResponse(user: User) = MembershipResponse(

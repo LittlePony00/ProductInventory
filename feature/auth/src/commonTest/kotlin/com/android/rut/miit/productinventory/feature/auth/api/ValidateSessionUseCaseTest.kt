@@ -4,6 +4,8 @@ import com.android.rut.miit.productinventory.core.network.ApiException
 import com.android.rut.miit.productinventory.core.storage.TokenStorage
 import com.android.rut.miit.productinventory.feature.profile.api.GetProfileUseCase
 import com.android.rut.miit.productinventory.feature.profile.api.ProfileRepository
+import com.android.rut.miit.productinventory.feature.profile.api.models.FoodPreferenceOptions
+import com.android.rut.miit.productinventory.feature.profile.api.models.FoodPreferences
 import com.android.rut.miit.productinventory.feature.profile.api.models.UserProfile
 import kotlin.test.Test
 import kotlin.test.assertFalse
@@ -67,6 +69,10 @@ class ValidateSessionUseCaseTest {
 
         override suspend fun updateProfile(name: String): UserProfile =
             UserProfile(id = "user-id", email = "user@example.com", name = name)
+
+        override suspend fun getFoodPreferences(): FoodPreferences = FoodPreferences()
+        override suspend fun getFoodPreferenceOptions(householdId: String): FoodPreferenceOptions = FoodPreferenceOptions()
+        override suspend fun updateFoodPreferences(preferences: FoodPreferences): FoodPreferences = preferences
     }
 
     private class FakeTokenStorage : TokenStorage {
