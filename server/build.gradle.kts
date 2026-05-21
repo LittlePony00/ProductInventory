@@ -31,6 +31,7 @@ dependencies {
     implementation(libs.jjwt.api)
     runtimeOnly(libs.jjwt.impl)
     runtimeOnly(libs.jjwt.jackson)
+    implementation(libs.jsoup)
 
     testImplementation(libs.spring.boot.starter.test)
     testImplementation(libs.spring.security.test)

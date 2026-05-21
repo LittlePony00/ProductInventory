@@ -59,7 +59,8 @@ data class RecipeDiscoveryResult(
     val imageUrl: String? = null,
     val reasons: List<String> = emptyList(),
     val warnings: List<String> = emptyList(),
-    val aiAssisted: Boolean = false
+    val aiAssisted: Boolean = false,
+    val requiresLocalization: Boolean = source == RecipeSource.EXTERNAL_API
 )
 
 data class AiRecipeGenerationRequest(

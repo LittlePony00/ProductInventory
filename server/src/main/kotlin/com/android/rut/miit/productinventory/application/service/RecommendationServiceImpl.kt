@@ -124,7 +124,7 @@ class RecommendationServiceImpl(
 
     private fun localizeExternalRecipes(results: List<RecipeDiscoveryResult>): List<RecipeDiscoveryResult> {
         if (results.isEmpty()) return emptyList()
-        val externalResults = results.filter { it.source == RecipeSource.EXTERNAL_API }
+        val externalResults = results.filter { it.source == RecipeSource.EXTERNAL_API && it.requiresLocalization }
         if (externalResults.isEmpty()) return results
         val localizedByIndex = runCatching {
             aiRecipeLocalizer
@@ -133,7 +133,7 @@ class RecommendationServiceImpl(
         }.getOrDefault(emptyList())
         var externalIndex = 0
         return results.mapNotNull { result ->
-            if (result.source != RecipeSource.EXTERNAL_API) {
+            if (result.source != RecipeSource.EXTERNAL_API || !result.requiresLocalization) {
                 result
             } else {
                 localizedByIndex

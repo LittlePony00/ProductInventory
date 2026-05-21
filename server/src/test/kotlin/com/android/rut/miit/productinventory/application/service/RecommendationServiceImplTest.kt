@@ -366,6 +366,71 @@ class RecommendationServiceImplTest {
     }
 
     @Test
+    fun `find recipes queries every external provider and merges their results with ai-assisted`() {
+        val userId = UUID.randomUUID()
+        val householdId = UUID.randomUUID()
+        val chicken = product(name = "Курица", householdId = householdId)
+        val russianProvider = RecordingRecipeSearchProvider(
+            externalRecipe("Русский рецепт с курицей", "курица").copy(requiresLocalization = false)
+        )
+        val translatedProvider = RecordingRecipeSearchProvider(externalRecipe("Chicken stew", "chicken"))
+        val service = service(
+            productRepository = FakeProductRepository(listOf(chicken)),
+            membershipRepository = FakeMembershipRepository(
+                listOf(Membership(userId = userId, householdId = householdId, role = MembershipRole.OWNER))
+            ),
+            candidateProvider = RecordingCandidateProvider(),
+            externalRecipeSearchProviders = listOf(russianProvider, translatedProvider),
+            aiRecipeLocalizer = FixedRecipeLocalizer(
+                Recipe(
+                    title = "Переведённое рагу с курицей",
+                    ingredients = listOf(RecipeIngredient("курица", "300 г")),
+                    steps = listOf("Потушить курицу"),
+                    time = "35 минут",
+                    calories = 320
+                )
+            ),
+            aiRecipeSearchProvider = FixedAiRecipeSearchProvider(aiAssistedRecipe("Подборка с курицей", "курица"))
+        )
+
+        val recipes = service.findRecipes(userId, householdId, RecipeSearchRequest(selectedProductIds = setOf(chicken.id)))
+
+        assertEquals(1, russianProvider.calls)
+        assertEquals(1, translatedProvider.calls)
+        assertEquals(
+            setOf("Русский рецепт с курицей", "Переведённое рагу с курицей", "Подборка с курицей"),
+            recipes.map { it.title }.toSet()
+        )
+        assertEquals(2, recipes.count { it.source == RecipeSource.EXTERNAL_API })
+        assertEquals(1, recipes.count { it.aiAssisted })
+    }
+
+    @Test
+    fun `find recipes treats chicken product as used by Russian chicken ingredient names`() {
+        val userId = UUID.randomUUID()
+        val householdId = UUID.randomUUID()
+        val chicken = product(name = "Курица", householdId = householdId)
+        val service = service(
+            productRepository = FakeProductRepository(listOf(chicken)),
+            membershipRepository = FakeMembershipRepository(
+                listOf(Membership(userId = userId, householdId = householdId, role = MembershipRole.OWNER))
+            ),
+            candidateProvider = RecordingCandidateProvider(),
+            externalRecipeSearchProviders = listOf(
+                FixedRecipeSearchProvider(
+                    externalRecipe("Салат с курицей", "Куриное мясо отварное")
+                        .copy(requiresLocalization = false)
+                )
+            )
+        )
+
+        val recipes = service.findRecipes(userId, householdId, RecipeSearchRequest(selectedProductIds = setOf(chicken.id)))
+
+        assertEquals(listOf("Курица"), recipes.single().usedHouseholdProducts)
+        assertTrue("Куриное мясо отварное" !in recipes.single().missingIngredients)
+    }
+
+    @Test
     fun `find recipes includes ai-assisted result even when deduped source results fill the limit`() {
         val userId = UUID.randomUUID()
         val householdId = UUID.randomUUID()
@@ -479,6 +544,31 @@ class RecommendationServiceImplTest {
         assertEquals("25 минут", recipes.single().time)
         assertEquals(320, recipes.single().calories)
         assertEquals(true, recipes.single().caloriesKnown)
+    }
+
+    @Test
+    fun `find recipes keeps Russian external recipes without AI localization`() {
+        val userId = UUID.randomUUID()
+        val householdId = UUID.randomUUID()
+        val localizer = RecordingRecipeLocalizer()
+        val service = service(
+            productRepository = FakeProductRepository(listOf(product(name = "Курица", householdId = householdId))),
+            membershipRepository = FakeMembershipRepository(
+                listOf(Membership(userId = userId, householdId = householdId, role = MembershipRole.OWNER))
+            ),
+            candidateProvider = RecordingCandidateProvider(),
+            externalRecipeSearchProviders = listOf(
+                FixedRecipeSearchProvider(
+                    externalRecipe("Салат с курицей", "Куриная грудка").copy(requiresLocalization = false)
+                )
+            ),
+            aiRecipeLocalizer = localizer
+        )
+
+        val recipes = service.findRecipes(userId, householdId, RecipeSearchRequest())
+
+        assertEquals("Салат с курицей", recipes.single().title)
+        assertEquals(0, localizer.batchCalls)
     }
 
     @Test
@@ -765,6 +855,19 @@ class RecommendationServiceImplTest {
     private class PassThroughRecipeLocalizer : IAiRecipeLocalizer {
         override fun localizeAndEnrichFoundRecipe(recipe: Recipe): Recipe =
             recipe
+    }
+
+    private class RecordingRecipeLocalizer : IAiRecipeLocalizer {
+        var batchCalls = 0
+
+        override fun localizeAndEnrichFoundRecipe(recipe: Recipe): Recipe {
+            error("Single localization must not be called")
+        }
+
+        override fun localizeAndEnrichFoundRecipes(recipes: List<Recipe>): List<Recipe?> {
+            batchCalls += 1
+            return recipes
+        }
     }
 
     private class FakeFoodPreferencesRepository(

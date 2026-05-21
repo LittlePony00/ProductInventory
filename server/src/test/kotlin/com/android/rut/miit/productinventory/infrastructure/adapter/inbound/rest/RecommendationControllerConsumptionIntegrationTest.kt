@@ -246,6 +246,51 @@ class RecommendationControllerConsumptionIntegrationTest {
             .andExpect(jsonPath("$.length()", equalTo(3)))
     }
 
+    @Test
+    fun `search API treats Russian chicken ingredient variants as selected chicken product`() {
+        val userId = UUID.randomUUID()
+        val householdId = UUID.randomUUID()
+        val productRepository = InMemoryProductRepository(
+            listOf(product(name = "Курица", remainingAmount = 1.0, householdId = householdId, userId = userId))
+        )
+        val chickenId = productRepository.productIdByName("Курица")
+        val recommendationService = RecommendationServiceImpl(
+            contextBuilder = RecommendationContextBuilder(
+                productRepository = productRepository,
+                membershipRepository = FakeMembershipRepository(
+                    listOf(Membership(userId = userId, householdId = householdId, role = MembershipRole.OWNER))
+                ),
+                preferencesRepository = NoopFoodPreferencesRepository(),
+                expirationCheckService = ExpirationCheckService()
+            ),
+            safetyFilter = RecipeSafetyFilter(),
+            aiRecipeGenerator = NoopAiRecipeGenerator(),
+            externalRecipeSearchProviders = listOf(
+                FixedExternalRecipeProvider(
+                    discoveryRecipe(
+                        title = "Салат с курицей",
+                        ingredients = listOf(RecipeIngredient("Куриное мясо отварное", "300 грамм"))
+                    ).copy(requiresLocalization = false)
+                )
+            ),
+            aiRecipeLocalizer = PassThroughRecipeLocalizer()
+        )
+        val mockMvc = MockMvcBuilders
+            .standaloneSetup(RecommendationController(recommendationService))
+            .setControllerAdvice(GlobalExceptionHandler())
+            .build()
+        authenticate(userId)
+
+        mockMvc.perform(
+            post("/api/v1/households/$householdId/recipes/search")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"selectedProductIds":["$chickenId"]}""")
+        )
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$[0].title", equalTo("Салат с курицей")))
+            .andExpect(jsonPath("$[0].usedHouseholdProducts[0]", equalTo("Курица")))
+            .andExpect(jsonPath("$[0].missingIngredients.length()", equalTo(0)))
+    }
 
     private fun expectGigaChatRecipeWithUnknownCalories(server: MockRestServiceServer) {
         server.expect(requestTo("https://oauth.test/token"))
@@ -322,6 +367,13 @@ class RecommendationControllerConsumptionIntegrationTest {
             randomContexts += context
             return titles.map { title -> discoveryRecipe(title = title) }
         }
+    }
+
+    private class FixedExternalRecipeProvider(
+        private val recipe: RecipeDiscoveryResult
+    ) : IExternalRecipeSearchProvider {
+        override fun searchRecipes(context: RecommendationContext): List<RecipeDiscoveryResult> =
+            listOf(recipe)
     }
 
     private companion object {

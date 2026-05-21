@@ -45,12 +45,24 @@ product-images:
 
 gigachat:
   base-url: ${GIGACHAT_BASE_URL:https://gigachat.devices.sberbank.ru/api/v1}
-  api-key: ${GIGACHAT_API_KEY:${GIGA_CHAT_API:}}
+  api-key: ${GIGACHAT_API_KEY:${GIGA_CHAT_API:${GIGACHAT_API:}}}
   oauth-url: ${GIGACHAT_OAUTH_URL:https://ngw.devices.sberbank.ru:9443/api/v2/oauth}
   scope: ${GIGACHAT_SCOPE:GIGACHAT_API_PERS}
 
 local-recipes:
   enabled: ${LOCAL_RECIPES_ENABLED:false}
+
+external-recipes:
+  povar:
+    enabled: ${POVAR_RECIPES_ENABLED:true}
+    base-url: ${POVAR_RECIPES_BASE_URL:https://povar.ru}
+    max-products: ${POVAR_RECIPES_MAX_PRODUCTS:2}
+    max-recipes: ${POVAR_RECIPES_MAX_RECIPES:3}
+  themealdb:
+    enabled: ${THEMEALDB_RECIPES_ENABLED:true}
+    base-url: ${THEMEALDB_RECIPES_BASE_URL:https://www.themealdb.com/api/json/v1/1}
+    max-products: ${THEMEALDB_RECIPES_MAX_PRODUCTS:3}
+    max-recipes: ${THEMEALDB_RECIPES_MAX_RECIPES:4}
 
 firebase:
   project-id: ${FIREBASE_PROJECT_ID:}

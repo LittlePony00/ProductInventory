@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-if [[ -z "${GIGACHAT_API_KEY:-}" ]]; then
-  echo "GIGACHAT_API_KEY is required" >&2
+GIGACHAT_API_KEY="${GIGACHAT_API_KEY:-${GIGA_CHAT_API:-${GIGACHAT_API:-}}}"
+
+if [[ -z "$GIGACHAT_API_KEY" ]]; then
+  echo "GIGACHAT_API_KEY, GIGA_CHAT_API, or GIGACHAT_API is required" >&2
   exit 2
 fi
 
@@ -17,5 +19,6 @@ JAVA_TRUST_OPTIONS="-Djavax.net.ssl.trustStore=$TRUSTSTORE -Djavax.net.ssl.trust
 
 cd "$ROOT_DIR"
 JAVA_TOOL_OPTIONS="${JAVA_TOOL_OPTIONS:+$JAVA_TOOL_OPTIONS }$JAVA_TRUST_OPTIONS" \
+  GIGACHAT_API_KEY="$GIGACHAT_API_KEY" \
   RUN_GIGACHAT_LIVE_TEST=true \
   ./gradlew :server:test --tests '*GigaChatLiveIntegrationTest' --rerun-tasks

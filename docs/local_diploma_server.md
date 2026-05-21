@@ -29,17 +29,22 @@ SERVER_PORT=8082 ./scripts/start_local_diploma_server.sh
 ```
 
 Enable live GigaChat recipe generation by setting `GIGACHAT_API_KEY` before
-starting the backend. The start script creates a local truststore for the
-GigaChat certificate chain and passes it to the JVM automatically.
+starting the backend. `GIGA_CHAT_API` and `GIGACHAT_API` are accepted aliases.
+The start script creates a local truststore for the GigaChat certificate chain
+and passes it to the JVM automatically.
 
 ```bash
 GIGACHAT_API_KEY=<secret> ./scripts/start_local_diploma_server.sh
+# or
+GIGACHAT_API=<secret> ./scripts/start_local_diploma_server.sh
 ```
 
 To validate GigaChat without starting the full backend, run the live check:
 
 ```bash
 GIGACHAT_API_KEY=<secret> server/scripts/check-gigachat-live.sh
+# or
+GIGACHAT_API=<secret> server/scripts/check-gigachat-live.sh
 ```
 
 The live check runs only the opt-in GigaChat integration test and does not

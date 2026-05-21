@@ -19,6 +19,7 @@ spring-boot = "3.4.5"
 spring-dependency-management = "1.1.7"
 postgresql = "42.7.4"
 jjwt = "0.12.6"
+jsoup = "1.21.1"
 coroutines = "1.10.2"
 kotlinx-serialization = "1.8.1"
 kotlinx-datetime = "0.6.2"
@@ -70,6 +71,7 @@ postgresql = { module = "org.postgresql:postgresql", version.ref = "postgresql" 
 jjwt-api = { module = "io.jsonwebtoken:jjwt-api", version.ref = "jjwt" }
 jjwt-impl = { module = "io.jsonwebtoken:jjwt-impl", version.ref = "jjwt" }
 jjwt-jackson = { module = "io.jsonwebtoken:jjwt-jackson", version.ref = "jjwt" }
+jsoup = { module = "org.jsoup:jsoup", version.ref = "jsoup" }
 kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "coroutines" }
 kotlinx-coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version.ref = "coroutines" }
 androidx-lifecycle-viewmodel = { module = "org.jetbrains.androidx.lifecycle:lifecycle-viewmodel", version.ref = "androidx-lifecycle" }
