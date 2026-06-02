@@ -207,7 +207,7 @@ private class CapturingProductRepository : ProductRepository {
             carbs = null
         )
 
-    override suspend fun upsertCachedProduct(product: Product) = Unit
+    override suspend fun upsertCachedProduct(product: Product): Product = product
     override suspend fun deleteCachedProduct(productId: String) = Unit
 
     override suspend fun updateProduct(

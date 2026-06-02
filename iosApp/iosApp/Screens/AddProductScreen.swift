@@ -32,6 +32,7 @@ struct AddProductScreen: View {
             imageUrl: nil,
             localImagePath: nil,
             isImageRemoved: false,
+            isImageChanged: false,
             calories: "",
             protein: "",
             fat: "",

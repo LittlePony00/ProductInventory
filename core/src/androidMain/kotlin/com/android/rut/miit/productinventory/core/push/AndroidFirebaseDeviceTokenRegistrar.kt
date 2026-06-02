@@ -7,6 +7,7 @@ import com.google.firebase.messaging.FirebaseMessaging
 import io.ktor.client.HttpClient
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
+import io.ktor.http.*
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.serialization.Serializable
 import kotlin.coroutines.resume
@@ -35,6 +36,7 @@ class AndroidFirebaseDeviceTokenRegistrar(
         savePendingToken(normalizedToken)
         if (tokenStorage.getAccessToken().isNullOrBlank()) return
         httpClient.post("${ApiConstants.API_V1}/notifications/preferences/device-tokens") {
+            contentType(ContentType.Application.Json)
             setBody(RegisterDeviceTokenRequestDto(token = normalizedToken, platform = "ANDROID"))
         }
         clearPendingToken(normalizedToken)

@@ -20,3 +20,21 @@ class JvmProductImageFileReader : ProductImageFileReader {
             else -> "image/jpeg"
         }
 }
+
+class JvmProductImageLocalCache : ProductImageLocalCache {
+    override fun localPathForRemoteImage(productId: String, imageUrl: String): String {
+        val directory = File(System.getProperty("java.io.tmpdir"), "productinventory/product-images/remote")
+        return File(directory, remoteProductImageFileName(productId, imageUrl)).absolutePath
+    }
+
+    override suspend fun exists(path: String): Boolean =
+        File(path).let { it.exists() && it.isFile }
+
+    override suspend fun write(path: String, bytes: ByteArray): Boolean =
+        runCatching {
+            val file = File(path)
+            file.parentFile?.mkdirs()
+            file.writeBytes(bytes)
+            true
+        }.getOrDefault(false)
+}

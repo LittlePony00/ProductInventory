@@ -7,6 +7,7 @@ import com.android.rut.miit.productinventory.feature.notifications.data.models.U
 import io.ktor.client.*
 import io.ktor.client.call.*
 import io.ktor.client.request.*
+import io.ktor.http.*
 
 class NotificationRemoteDataSource(private val httpClient: HttpClient) {
 
@@ -34,6 +35,7 @@ class NotificationRemoteDataSource(private val httpClient: HttpClient) {
         request: UpdateNotificationSettingsRequestDto
     ): NotificationSettingsResponseDto {
         return httpClient.put("${ApiConstants.API_V1}/notifications/preferences") {
+            contentType(ContentType.Application.Json)
             setBody(request)
         }.body()
     }

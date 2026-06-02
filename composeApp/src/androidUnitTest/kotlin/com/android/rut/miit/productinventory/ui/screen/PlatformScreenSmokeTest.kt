@@ -794,8 +794,9 @@ class PlatformScreenSmokeTest {
             ingredientsText: String?
         ): ProductEnrichmentSuggestion = error("Unused")
 
-        override suspend fun upsertCachedProduct(product: Product) {
+        override suspend fun upsertCachedProduct(product: Product): Product {
             products[product.id] = product
+            return product
         }
 
         override suspend fun deleteCachedProduct(productId: String) {

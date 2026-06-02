@@ -18,6 +18,7 @@ import com.android.rut.miit.productinventory.feature.products.api.models.Quantit
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -119,6 +120,75 @@ class AddProductViewModelTest {
 
     @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
     @Test
+    fun `selected local image clears stale remote image url on add`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        try {
+            val repository = RecordingProductRepository()
+            val viewModel = AddProductViewModel(
+                AddProductUseCase(repository),
+                UpdateProductUseCase(repository),
+                GetProductUseCase(repository),
+                GetProductCategoriesUseCase(FakeCategoryRepository()),
+                CreateProductCategoryUseCase(FakeCategoryRepository()),
+                SuggestProductEnrichmentUseCase(repository)
+            )
+
+            viewModel.onEvent(AddProductEvent.OnCreate("household-id"))
+            viewModel.onEvent(
+                AddProductEvent.OnPrefill(
+                    name = "Milk",
+                    imageUrl = "https://cdn.example.test/stale.jpg"
+                )
+            )
+            viewModel.onEvent(AddProductEvent.OnQuantityChanged("1"))
+            viewModel.onEvent(AddProductEvent.OnImageSelected("/local/product-images/milk.jpg"))
+            advanceUntilIdle()
+
+            viewModel.onEvent(AddProductEvent.OnSaveClick)
+            advanceUntilIdle()
+
+            val request = repository.requests.single()
+            assertNull(request.imageUrl)
+            assertEquals("/local/product-images/milk.jpg", request.localImagePath)
+        } finally {
+            Dispatchers.resetMain()
+        }
+    }
+
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    @Test
+    fun `create event resets stale add form state`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        try {
+            val repository = RecordingProductRepository()
+            val viewModel = AddProductViewModel(
+                AddProductUseCase(repository),
+                UpdateProductUseCase(repository),
+                GetProductUseCase(repository),
+                GetProductCategoriesUseCase(FakeCategoryRepository()),
+                CreateProductCategoryUseCase(FakeCategoryRepository()),
+                SuggestProductEnrichmentUseCase(repository)
+            )
+
+            viewModel.onEvent(AddProductEvent.OnNameChanged("Stale"))
+            viewModel.onEvent(AddProductEvent.OnImageSelected("/local/stale.jpg"))
+            advanceUntilIdle()
+
+            viewModel.onEvent(AddProductEvent.OnCreate("household-id"))
+            advanceUntilIdle()
+
+            val state = viewModel.viewState.value
+            assertEquals("", state.name)
+            assertNull(state.imageUrl)
+            assertNull(state.localImagePath)
+            assertFalse(state.isImageChanged)
+        } finally {
+            Dispatchers.resetMain()
+        }
+    }
+
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    @Test
     fun `loads existing product and submits update`() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
         try {
@@ -176,6 +246,8 @@ class AddProductViewModelTest {
             packageAmount: Double?,
             packageUnit: QuantityUnit?,
             ingredientsText: String?,
+            imageUrl: String?,
+            localImagePath: String?,
             calories: Double?,
             protein: Double?,
             fat: Double?,
@@ -196,6 +268,8 @@ class AddProductViewModelTest {
                 expirationDate = expirationDate,
                 packageAmount = packageAmount,
                 packageUnit = packageUnit,
+                imageUrl = imageUrl,
+                localImagePath = localImagePath,
                 remainingAmount = remainingAmount,
                 lowStockThreshold = lowStockThreshold
             )
@@ -208,6 +282,8 @@ class AddProductViewModelTest {
                 categoryId = categoryId,
                 quantity = quantity,
                 quantityUnit = quantityUnit,
+                imageUrl = imageUrl,
+                localImagePath = localImagePath,
                 remainingAmount = remainingAmount ?: quantity,
                 lowStockThreshold = lowStockThreshold,
                 expirationDate = expirationDate,
@@ -254,6 +330,9 @@ class AddProductViewModelTest {
             packageAmount: Double?,
             packageUnit: QuantityUnit?,
             ingredientsText: String?,
+            imageUrl: String?,
+            localImagePath: String?,
+            clearImage: Boolean,
             calories: Double?,
             protein: Double?,
             fat: Double?,
@@ -266,6 +345,9 @@ class AddProductViewModelTest {
                 householdId = householdId,
                 productId = productId,
                 name = name,
+                imageUrl = imageUrl,
+                localImagePath = localImagePath,
+                clearImage = clearImage,
                 quantity = quantity,
                 remainingAmount = remainingAmount
             )
@@ -300,7 +382,7 @@ class AddProductViewModelTest {
                 carbs = 4.7
             )
 
-        override suspend fun upsertCachedProduct(product: Product) = Unit
+        override suspend fun upsertCachedProduct(product: Product): Product = product
         override suspend fun deleteCachedProduct(productId: String) = Unit
     }
 
@@ -316,6 +398,8 @@ class AddProductViewModelTest {
         val expirationDate: LocalDate?,
         val packageAmount: Double?,
         val packageUnit: QuantityUnit?,
+        val imageUrl: String?,
+        val localImagePath: String?,
         val remainingAmount: Double?,
         val lowStockThreshold: Double?
     )
@@ -324,6 +408,9 @@ class AddProductViewModelTest {
         val householdId: String,
         val productId: String,
         val name: String?,
+        val imageUrl: String?,
+        val localImagePath: String?,
+        val clearImage: Boolean,
         val quantity: Double?,
         val remainingAmount: Double?
     )

@@ -155,16 +155,16 @@ class ProductListViewModel(
                             else -> this
                         }
                     }
-                    runCatching { applyRealtimeProductEventUseCase(event) }
-                    handleRealtimeEvent(event)
+                    val cachedProduct = runCatching { applyRealtimeProductEventUseCase(event) }.getOrNull()
+                    handleRealtimeEvent(event, cachedProduct)
                 }
         }
     }
 
-    private fun handleRealtimeEvent(event: HouseholdRealtimeEvent) {
+    private fun handleRealtimeEvent(event: HouseholdRealtimeEvent, cachedProduct: Product?) {
         when (event) {
-            is HouseholdRealtimeEvent.ProductCreated -> upsertProduct(event.product)
-            is HouseholdRealtimeEvent.ProductUpdated -> upsertProduct(event.product)
+            is HouseholdRealtimeEvent.ProductCreated -> upsertProduct(cachedProduct ?: event.product)
+            is HouseholdRealtimeEvent.ProductUpdated -> upsertProduct(cachedProduct ?: event.product)
             is HouseholdRealtimeEvent.ProductDeleted -> removeProduct(event.productId)
             is HouseholdRealtimeEvent.ResyncRequired -> refreshProducts(showRefreshing = false, showError = false)
         }

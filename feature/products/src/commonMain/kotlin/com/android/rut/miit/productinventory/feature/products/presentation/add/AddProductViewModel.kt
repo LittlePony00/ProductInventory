@@ -65,9 +65,23 @@ class AddProductViewModel(
             is AddProductEvent.OnIngredientsChanged ->
                 updateState { copy(ingredientsText = event.ingredients) }
             is AddProductEvent.OnImageSelected ->
-                updateState { copy(localImagePath = event.localImagePath, isImageRemoved = false) }
+                updateState {
+                    copy(
+                        imageUrl = null,
+                        localImagePath = event.localImagePath,
+                        isImageRemoved = false,
+                        isImageChanged = true
+                    )
+                }
             is AddProductEvent.OnImageRemoved ->
-                updateState { copy(localImagePath = null, imageUrl = null, isImageRemoved = true) }
+                updateState {
+                    copy(
+                        localImagePath = null,
+                        imageUrl = null,
+                        isImageRemoved = true,
+                        isImageChanged = true
+                    )
+                }
             is AddProductEvent.OnCaloriesChanged ->
                 updateState { copy(calories = event.calories) }
             is AddProductEvent.OnProteinChanged ->
@@ -84,6 +98,8 @@ class AddProductViewModel(
 
     private fun onCreate(householdId: String) {
         this.householdId = householdId
+        productId = null
+        updateState { AddProductState() }
         viewModelScope.launch {
             runCatching { getProductCategoriesUseCase(householdId) }
                 .onSuccess { categories ->
@@ -288,6 +304,10 @@ class AddProductViewModel(
             updateState { copy(isLoading = true, error = null) }
             runCatching {
                 val editingProductId = productId
+                val requestImageUrl = state.imageUrl.takeUnless { state.isImageChanged || state.isImageRemoved }
+                val uploadLocalImagePath = state.localImagePath.takeIf {
+                    editingProductId == null || state.isImageChanged
+                }
                 if (editingProductId == null) {
                     addProductUseCase(
                         householdId = householdId,
@@ -302,8 +322,8 @@ class AddProductViewModel(
                         packageAmount = packageAmount,
                         packageUnit = state.packageUnit.takeIf { packageAmount != null },
                         ingredientsText = state.ingredientsText.trim().ifBlank { null },
-                        imageUrl = state.imageUrl,
-                        localImagePath = state.localImagePath,
+                        imageUrl = requestImageUrl,
+                        localImagePath = uploadLocalImagePath,
                         calories = calories,
                         protein = protein,
                         fat = fat,
@@ -326,8 +346,8 @@ class AddProductViewModel(
                         packageAmount = packageAmount,
                         packageUnit = state.packageUnit.takeIf { packageAmount != null },
                         ingredientsText = state.ingredientsText.trim().ifBlank { null },
-                        imageUrl = state.imageUrl,
-                        localImagePath = state.localImagePath,
+                        imageUrl = requestImageUrl,
+                        localImagePath = uploadLocalImagePath,
                         clearImage = state.isImageRemoved,
                         calories = calories,
                         protein = protein,
@@ -402,6 +422,7 @@ class AddProductViewModel(
             imageUrl = product.imageUrl,
             localImagePath = product.localImagePath,
             isImageRemoved = false,
+            isImageChanged = false,
             calories = product.calories?.formatNumber().orEmpty(),
             protein = product.protein?.formatNumber().orEmpty(),
             fat = product.fat?.formatNumber().orEmpty(),

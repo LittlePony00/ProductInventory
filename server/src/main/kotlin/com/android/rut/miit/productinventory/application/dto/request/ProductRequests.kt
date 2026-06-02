@@ -96,6 +96,17 @@ data class ConsumeProductRequest(
     val amount: Double
 )
 
+data class UploadProductImageBytesRequest(
+    @field:NotBlank(message = "Image file name is required")
+    val fileName: String,
+
+    @field:NotBlank(message = "Image content type is required")
+    val contentType: String,
+
+    @field:NotBlank(message = "Image payload is required")
+    val bytesBase64: String
+)
+
 data class BarcodeLookupRequest(
     @field:NotBlank(message = "Barcode is required")
     val barcode: String

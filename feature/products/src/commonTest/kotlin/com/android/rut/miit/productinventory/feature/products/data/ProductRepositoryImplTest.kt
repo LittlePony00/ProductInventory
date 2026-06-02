@@ -6,6 +6,7 @@ import com.android.rut.miit.productinventory.core.local.ProductLocalDataSource
 import com.android.rut.miit.productinventory.core.local.PendingSyncAction
 import com.android.rut.miit.productinventory.core.local.SyncActionType
 import com.android.rut.miit.productinventory.core.local.SyncQueue
+import com.android.rut.miit.productinventory.core.network.ApiException
 import com.android.rut.miit.productinventory.feature.products.api.models.ExpirationStatus
 import com.android.rut.miit.productinventory.feature.products.api.models.Product
 import com.android.rut.miit.productinventory.feature.products.api.models.ProductCategory
@@ -16,8 +17,6 @@ import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.MockRequestHandleScope
 import io.ktor.client.engine.mock.respond
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
-import io.ktor.client.plugins.defaultRequest
-import io.ktor.client.request.header
 import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpMethod
@@ -174,7 +173,64 @@ class ProductRepositoryImplTest {
     }
 
     @Test
-    fun `online add with local image saves immediately and queues image upload`() = runTest {
+    fun `online add with local image uploads immediately and stores remote url`() = runTest {
+        val localDataSource = FakeProductLocalDataSource()
+        val syncQueue = FakeSyncQueue()
+        val requestedPaths = mutableListOf<String>()
+        val engine = MockEngine { request ->
+            requestedPaths += request.url.encodedPath
+            when {
+                request.method == HttpMethod.Post &&
+                    request.url.encodedPath == "/api/v1/households/household-id/products" ->
+                    respondProductJson(productJson(id = "server-product-id", name = "Milk"))
+                request.method == HttpMethod.Post &&
+                    request.url.encodedPath == "/api/v1/households/household-id/products/server-product-id/image" -> {
+                    assertMultipartImageRequest(request.body)
+                    respondProductJson(
+                        productJson(
+                            id = "server-product-id",
+                            name = "Milk",
+                            imageUrl = "https://cdn.example.test/product-images/server-product-id.jpg"
+                        )
+                    )
+                }
+                else -> error("Unexpected request ${request.method} ${request.url.encodedPath}")
+            }
+        }
+
+        val product = repository(
+            engine = engine,
+            localDataSource = localDataSource,
+            syncQueue = syncQueue,
+            imageFileReader = FakeProductImageFileReader()
+        ).addProduct(
+            householdId = "household-id",
+            name = "Milk",
+            category = ProductCategory.DAIRY,
+            quantity = 1.0,
+            quantityUnit = QuantityUnit.PIECES,
+            expirationDate = LocalDate.parse("2026-05-20"),
+            imageUrl = null,
+            localImagePath = "/local/product-images/milk.jpg"
+        )
+
+        assertEquals(
+            listOf(
+                "/api/v1/households/household-id/products",
+                "/api/v1/households/household-id/products/server-product-id/image"
+            ),
+            requestedPaths
+        )
+        assertEquals("server-product-id", product.id)
+        assertEquals("https://cdn.example.test/product-images/server-product-id.jpg", product.imageUrl)
+        assertEquals("/local/product-images/milk.jpg", product.localImagePath)
+        assertEquals("https://cdn.example.test/product-images/server-product-id.jpg", localDataSource.getProduct("household-id", product.id)?.imageUrl)
+        assertEquals("/local/product-images/milk.jpg", localDataSource.getProduct("household-id", product.id)?.localImagePath)
+        assertTrue(syncQueue.actions.isEmpty())
+    }
+
+    @Test
+    fun `online add preserves local image and queues upload when image file cannot be read`() = runTest {
         val localDataSource = FakeProductLocalDataSource()
         val syncQueue = FakeSyncQueue()
         val requestedPaths = mutableListOf<String>()
@@ -188,7 +244,12 @@ class ProductRepositoryImplTest {
             }
         }
 
-        val product = repository(engine, localDataSource, syncQueue).addProduct(
+        val product = repository(
+            engine = engine,
+            localDataSource = localDataSource,
+            syncQueue = syncQueue,
+            imageFileReader = MissingProductImageFileReader
+        ).addProduct(
             householdId = "household-id",
             name = "Milk",
             category = ProductCategory.DAIRY,
@@ -205,7 +266,67 @@ class ProductRepositoryImplTest {
         assertEquals("/local/product-images/milk.jpg", localDataSource.getProduct("household-id", product.id)?.localImagePath)
         assertEquals(listOf(SyncActionType.UPLOAD_PRODUCT_IMAGE), syncQueue.actions.map { it.type })
         assertEquals("server-product-id", syncQueue.actions.single().entityId)
-        assertTrue(syncQueue.actions.single().payload.contains("\"localImagePath\":\"/local/product-images/milk.jpg\""))
+    }
+
+    @Test
+    fun `online add falls back to json image upload when multipart upload is rejected`() = runTest {
+        val localDataSource = FakeProductLocalDataSource()
+        val syncQueue = FakeSyncQueue()
+        val requestedPaths = mutableListOf<String>()
+        val engine = MockEngine { request ->
+            requestedPaths += request.url.encodedPath
+            when {
+                request.method == HttpMethod.Post &&
+                    request.url.encodedPath == "/api/v1/households/household-id/products" ->
+                    respondProductJson(productJson(id = "server-product-id", name = "Milk"))
+                request.method == HttpMethod.Post &&
+                    request.url.encodedPath == "/api/v1/households/household-id/products/server-product-id/image" ->
+                    error("multipart rejected")
+                request.method == HttpMethod.Post &&
+                    request.url.encodedPath == "/api/v1/households/household-id/products/server-product-id/image-bytes" -> {
+                    assertEquals(
+                        """{"fileName":"milk.jpg","contentType":"image/jpeg","bytesBase64":"AQID"}""",
+                        request.body.bodyText()
+                    )
+                    respondProductJson(
+                        productJson(
+                            id = "server-product-id",
+                            name = "Milk",
+                            imageUrl = "https://cdn.example.test/product-images/server-product-id.jpg"
+                        )
+                    )
+                }
+                else -> error("Unexpected request ${request.method} ${request.url.encodedPath}")
+            }
+        }
+
+        val product = repository(
+            engine = engine,
+            localDataSource = localDataSource,
+            syncQueue = syncQueue,
+            imageFileReader = FakeProductImageFileReader()
+        ).addProduct(
+            householdId = "household-id",
+            name = "Milk",
+            category = ProductCategory.DAIRY,
+            quantity = 1.0,
+            quantityUnit = QuantityUnit.PIECES,
+            expirationDate = LocalDate.parse("2026-05-20"),
+            imageUrl = null,
+            localImagePath = "/local/product-images/milk.jpg"
+        )
+
+        assertEquals(
+            listOf(
+                "/api/v1/households/household-id/products",
+                "/api/v1/households/household-id/products/server-product-id/image",
+                "/api/v1/households/household-id/products/server-product-id/image-bytes"
+            ),
+            requestedPaths
+        )
+        assertEquals("https://cdn.example.test/product-images/server-product-id.jpg", product.imageUrl)
+        assertEquals("/local/product-images/milk.jpg", product.localImagePath)
+        assertTrue(syncQueue.actions.isEmpty())
     }
 
     @Test
@@ -263,7 +384,7 @@ class ProductRepositoryImplTest {
     }
 
     @Test
-    fun `online update with local image preserves local preview and queues image upload`() = runTest {
+    fun `online update with local image uploads immediately and stores remote url`() = runTest {
         val localDataSource = FakeProductLocalDataSource()
         val syncQueue = FakeSyncQueue()
         localDataSource.saveProduct(product(id = "product-id", name = "Milk"))
@@ -274,11 +395,27 @@ class ProductRepositoryImplTest {
                 request.method == HttpMethod.Put &&
                     request.url.encodedPath == "/api/v1/households/household-id/products/product-id" ->
                     respondProductJson(productJson(id = "product-id", name = "Milk with photo"))
+                request.method == HttpMethod.Post &&
+                    request.url.encodedPath == "/api/v1/households/household-id/products/product-id/image" -> {
+                    assertMultipartImageRequest(request.body)
+                    respondProductJson(
+                        productJson(
+                            id = "product-id",
+                            name = "Milk with photo",
+                            imageUrl = "https://cdn.example.test/product-images/product-id.jpg"
+                        )
+                    )
+                }
                 else -> error("Unexpected request ${request.method} ${request.url.encodedPath}")
             }
         }
 
-        val updated = repository(engine, localDataSource, syncQueue).updateProduct(
+        val updated = repository(
+            engine = engine,
+            localDataSource = localDataSource,
+            syncQueue = syncQueue,
+            imageFileReader = FakeProductImageFileReader()
+        ).updateProduct(
             householdId = "household-id",
             productId = "product-id",
             name = "Milk with photo",
@@ -292,11 +429,18 @@ class ProductRepositoryImplTest {
             clearImage = false
         )
 
-        assertEquals(listOf("/api/v1/households/household-id/products/product-id"), requestedPaths)
+        assertEquals(
+            listOf(
+                "/api/v1/households/household-id/products/product-id",
+                "/api/v1/households/household-id/products/product-id/image"
+            ),
+            requestedPaths
+        )
+        assertEquals("https://cdn.example.test/product-images/product-id.jpg", updated.imageUrl)
         assertEquals("/local/product-images/milk.jpg", updated.localImagePath)
+        assertEquals("https://cdn.example.test/product-images/product-id.jpg", localDataSource.getProduct("household-id", "product-id")?.imageUrl)
         assertEquals("/local/product-images/milk.jpg", localDataSource.getProduct("household-id", "product-id")?.localImagePath)
-        assertEquals(listOf(SyncActionType.UPLOAD_PRODUCT_IMAGE), syncQueue.actions.map { it.type })
-        assertEquals("product-id", syncQueue.actions.single().entityId)
+        assertTrue(syncQueue.actions.isEmpty())
     }
 
     @Test
@@ -341,9 +485,10 @@ class ProductRepositoryImplTest {
     }
 
     @Test
-    fun `refresh products replays queued image upload and preserves local preview`() = runTest {
+    fun `refresh products replays queued image upload and caches remote image`() = runTest {
         val localDataSource = FakeProductLocalDataSource()
         val syncQueue = FakeSyncQueue()
+        val imageLocalCache = FakeProductImageLocalCache()
         localDataSource.saveProduct(product(id = "product-id", localImagePath = "/local/product-images/milk.jpg"))
         syncQueue.addPendingAction(
             PendingSyncAction(
@@ -372,6 +517,9 @@ class ProductRepositoryImplTest {
                             imageUrl = "https://cdn.example.test/product-images/product-id.jpg"
                         )
                     )
+                request.method == HttpMethod.Get &&
+                    request.url.host == "cdn.example.test" ->
+                    respond(byteArrayOf(9, 8, 7))
                 request.method == HttpMethod.Get ->
                     respondProductJson(
                         "[${productJson(
@@ -388,26 +536,308 @@ class ProductRepositoryImplTest {
             engine = engine,
             localDataSource = localDataSource,
             syncQueue = syncQueue,
-            imageFileReader = FakeProductImageFileReader()
+            imageFileReader = FakeProductImageFileReader(),
+            imageLocalCache = imageLocalCache
         ).refreshProducts("household-id")
 
+        val expectedCachedPath = imageLocalCache.localPathForRemoteImage(
+            productId = "product-id",
+            imageUrl = "https://cdn.example.test/product-images/product-id.jpg"
+        )
         assertEquals(
             listOf(
                 "/api/v1/households/household-id/products/product-id/image",
-                "/api/v1/households/household-id/products"
+                "/api/v1/households/household-id/products",
+                "/product-images/product-id.jpg"
             ),
             requestedPaths
         )
         assertTrue(syncQueue.actions.isEmpty())
         assertEquals("https://cdn.example.test/product-images/product-id.jpg", products.single().imageUrl)
-        assertEquals("/local/product-images/milk.jpg", products.single().localImagePath)
+        assertEquals(expectedCachedPath, products.single().localImagePath)
+        assertEquals(expectedCachedPath, localDataSource.getProduct("household-id", "product-id")?.localImagePath)
+        assertEquals(byteArrayOf(9, 8, 7).toList(), imageLocalCache.writes.getValue(expectedCachedPath).toList())
+    }
+
+    @Test
+    fun `refresh products downloads remote image and replaces stale local path`() = runTest {
+        val localDataSource = FakeProductLocalDataSource()
+        val imageLocalCache = FakeProductImageLocalCache()
+        localDataSource.saveProduct(
+            product(
+                id = "product-id",
+                imageUrl = "https://cdn.example.test/product-images/old.jpg",
+                localImagePath = "/local/stale-product.jpg"
+            )
+        )
+        val requestedPaths = mutableListOf<String>()
+        val engine = MockEngine { request ->
+            requestedPaths += request.url.encodedPath
+            when {
+                request.method == HttpMethod.Get &&
+                    request.url.host == "cdn.example.test" ->
+                    respond(
+                        content = byteArrayOf(9, 8, 7),
+                        headers = headersOf(HttpHeaders.ContentType, ContentType.Image.JPEG.toString())
+                    )
+                request.method == HttpMethod.Get ->
+                    respondProductJson(
+                        "[${productJson(
+                            id = "product-id",
+                            name = "Milk",
+                            imageUrl = "https://cdn.example.test/product-images/new.jpg"
+                        )}]"
+                    )
+                else -> error("Unexpected request ${request.method} ${request.url}")
+            }
+        }
+
+        val products = repository(
+            engine = engine,
+            localDataSource = localDataSource,
+            imageLocalCache = imageLocalCache
+        ).refreshProducts("household-id")
+
+        val expectedCachedPath = imageLocalCache.localPathForRemoteImage(
+            productId = "product-id",
+            imageUrl = "https://cdn.example.test/product-images/new.jpg"
+        )
+        assertEquals(
+            listOf(
+                "/api/v1/households/household-id/products",
+                "/product-images/new.jpg"
+            ),
+            requestedPaths
+        )
+        assertEquals(expectedCachedPath, products.single().localImagePath)
+        assertEquals(expectedCachedPath, localDataSource.getProduct("household-id", "product-id")?.localImagePath)
+        assertEquals(byteArrayOf(9, 8, 7).toList(), imageLocalCache.writes.getValue(expectedCachedPath).toList())
+    }
+
+    @Test
+    fun `refresh products uses remote url instead of stale local path when remote cache write fails`() = runTest {
+        val localDataSource = FakeProductLocalDataSource()
+        val imageLocalCache = FakeProductImageLocalCache(writeSucceeds = false)
+        localDataSource.saveProduct(
+            product(
+                id = "product-id",
+                imageUrl = "https://cdn.example.test/product-images/old.jpg",
+                localImagePath = "/local/stale-product.jpg"
+            )
+        )
+        val engine = MockEngine { request ->
+            when {
+                request.method == HttpMethod.Get &&
+                    request.url.host == "cdn.example.test" ->
+                    respond(byteArrayOf(9, 8, 7))
+                request.method == HttpMethod.Get ->
+                    respondProductJson(
+                        "[${productJson(
+                            id = "product-id",
+                            name = "Milk",
+                            imageUrl = "https://cdn.example.test/product-images/new.jpg"
+                        )}]"
+                    )
+                else -> error("Unexpected request ${request.method} ${request.url}")
+            }
+        }
+
+        val products = repository(
+            engine = engine,
+            localDataSource = localDataSource,
+            imageLocalCache = imageLocalCache
+        ).refreshProducts("household-id")
+
+        assertEquals("https://cdn.example.test/product-images/new.jpg", products.single().imageUrl)
+        assertNull(products.single().localImagePath)
+        assertNull(localDataSource.getProduct("household-id", "product-id")?.localImagePath)
+    }
+
+    @Test
+    fun `refresh products does not preserve missing cached path when remote cache rewrite fails`() = runTest {
+        val localDataSource = FakeProductLocalDataSource()
+        val imageLocalCache = FakeProductImageLocalCache(writeSucceeds = false)
+        val imageUrl = "https://cdn.example.test/product-images/product-id.jpg"
+        val missingCachedPath = imageLocalCache.localPathForRemoteImage("product-id", imageUrl)
+        localDataSource.saveProduct(
+            product(
+                id = "product-id",
+                imageUrl = imageUrl,
+                localImagePath = missingCachedPath
+            )
+        )
+        val engine = MockEngine { request ->
+            when {
+                request.method == HttpMethod.Get &&
+                    request.url.host == "cdn.example.test" ->
+                    respond(byteArrayOf(9, 8, 7))
+                request.method == HttpMethod.Get ->
+                    respondProductJson(
+                        "[${productJson(
+                            id = "product-id",
+                            name = "Milk",
+                            imageUrl = imageUrl
+                        )}]"
+                    )
+                else -> error("Unexpected request ${request.method} ${request.url}")
+            }
+        }
+
+        val products = repository(
+            engine = engine,
+            localDataSource = localDataSource,
+            imageLocalCache = imageLocalCache
+        ).refreshProducts("household-id")
+
+        assertEquals(imageUrl, products.single().imageUrl)
+        assertNull(products.single().localImagePath)
+        assertNull(localDataSource.getProduct("household-id", "product-id")?.localImagePath)
+    }
+
+    @Test
+    fun `refresh products uses remote url when remote image cache is unavailable`() = runTest {
+        val localDataSource = FakeProductLocalDataSource()
+        localDataSource.saveProduct(
+            product(
+                id = "product-id",
+                imageUrl = "https://cdn.example.test/product-images/old.jpg",
+                localImagePath = "/local/stale-product.jpg"
+            )
+        )
+        val engine = MockEngine { request ->
+            when {
+                request.method == HttpMethod.Get ->
+                    respondProductJson(
+                        "[${productJson(
+                            id = "product-id",
+                            name = "Milk",
+                            imageUrl = "https://cdn.example.test/product-images/new.jpg"
+                        )}]"
+                    )
+                else -> error("Unexpected request ${request.method} ${request.url}")
+            }
+        }
+
+        val products = repository(
+            engine = engine,
+            localDataSource = localDataSource
+        ).refreshProducts("household-id")
+
+        assertEquals("https://cdn.example.test/product-images/new.jpg", products.single().imageUrl)
+        assertNull(products.single().localImagePath)
+        assertNull(localDataSource.getProduct("household-id", "product-id")?.localImagePath)
+    }
+
+    @Test
+    fun `upsert cached product preserves pending local image state`() = runTest {
+        val localDataSource = FakeProductLocalDataSource()
+        val syncQueue = FakeSyncQueue()
+        val barcodeLocalDataSource = FakeBarcodeLocalDataSource()
+        localDataSource.saveProduct(
+            product(
+                id = "product-id",
+                imageUrl = null,
+                localImagePath = "/local/product-images/milk.jpg"
+            )
+        )
+        syncQueue.addPendingAction(
+            PendingSyncAction(
+                id = "action-image",
+                type = SyncActionType.UPLOAD_PRODUCT_IMAGE,
+                entityId = "product-id",
+                householdId = "household-id",
+                payload = Json.encodeToString(
+                    PendingUploadProductImagePayloadDto(
+                        localImagePath = "/local/product-images/milk.jpg"
+                    )
+                ),
+                createdAt = 1L
+            )
+        )
+        val engine = MockEngine { error("Remote image should not be downloaded while a local upload is pending") }
+
+        val cached = repository(
+            engine = engine,
+            localDataSource = localDataSource,
+            syncQueue = syncQueue,
+            barcodeLocalDataSource = barcodeLocalDataSource,
+            imageLocalCache = FakeProductImageLocalCache()
+        ).upsertCachedProduct(
+            product(
+                id = "product-id",
+                imageUrl = "https://cdn.example.test/product-images/product-id.jpg",
+                localImagePath = null
+            )
+        )
+
+        assertEquals("/local/product-images/milk.jpg", cached.localImagePath)
+        assertNull(cached.imageUrl)
         assertEquals("/local/product-images/milk.jpg", localDataSource.getProduct("household-id", "product-id")?.localImagePath)
+        assertNull(localDataSource.getProduct("household-id", "product-id")?.imageUrl)
+        assertEquals("4601234567890", barcodeLocalDataSource.saved.single().barcode)
+        assertEquals("/local/product-images/milk.jpg", barcodeLocalDataSource.saved.single().localImagePath)
+    }
+
+    @Test
+    fun `refresh products clears orphaned pending update and image upload when local product is missing`() = runTest {
+        val localDataSource = FakeProductLocalDataSource()
+        val syncQueue = FakeSyncQueue()
+        syncQueue.addPendingAction(
+            PendingSyncAction(
+                id = "action-update",
+                type = SyncActionType.UPDATE_PRODUCT,
+                entityId = "orphan-product-id",
+                householdId = "household-id",
+                payload = """
+                    {
+                      "request": {
+                        "name": "Orphan milk",
+                        "category": "DAIRY",
+                        "quantity": 1.0,
+                        "quantityUnit": "PIECES"
+                      }
+                    }
+                """.trimIndent(),
+                createdAt = 1L
+            )
+        )
+        syncQueue.addPendingAction(
+            PendingSyncAction(
+                id = "action-upload",
+                type = SyncActionType.UPLOAD_PRODUCT_IMAGE,
+                entityId = "orphan-product-id",
+                householdId = "household-id",
+                payload = Json.encodeToString(
+                    PendingUploadProductImagePayloadDto(
+                        localImagePath = "/local/product-images/milk.jpg"
+                    )
+                ),
+                createdAt = 2L
+            )
+        )
+        val engine = MockEngine { request ->
+            when {
+                request.method == HttpMethod.Put -> throw ApiException(404, "Product not found")
+                request.method == HttpMethod.Get -> respondProductJson("[]")
+                else -> error("Unexpected request ${request.method} ${request.url}")
+            }
+        }
+
+        val products = repository(
+            engine = engine,
+            localDataSource = localDataSource,
+            syncQueue = syncQueue
+        ).refreshProducts("household-id")
+
+        assertTrue(products.isEmpty())
+        assertTrue(syncQueue.actions.isEmpty())
     }
 
     @Test
     fun `refresh products replays offline add then remapped image upload`() = runTest {
         val localDataSource = FakeProductLocalDataSource()
         val syncQueue = FakeSyncQueue()
+        val imageLocalCache = FakeProductImageLocalCache()
         val offlineEngine = MockEngine { error("offline") }
         val localProduct = repository(offlineEngine, localDataSource, syncQueue).addProduct(
             householdId = "household-id",
@@ -436,6 +866,9 @@ class ProductRepositoryImplTest {
                             imageUrl = "https://cdn.example.test/product-images/server-product-id.jpg"
                         )
                     )
+                request.method == HttpMethod.Get &&
+                    request.url.host == "cdn.example.test" ->
+                    respond(byteArrayOf(9, 8, 7))
                 request.method == HttpMethod.Get ->
                     respondProductJson(
                         "[${productJson(
@@ -452,21 +885,27 @@ class ProductRepositoryImplTest {
             engine = onlineEngine,
             localDataSource = localDataSource,
             syncQueue = syncQueue,
-            imageFileReader = FakeProductImageFileReader()
+            imageFileReader = FakeProductImageFileReader(),
+            imageLocalCache = imageLocalCache
         ).refreshProducts("household-id")
 
+        val expectedCachedPath = imageLocalCache.localPathForRemoteImage(
+            productId = "server-product-id",
+            imageUrl = "https://cdn.example.test/product-images/server-product-id.jpg"
+        )
         assertEquals(
             listOf(
                 "/api/v1/households/household-id/products",
                 "/api/v1/households/household-id/products/server-product-id/image",
-                "/api/v1/households/household-id/products"
+                "/api/v1/households/household-id/products",
+                "/product-images/server-product-id.jpg"
             ),
             requestedPaths
         )
         assertNull(localDataSource.getProduct("household-id", localProduct.id))
         assertEquals("server-product-id", products.single().id)
         assertEquals("https://cdn.example.test/product-images/server-product-id.jpg", products.single().imageUrl)
-        assertEquals("/local/product-images/milk.jpg", products.single().localImagePath)
+        assertEquals(expectedCachedPath, products.single().localImagePath)
         assertTrue(syncQueue.actions.isEmpty())
     }
 
@@ -727,14 +1166,16 @@ class ProductRepositoryImplTest {
         localDataSource: ProductLocalDataSource = FakeProductLocalDataSource(),
         syncQueue: SyncQueue = FakeSyncQueue(),
         barcodeLocalDataSource: BarcodeLocalDataSource? = null,
-        imageFileReader: ProductImageFileReader = NoopProductImageFileReader
+        imageFileReader: ProductImageFileReader = NoopProductImageFileReader,
+        imageLocalCache: ProductImageLocalCache = NoopProductImageLocalCache
     ): ProductRepositoryImpl =
         ProductRepositoryImpl(
             remoteDataSource = ProductRemoteDataSource(httpClient(engine)),
             localDataSource = localDataSource,
             syncQueue = syncQueue,
             barcodeLocalDataSource = barcodeLocalDataSource,
-            imageFileReader = imageFileReader
+            imageFileReader = imageFileReader,
+            imageLocalCache = imageLocalCache
         )
 
     private fun httpClient(engine: MockEngine): HttpClient =
@@ -742,10 +1183,15 @@ class ProductRepositoryImplTest {
             install(ContentNegotiation) {
                 json(Json { ignoreUnknownKeys = true })
             }
-            defaultRequest {
-                header(HttpHeaders.ContentType, ContentType.Application.Json.toString())
-            }
         }
+
+    private fun assertMultipartImageRequest(body: OutgoingContent) {
+        val contentType = body.contentType?.toString()
+        assertTrue(
+            contentType?.startsWith(ContentType.MultiPart.FormData.toString()) == true,
+            "Expected multipart image upload Content-Type, got $contentType"
+        )
+    }
 
     private fun MockRequestHandleScope.respondProductJson(
         content: String,
@@ -792,6 +1238,7 @@ class ProductRepositoryImplTest {
         id: String,
         name: String = "Milk",
         remainingAmount: Double = 1.0,
+        imageUrl: String? = null,
         localImagePath: String? = null
     ) = Product(
         id = id,
@@ -805,6 +1252,7 @@ class ProductRepositoryImplTest {
         quantityUnit = QuantityUnit.PIECES,
         remainingAmount = remainingAmount,
         lowStockThreshold = 0.25,
+        imageUrl = imageUrl,
         localImagePath = localImagePath,
         expirationDate = LocalDate.parse("2026-05-20"),
         expirationStatus = ExpirationStatus.FRESH,
@@ -902,5 +1350,27 @@ class ProductRepositoryImplTest {
                 fileName = "milk.jpg",
                 contentType = "image/jpeg"
             )
+    }
+
+    private object MissingProductImageFileReader : ProductImageFileReader {
+        override suspend fun read(path: String): ProductImageFileContent? = null
+    }
+
+    private class FakeProductImageLocalCache(
+        private val writeSucceeds: Boolean = true
+    ) : ProductImageLocalCache {
+        val writes = mutableMapOf<String, ByteArray>()
+
+        override fun localPathForRemoteImage(productId: String, imageUrl: String): String =
+            "/cache/${remoteProductImageFileName(productId, imageUrl)}"
+
+        override suspend fun exists(path: String): Boolean =
+            writes.containsKey(path)
+
+        override suspend fun write(path: String, bytes: ByteArray): Boolean {
+            if (!writeSucceeds) return false
+            writes[path] = bytes
+            return true
+        }
     }
 }

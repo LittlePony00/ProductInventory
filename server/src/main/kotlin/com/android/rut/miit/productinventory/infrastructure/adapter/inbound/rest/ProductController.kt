@@ -3,6 +3,7 @@ package com.android.rut.miit.productinventory.infrastructure.adapter.inbound.res
 import com.android.rut.miit.productinventory.application.dto.request.CreateProductRequest
 import com.android.rut.miit.productinventory.application.dto.request.ConsumeProductRequest
 import com.android.rut.miit.productinventory.application.dto.request.UpdateProductRequest
+import com.android.rut.miit.productinventory.application.dto.request.UploadProductImageBytesRequest
 import com.android.rut.miit.productinventory.application.dto.response.ProductResponse
 import com.android.rut.miit.productinventory.application.mapper.toResponse
 import com.android.rut.miit.productinventory.domain.port.inbound.IProductService
@@ -11,6 +12,8 @@ import org.springframework.http.MediaType
 import org.springframework.http.HttpStatus
 import org.springframework.web.bind.annotation.*
 import org.springframework.web.multipart.MultipartFile
+import java.io.ByteArrayInputStream
+import java.util.Base64
 import java.util.UUID
 
 @RestController
@@ -125,6 +128,24 @@ class ProductController(
             size = file.size,
             inputStream = file.inputStream
         ).toResponse()
+
+    @PostMapping("/{productId}/image-bytes", consumes = [MediaType.APPLICATION_JSON_VALUE])
+    fun uploadProductImageBytes(
+        @PathVariable householdId: UUID,
+        @PathVariable productId: UUID,
+        @Valid @RequestBody request: UploadProductImageBytesRequest
+    ): ProductResponse {
+        val bytes = runCatching { Base64.getDecoder().decode(request.bytesBase64) }
+            .getOrElse { throw IllegalArgumentException("Image payload is not valid Base64") }
+        return productService.uploadProductImage(
+            userId = currentUserId(),
+            productId = productId,
+            originalFilename = request.fileName,
+            contentType = request.contentType,
+            size = bytes.size.toLong(),
+            inputStream = ByteArrayInputStream(bytes)
+        ).toResponse()
+    }
 
     @DeleteMapping("/{productId}/image")
     fun deleteProductImage(

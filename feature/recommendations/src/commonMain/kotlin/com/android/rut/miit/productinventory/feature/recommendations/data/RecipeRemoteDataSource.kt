@@ -10,6 +10,7 @@ import io.ktor.client.*
 import io.ktor.client.call.*
 import io.ktor.client.plugins.*
 import io.ktor.client.request.*
+import io.ktor.http.*
 
 class RecipeRemoteDataSource(private val httpClient: HttpClient) {
 
@@ -36,6 +37,7 @@ class RecipeRemoteDataSource(private val httpClient: HttpClient) {
         request: FindRecipeRequestDto
     ): List<RecipeResponseDto> {
         return httpClient.post("${ApiConstants.API_V1}/households/$householdId/recipes/search") {
+            contentType(ContentType.Application.Json)
             setBody(request)
             recipeDiscoveryTimeout()
         }.body()
@@ -46,6 +48,7 @@ class RecipeRemoteDataSource(private val httpClient: HttpClient) {
         request: GenerateAiRecipeRequestDto
     ): RecipeResponseDto {
         return httpClient.post("${ApiConstants.API_V1}/households/$householdId/recipes/ai-generated") {
+            contentType(ContentType.Application.Json)
             setBody(request)
             recipeDiscoveryTimeout()
         }.body()

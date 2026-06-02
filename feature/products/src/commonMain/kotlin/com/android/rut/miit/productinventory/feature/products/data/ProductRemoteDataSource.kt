@@ -7,11 +7,14 @@ import com.android.rut.miit.productinventory.feature.products.data.models.Produc
 import com.android.rut.miit.productinventory.feature.products.data.models.ProductEnrichmentSuggestionResponseDto
 import com.android.rut.miit.productinventory.feature.products.data.models.ProductResponseDto
 import com.android.rut.miit.productinventory.feature.products.data.models.UpdateProductRequestDto
+import com.android.rut.miit.productinventory.feature.products.data.models.UploadProductImageRequestDto
 import io.ktor.client.*
 import io.ktor.client.call.*
 import io.ktor.client.request.*
 import io.ktor.client.request.forms.*
 import io.ktor.http.*
+import kotlin.io.encoding.Base64
+import kotlin.io.encoding.ExperimentalEncodingApi
 
 class ProductRemoteDataSource(private val httpClient: HttpClient) {
 
@@ -27,12 +30,14 @@ class ProductRemoteDataSource(private val httpClient: HttpClient) {
 
     suspend fun addProduct(householdId: String, request: CreateProductRequestDto): ProductResponseDto {
         return httpClient.post("${ApiConstants.API_V1}/households/$householdId/products") {
+            contentType(ContentType.Application.Json)
             setBody(request)
         }.body()
     }
 
     suspend fun updateProduct(householdId: String, productId: String, request: UpdateProductRequestDto): ProductResponseDto {
         return httpClient.put("${ApiConstants.API_V1}/households/$householdId/products/$productId") {
+            contentType(ContentType.Application.Json)
             setBody(request)
         }.body()
     }
@@ -41,8 +46,16 @@ class ProductRemoteDataSource(private val httpClient: HttpClient) {
         householdId: String,
         productId: String,
         image: ProductImageFileContent
-    ): ProductResponseDto {
-        return httpClient.submitFormWithBinaryData(
+    ): ProductResponseDto =
+        runCatching { uploadProductImageMultipart(householdId, productId, image) }
+            .getOrElse { uploadProductImageBytes(householdId, productId, image) }
+
+    private suspend fun uploadProductImageMultipart(
+        householdId: String,
+        productId: String,
+        image: ProductImageFileContent
+    ): ProductResponseDto =
+        httpClient.submitFormWithBinaryData(
             url = "${ApiConstants.API_V1}/households/$householdId/products/$productId/image",
             formData = formData {
                 append(
@@ -58,7 +71,26 @@ class ProductRemoteDataSource(private val httpClient: HttpClient) {
                 )
             }
         ).body()
-    }
+
+    @OptIn(ExperimentalEncodingApi::class)
+    private suspend fun uploadProductImageBytes(
+        householdId: String,
+        productId: String,
+        image: ProductImageFileContent
+    ): ProductResponseDto =
+        httpClient.post("${ApiConstants.API_V1}/households/$householdId/products/$productId/image-bytes") {
+            contentType(ContentType.Application.Json)
+            setBody(
+                UploadProductImageRequestDto(
+                    fileName = image.fileName,
+                    contentType = image.contentType,
+                    bytesBase64 = Base64.Default.encode(image.bytes)
+                )
+            )
+        }.body()
+
+    suspend fun downloadProductImage(imageUrl: String): ByteArray =
+        httpClient.get(imageUrl).body()
 
     suspend fun deleteProductImage(householdId: String, productId: String): ProductResponseDto {
         return httpClient.delete("${ApiConstants.API_V1}/households/$householdId/products/$productId/image").body()
@@ -70,6 +102,7 @@ class ProductRemoteDataSource(private val httpClient: HttpClient) {
         request: ConsumeProductRequestDto
     ): ProductResponseDto {
         return httpClient.post("${ApiConstants.API_V1}/households/$householdId/products/$productId/consume") {
+            contentType(ContentType.Application.Json)
             setBody(request)
         }.body()
     }
@@ -89,6 +122,7 @@ class ProductRemoteDataSource(private val httpClient: HttpClient) {
         request: ProductEnrichmentSuggestionRequestDto
     ): ProductEnrichmentSuggestionResponseDto {
         return httpClient.post("${ApiConstants.API_V1}/households/$householdId/products/enrichment/suggest") {
+            contentType(ContentType.Application.Json)
             setBody(request)
         }.body()
     }

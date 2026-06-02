@@ -236,8 +236,9 @@ private class FakeProductRepository(
     ): com.android.rut.miit.productinventory.feature.products.api.models.ProductEnrichmentSuggestion =
         error("Unused")
 
-    override suspend fun upsertCachedProduct(product: Product) {
+    override suspend fun upsertCachedProduct(product: Product): Product {
         cachedProducts = cachedProducts.filterNot { it.id == product.id } + product
+        return product
     }
 
     override suspend fun deleteCachedProduct(productId: String) {

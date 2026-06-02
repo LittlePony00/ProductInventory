@@ -94,10 +94,6 @@ class HttpClientFactory(private val tokenStorage: TokenStorage) {
             }
         }
 
-        defaultRequest {
-            contentType(ContentType.Application.Json)
-        }
-
         HttpResponseValidator {
             validateResponse { response ->
                 val statusCode = response.status.value

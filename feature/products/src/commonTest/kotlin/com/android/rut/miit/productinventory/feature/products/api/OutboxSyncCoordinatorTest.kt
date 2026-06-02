@@ -99,7 +99,7 @@ class OutboxSyncCoordinatorTest {
             ingredientsText: String?
         ): ProductEnrichmentSuggestion = error("not used")
 
-        override suspend fun upsertCachedProduct(product: Product) = Unit
+        override suspend fun upsertCachedProduct(product: Product): Product = product
 
         override suspend fun deleteCachedProduct(productId: String) = Unit
 

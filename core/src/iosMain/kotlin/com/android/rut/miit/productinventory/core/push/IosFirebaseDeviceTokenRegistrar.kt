@@ -5,6 +5,7 @@ import com.android.rut.miit.productinventory.core.storage.TokenStorage
 import io.ktor.client.HttpClient
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
+import io.ktor.http.*
 import kotlinx.serialization.Serializable
 import platform.Foundation.NSUserDefaults
 
@@ -26,6 +27,7 @@ class IosFirebaseDeviceTokenRegistrar(
         if (tokenStorage.getAccessToken().isNullOrBlank()) return
 
         httpClient.post("${ApiConstants.API_V1}/notifications/preferences/device-tokens") {
+            contentType(ContentType.Application.Json)
             setBody(RegisterDeviceTokenRequestDto(token = normalizedToken, platform = "IOS"))
         }
     }

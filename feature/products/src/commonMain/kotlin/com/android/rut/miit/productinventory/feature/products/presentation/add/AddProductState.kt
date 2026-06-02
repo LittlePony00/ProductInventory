@@ -27,6 +27,7 @@ data class AddProductState(
     val imageUrl: String? = null,
     val localImagePath: String? = null,
     val isImageRemoved: Boolean = false,
+    val isImageChanged: Boolean = false,
     val calories: String = "",
     val protein: String = "",
     val fat: String = "",

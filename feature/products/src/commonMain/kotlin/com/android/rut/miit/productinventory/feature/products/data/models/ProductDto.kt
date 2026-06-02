@@ -96,6 +96,13 @@ data class PendingUploadProductImagePayloadDto(
 )
 
 @Serializable
+data class UploadProductImageRequestDto(
+    val fileName: String,
+    val contentType: String,
+    val bytesBase64: String
+)
+
+@Serializable
 data class ConsumeProductRequestDto(
     val amount: Double
 )

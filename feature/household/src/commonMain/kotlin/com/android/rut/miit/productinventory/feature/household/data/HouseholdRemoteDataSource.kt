@@ -5,6 +5,7 @@ import com.android.rut.miit.productinventory.feature.household.data.models.*
 import io.ktor.client.*
 import io.ktor.client.call.*
 import io.ktor.client.request.*
+import io.ktor.http.*
 
 class HouseholdRemoteDataSource(private val httpClient: HttpClient) {
 
@@ -18,6 +19,7 @@ class HouseholdRemoteDataSource(private val httpClient: HttpClient) {
 
     suspend fun createHousehold(request: CreateHouseholdRequestDto): HouseholdResponseDto {
         return httpClient.post("${ApiConstants.API_V1}/households") {
+            contentType(ContentType.Application.Json)
             setBody(request)
         }.body()
     }
@@ -32,6 +34,7 @@ class HouseholdRemoteDataSource(private val httpClient: HttpClient) {
 
     suspend fun joinByInviteCode(request: JoinHouseholdRequestDto): HouseholdResponseDto {
         return httpClient.post("${ApiConstants.API_V1}/households/join") {
+            contentType(ContentType.Application.Json)
             setBody(request)
         }.body()
     }

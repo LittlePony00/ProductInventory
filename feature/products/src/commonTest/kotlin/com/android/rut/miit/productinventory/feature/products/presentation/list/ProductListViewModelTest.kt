@@ -449,8 +449,9 @@ class ProductListViewModelTest {
         ): com.android.rut.miit.productinventory.feature.products.api.models.ProductEnrichmentSuggestion =
             error("unused")
 
-        override suspend fun upsertCachedProduct(product: Product) {
+        override suspend fun upsertCachedProduct(product: Product): Product {
             products = products.filterNot { it.id == product.id } + product
+            return product
         }
 
         override suspend fun deleteCachedProduct(productId: String) {

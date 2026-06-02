@@ -9,6 +9,7 @@ import com.android.rut.miit.productinventory.feature.profile.data.models.UserPro
 import io.ktor.client.*
 import io.ktor.client.call.*
 import io.ktor.client.request.*
+import io.ktor.http.*
 
 class ProfileRemoteDataSource(private val httpClient: HttpClient) {
 
@@ -18,6 +19,7 @@ class ProfileRemoteDataSource(private val httpClient: HttpClient) {
 
     suspend fun updateProfile(request: UpdateProfileRequestDto): UserProfileResponseDto {
         return httpClient.put("${ApiConstants.API_V1}/profile") {
+            contentType(ContentType.Application.Json)
             setBody(request)
         }.body()
     }
@@ -34,6 +36,7 @@ class ProfileRemoteDataSource(private val httpClient: HttpClient) {
 
     suspend fun updateFoodPreferences(request: UpdateFoodPreferencesRequestDto): FoodPreferencesResponseDto {
         return httpClient.put("${ApiConstants.API_V1}/profile/food-preferences") {
+            contentType(ContentType.Application.Json)
             setBody(request)
         }.body()
     }

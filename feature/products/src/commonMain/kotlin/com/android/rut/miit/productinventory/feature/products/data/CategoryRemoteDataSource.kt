@@ -12,6 +12,7 @@ import io.ktor.client.request.parameter
 import io.ktor.client.request.post
 import io.ktor.client.request.put
 import io.ktor.client.request.setBody
+import io.ktor.http.*
 
 class CategoryRemoteDataSource(private val httpClient: HttpClient) {
     suspend fun getCategories(householdId: String, includeArchived: Boolean): List<CategoryResponseDto> {
@@ -22,6 +23,7 @@ class CategoryRemoteDataSource(private val httpClient: HttpClient) {
 
     suspend fun createCategory(householdId: String, request: CreateCategoryRequestDto): CategoryResponseDto {
         return httpClient.post("${ApiConstants.API_V1}/households/$householdId/categories") {
+            contentType(ContentType.Application.Json)
             setBody(request)
         }.body()
     }
@@ -32,6 +34,7 @@ class CategoryRemoteDataSource(private val httpClient: HttpClient) {
         request: UpdateCategoryRequestDto
     ): CategoryResponseDto {
         return httpClient.put("${ApiConstants.API_V1}/households/$householdId/categories/$categoryId") {
+            contentType(ContentType.Application.Json)
             setBody(request)
         }.body()
     }

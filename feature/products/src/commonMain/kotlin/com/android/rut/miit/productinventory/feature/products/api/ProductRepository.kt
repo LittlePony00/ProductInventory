@@ -208,6 +208,6 @@ interface ProductRepository {
         barcode: String?,
         ingredientsText: String?
     ): ProductEnrichmentSuggestion
-    suspend fun upsertCachedProduct(product: Product)
+    suspend fun upsertCachedProduct(product: Product): Product
     suspend fun deleteCachedProduct(productId: String)
 }

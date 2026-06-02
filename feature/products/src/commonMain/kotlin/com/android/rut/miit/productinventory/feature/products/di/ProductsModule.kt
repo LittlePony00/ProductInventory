@@ -36,7 +36,7 @@ val productsModule = module {
     includes(realtimeModule, productPlatformModule())
     factory { ProductRemoteDataSource(get()) }
     factory { CategoryRemoteDataSource(get()) }
-    single<ProductRepository> { ProductRepositoryImpl(get(), get(), get(), get(), get()) }
+    single<ProductRepository> { ProductRepositoryImpl(get(), get(), get(), get(), get(), get()) }
     factory<CategoryRepository> { CategoryRepositoryImpl(get(), get(), get(), get()) }
     single { OutboxSyncCoordinator(get(), get()) }
     factoryOf(::GetProductsUseCase)
