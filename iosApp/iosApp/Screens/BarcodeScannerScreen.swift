@@ -164,10 +164,6 @@ private struct DraftFoundView: View {
                 Text("Категория: \(categoryName(category))")
                     .font(.subheadline).foregroundColor(.secondary)
             }
-            if draft.confidence > 0 {
-                Text("Уверенность ИИ: \(Int(draft.confidence * 100))%")
-                    .font(.caption).foregroundColor(.secondary)
-            }
             Button("Сохранить") { onUseDraft() }
                 .buttonStyle(.borderedProminent)
             Button("Заполнить вручную") { onManualEntry() }
