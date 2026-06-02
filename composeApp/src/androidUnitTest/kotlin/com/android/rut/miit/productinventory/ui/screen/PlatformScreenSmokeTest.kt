@@ -135,11 +135,12 @@ class PlatformScreenSmokeTest {
         }
         compose.onNodeWithText("Рецепты").assertIsDisplayed()
         compose.onAllNodesWithText("Найти рецепт")[0].assertIsDisplayed()
+        assertEquals(1, compose.onAllNodesWithText("Найти рецепт").fetchSemanticsNodes().size)
         compose.onNodeWithText("Нет подходящих рецептов").assertIsDisplayed()
     }
 
     @Test
-    fun recipeScreenHidesAiBadgesOnRecipeCards() {
+    fun recipeScreenShowsAiAssistedBadgeOnRecipeCards() {
         compose.setContent {
             MaterialTheme {
                 RecipeListScreen(
@@ -166,10 +167,8 @@ class PlatformScreenSmokeTest {
         }
 
         compose.onNodeWithText("AI-assisted rice").assertIsDisplayed()
-        compose.onNodeWithText("15 минут • ккал неизвестно").assertIsDisplayed()
-        assertEquals(0, compose.onAllNodesWithText("AI-Assisted").fetchSemanticsNodes().size)
+        compose.onNodeWithText("AI-Assisted").assertIsDisplayed()
         assertEquals(0, compose.onAllNodesWithText("ИИ-рецепт").fetchSemanticsNodes().size)
-        assertEquals(0, compose.onAllNodesWithText("ИИ").fetchSemanticsNodes().size)
     }
 
     @Test

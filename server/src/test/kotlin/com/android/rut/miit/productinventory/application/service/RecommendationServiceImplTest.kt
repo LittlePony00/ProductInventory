@@ -459,12 +459,22 @@ class RecommendationServiceImplTest {
     fun `random recipe search keeps external recipes visible alongside ai-assisted recipes`() {
         val userId = UUID.randomUUID()
         val householdId = UUID.randomUUID()
+        val aiRecipeGenerator = RecordingAiRecipeGenerator(
+            Recipe(
+                title = "Сгенерированный запасной рецепт",
+                ingredients = listOf(RecipeIngredient("рис", "1 стакан")),
+                steps = listOf("Сварить рис"),
+                time = "20 минут",
+                calories = 210
+            )
+        )
         val service = service(
             productRepository = FakeProductRepository(emptyList()),
             membershipRepository = FakeMembershipRepository(
                 listOf(Membership(userId = userId, householdId = householdId, role = MembershipRole.OWNER))
             ),
             candidateProvider = RecordingCandidateProvider(),
+            aiRecipeGenerator = aiRecipeGenerator,
             externalRecipeSearchProviders = listOf(
                 FixedRecipeSearchProvider(
                     externalRecipe("TheMealDB рис"),
@@ -487,6 +497,7 @@ class RecommendationServiceImplTest {
         assertEquals(6, recipes.size)
         assertTrue(recipes.any { it.source == RecipeSource.EXTERNAL_API })
         assertTrue(recipes.any { it.aiAssisted })
+        assertEquals(0, aiRecipeGenerator.calls)
     }
 
     @Test
@@ -674,7 +685,7 @@ class RecommendationServiceImplTest {
     }
 
     @Test
-    fun `random search does not issue single ai-generated fallback when discovery returns nothing`() {
+    fun `random search creates ai-generated fallback when discovery returns nothing`() {
         val userId = UUID.randomUUID()
         val householdId = UUID.randomUUID()
         val aiRecipeGenerator = RecordingAiRecipeGenerator(
@@ -699,8 +710,12 @@ class RecommendationServiceImplTest {
 
         val recipes = service.findRecipes(userId, householdId, RecipeSearchRequest())
 
-        assertEquals(emptyList(), recipes)
-        assertEquals(0, aiRecipeGenerator.calls)
+        assertEquals(1, recipes.size)
+        assertEquals(RecipeSource.AI_GENERATED, recipes.single().source)
+        assertEquals(true, recipes.single().aiGenerated)
+        assertEquals(emptyList(), recipes.single().usedHouseholdProducts)
+        assertEquals(1, aiRecipeGenerator.calls)
+        assertEquals(emptyList(), aiRecipeGenerator.contexts.single().products)
     }
 
     @Test

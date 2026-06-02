@@ -17,11 +17,20 @@ for host_port in "${HOSTS[@]}"; do
     awk -v prefix="$WORKDIR/$host-cert-" '
       /BEGIN CERTIFICATE/ { i++ }
       i > 0 { print > (prefix i ".pem") }
-    '
+    ' || true
 done
 
+shopt -s nullglob
+certificates=("$WORKDIR"/*.pem)
+shopt -u nullglob
+
+if [ "${#certificates[@]}" -eq 0 ]; then
+  echo "No GigaChat certificates were fetched." >&2
+  exit 1
+fi
+
 index=0
-for certificate in "$WORKDIR"/*.pem; do
+for certificate in "${certificates[@]}"; do
   index=$((index + 1))
   alias="gigachat-$index"
   keytool -list \

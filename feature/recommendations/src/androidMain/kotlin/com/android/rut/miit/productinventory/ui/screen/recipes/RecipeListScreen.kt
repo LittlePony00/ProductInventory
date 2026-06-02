@@ -54,14 +54,6 @@ fun RecipeListScreen(
                         Text(stringResource(R.string.back))
                     }
                 },
-                actions = {
-                    TextButton(
-                        onClick = { viewModel.onEvent(RecipeListEvent.OnGenerateFromCurrentProductsClick) },
-                        enabled = state !is RecipeListState.Loading
-                    ) {
-                        Text(stringResource(R.string.recipes_generate_current))
-                    }
-                }
             )
         }
     ) { padding ->
@@ -134,8 +126,10 @@ fun RecipeListScreen(
                             stringResource(R.string.recipes_empty_hint)
                         },
                         iconText = "*",
-                        primaryActionLabel = stringResource(R.string.recipes_generate_current),
-                        onPrimaryAction = { viewModel.onEvent(RecipeListEvent.OnGenerateFromCurrentProductsClick) },
+                        primaryActionLabel = stringResource(R.string.recipes_generate_current)
+                            .takeIf { s.selectedTab == RecipeListTab.LIKED },
+                        onPrimaryAction = { viewModel.onEvent(RecipeListEvent.OnGenerateFromCurrentProductsClick) }
+                            .takeIf { s.selectedTab == RecipeListTab.LIKED },
                         modifier = Modifier.weight(1f)
                     )
                 }
@@ -249,6 +243,7 @@ private fun RecipeCard(
         Column(modifier = Modifier.padding(16.dp)) {
             Text(recipe.title, style = MaterialTheme.typography.titleMedium)
             Spacer(Modifier.height(4.dp))
+            RecipeSourceBadges(recipe)
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -286,6 +281,32 @@ private fun RecipeCard(
             }
         }
     }
+}
+
+@Composable
+private fun RecipeSourceBadges(recipe: Recipe) {
+    val labels = buildList {
+        if (recipe.aiGenerated) add(stringResource(R.string.recipes_ai_recipe))
+        if (recipe.aiAssisted) add(stringResource(R.string.recipes_ai_assisted_badge))
+    }
+    if (labels.isEmpty()) return
+
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        labels.forEach { label ->
+            Surface(
+                shape = MaterialTheme.shapes.small,
+                color = MaterialTheme.colorScheme.secondaryContainer,
+                contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+            ) {
+                Text(
+                    text = label,
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                    style = MaterialTheme.typography.labelSmall
+                )
+            }
+        }
+    }
+    Spacer(Modifier.height(4.dp))
 }
 
 @Composable

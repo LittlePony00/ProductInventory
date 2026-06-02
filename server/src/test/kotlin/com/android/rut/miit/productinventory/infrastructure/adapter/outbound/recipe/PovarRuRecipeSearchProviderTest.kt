@@ -1,6 +1,7 @@
 package com.android.rut.miit.productinventory.infrastructure.adapter.outbound.recipe
 
 import com.android.rut.miit.productinventory.application.service.recommendation.RecommendationContext
+import com.android.rut.miit.productinventory.application.service.recommendation.RecipeSearchScope
 import com.android.rut.miit.productinventory.domain.model.ExpirationDate
 import com.android.rut.miit.productinventory.domain.model.Product
 import com.android.rut.miit.productinventory.domain.model.ProductCategory
@@ -101,6 +102,45 @@ class PovarRuRecipeSearchProviderTest {
         server.verify()
     }
 
+    @Test
+    fun `random search rotates Russian category pages without localization`() {
+        val builder = RestClient.builder()
+        val server = MockRestServiceServer.bindTo(builder).build()
+        val provider = PovarRuRecipeSearchProvider(
+            restClientBuilder = builder,
+            enabled = true,
+            baseUrl = "https://povar.test",
+            maxProducts = 1,
+            maxRecipes = 1
+        )
+
+        server.expect(requestTo("https://povar.test/list/salad/"))
+            .andExpect(method(HttpMethod.GET))
+            .andRespond(withSuccess(recipeListHtml(title = "Случайный салат"), utf8Html))
+        server.expect(requestTo("https://povar.test/recipes/salat_podsolnuh-821.html"))
+            .andExpect(method(HttpMethod.GET))
+            .andRespond(withSuccess(recipeDetailsHtml(title = "Случайный салат"), utf8Html))
+        server.expect(requestTo("https://povar.test/list/soup/"))
+            .andExpect(method(HttpMethod.GET))
+            .andRespond(withSuccess(recipeListHtml(title = "Случайный суп"), utf8Html))
+        server.expect(requestTo("https://povar.test/recipes/salat_podsolnuh-821.html"))
+            .andExpect(method(HttpMethod.GET))
+            .andRespond(withSuccess(recipeDetailsHtml(title = "Случайный суп"), utf8Html))
+
+        val results = provider.searchRandomRecipes(randomContext(product("Гречка")))
+        val rotatedResults = provider.searchRandomRecipes(randomContext(product("Гречка")))
+
+        assertEquals(1, results.size)
+        val result = results.single()
+        assertEquals(RecipeSource.EXTERNAL_API, result.source)
+        assertEquals("Случайный салат", result.recipe.title)
+        assertEquals("Случайный рецепт найден в русскоязычном внешнем источнике Povar.ru", result.reasons.single())
+        assertFalse(result.requiresLocalization)
+        assertEquals("Случайный суп", rotatedResults.single().recipe.title)
+        assertFalse(rotatedResults.single().requiresLocalization)
+        server.verify()
+    }
+
     private fun recipeListHtml(title: String = "Салат Подсолнух"): String =
         """
         <html><body>
@@ -156,6 +196,17 @@ class PovarRuRecipeSearchProviderTest {
             products = listOf(product),
             expiringProducts = emptyList(),
             preferences = UserFoodPreferences.empty(UUID.randomUUID())
+        )
+
+    private fun randomContext(product: Product? = null): RecommendationContext =
+        RecommendationContext(
+            userId = UUID.randomUUID(),
+            householdId = product?.householdId ?: UUID.randomUUID(),
+            mode = RecommendationMode.CURRENT_PRODUCTS,
+            products = listOfNotNull(product),
+            expiringProducts = emptyList(),
+            preferences = UserFoodPreferences.empty(UUID.randomUUID()),
+            searchScope = RecipeSearchScope.ANY_PRODUCTS
         )
 
     private fun product(name: String): Product =

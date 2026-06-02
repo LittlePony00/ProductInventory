@@ -19,6 +19,7 @@ import org.springframework.web.client.RestClient
 import org.springframework.web.client.RestClientException
 import org.springframework.web.util.UriComponentsBuilder
 import java.net.URI
+import java.util.concurrent.atomic.AtomicInteger
 
 @Component
 @Order(0)
@@ -33,6 +34,7 @@ class PovarRuRecipeSearchProvider(
     private val log = LoggerFactory.getLogger(PovarRuRecipeSearchProvider::class.java)
     private val sourceBaseUrl = baseUrl.trimEnd('/')
     private val restClient = restClientBuilder.baseUrl(sourceBaseUrl).build()
+    private val randomTargetOffset = AtomicInteger(0)
 
     override fun searchRecipes(context: RecommendationContext): List<RecipeDiscoveryResult> {
         if (!enabled || context.candidateProducts.isEmpty()) return emptyList()
@@ -47,14 +49,25 @@ class PovarRuRecipeSearchProvider(
             .mapNotNull(::lookupRecipe)
             .take(maxRecipes.coerceAtLeast(1))
             .map { recipe ->
-                RecipeDiscoveryResult(
-                    recipe = recipe.toRecipe(),
-                    source = RecipeSource.EXTERNAL_API,
-                    sourceUrl = recipe.url,
-                    imageUrl = recipe.imageUrl,
-                    reasons = listOf("Рецепт найден в русскоязычном внешнем источнике Povar.ru по выбранным продуктам"),
-                    requiresLocalization = false
+                recipe.toDiscoveryResult(
+                    "Рецепт найден в русскоязычном внешнем источнике Povar.ru по выбранным продуктам"
                 )
+            }
+            .toList()
+    }
+
+    override fun searchRandomRecipes(context: RecommendationContext): List<RecipeDiscoveryResult> {
+        if (!enabled) return emptyList()
+        return povarRandomSearchTargets
+            .rotatedBy(randomTargetOffset.getAndIncrement())
+            .asSequence()
+            .flatMap(::findRecipeSummariesByTarget)
+            .distinctBy(PovarRecipeSummary::url)
+            .take(maxRecipes.coerceAtLeast(1) * LOOKUP_CANDIDATE_MULTIPLIER)
+            .mapNotNull(::lookupRecipe)
+            .take(maxRecipes.coerceAtLeast(1))
+            .map { recipe ->
+                recipe.toDiscoveryResult("Случайный рецепт найден в русскоязычном внешнем источнике Povar.ru")
             }
             .toList()
     }
@@ -164,6 +177,16 @@ private data class PovarRecipeDetails(
         )
 }
 
+private fun PovarRecipeDetails.toDiscoveryResult(reason: String): RecipeDiscoveryResult =
+    RecipeDiscoveryResult(
+        recipe = toRecipe(),
+        source = RecipeSource.EXTERNAL_API,
+        sourceUrl = url,
+        imageUrl = imageUrl,
+        reasons = listOf(reason),
+        requiresLocalization = false
+    )
+
 private fun Element.toIngredient(): RecipeIngredient? {
     val name = selectFirst(".name")?.text()?.cleanText()
         ?: attr("rel").cleanText().takeIf(String::isNotBlank)
@@ -229,6 +252,12 @@ private fun Product.povarSearchTargets(): Sequence<PovarSearchTarget> {
 private fun estimateCalories(ingredientCount: Int): Int =
     (ingredientCount * 90).coerceIn(120, 900)
 
+private fun <T> List<T>.rotatedBy(offset: Int): List<T> {
+    if (isEmpty()) return this
+    val normalizedOffset = Math.floorMod(offset, size)
+    return drop(normalizedOffset) + take(normalizedOffset)
+}
+
 private const val USER_AGENT = "ProductInventory/1.0 (+https://github.com/LittlePony00/ProductInventory)"
 private const val MIN_STEP_LENGTH = 8
 private const val MIN_QUERY_LENGTH = 2
@@ -257,6 +286,16 @@ private val povarCategoryAliases = mapOf(
     "макароны" to "makarony",
     "паста" to "pasta"
 )
+
+private val povarRandomSearchTargets: List<PovarSearchTarget> =
+    listOf(
+        "salad",
+        "soup",
+        "goryachie_bliuda",
+        "vegies",
+        "vypechka",
+        "dessert"
+    ).map(::PovarCategoryTarget)
 
 private val whitespaceRegex = Regex("""\s+""")
 private val nonBreakingSpaceRegex = Regex("""\u00a0""")

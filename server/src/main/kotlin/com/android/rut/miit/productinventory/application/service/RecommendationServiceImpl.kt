@@ -87,7 +87,7 @@ class RecommendationServiceImpl(
             .distinctBy { it.title.lowercase() }
             .selectDiverseFor(context, recommendationLimit)
 
-        if (foundRecommendations.isNotEmpty() || context.searchesAnyProducts) {
+        if (foundRecommendations.isNotEmpty()) {
             return foundRecommendations
         }
 
