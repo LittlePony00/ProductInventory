@@ -376,8 +376,8 @@ class AddProductViewModel(
 
     private fun ProductEnrichmentSuggestion.message(): String =
         when (source) {
-            ProductEnrichmentSource.GIGACHAT -> "Подсказка GigaChat: $categoryName (${(confidence * 100).toInt()}%)"
-            ProductEnrichmentSource.RULE_BASED -> "Подсказка по правилам: $categoryName (${(confidence * 100).toInt()}%)"
+            ProductEnrichmentSource.GIGACHAT -> "Подсказка GigaChat: $categoryName"
+            ProductEnrichmentSource.RULE_BASED -> "Подсказка по правилам: $categoryName"
             ProductEnrichmentSource.FALLBACK -> "Подсказка по умолчанию: $categoryName"
         }
 

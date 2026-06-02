@@ -17,6 +17,7 @@ import com.android.rut.miit.productinventory.feature.products.api.models.Product
 import com.android.rut.miit.productinventory.feature.products.api.models.QuantityUnit
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -110,6 +111,7 @@ class AddProductViewModelTest {
             assertEquals("system-dairy", state.categoryId)
             assertEquals("60", state.calories)
             assertTrue(state.suggestionMessage?.contains("Молочные") == true)
+            assertFalse(state.suggestionMessage.orEmpty().contains("%"))
         } finally {
             Dispatchers.resetMain()
         }
