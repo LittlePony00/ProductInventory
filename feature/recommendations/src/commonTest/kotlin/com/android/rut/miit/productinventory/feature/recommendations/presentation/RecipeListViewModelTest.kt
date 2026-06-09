@@ -33,17 +33,17 @@ import kotlinx.coroutines.test.setMain
 class RecipeListViewModelTest {
 
     @Test
-    fun `create loads recipes and ingredient options`() = runRecipeViewModelTest {
+    fun `create shows idle state without loading recipes or ingredient options`() = runRecipeViewModelTest {
         val repository = RecordingRecipeRepository(recipes = listOf(recipe(title = "Rice Bowl")))
         val viewModel = viewModel(repository)
 
         viewModel.onEvent(RecipeListEvent.OnCreate("household-id"))
         advanceUntilIdle()
 
-        val state = assertIs<RecipeListState.Content>(viewModel.viewState.value)
-        assertEquals(listOf("Rice Bowl"), state.recipes.map { it.title })
-        assertEquals(listOf("Rice", "Tomato"), state.ingredientOptions.map { it.name })
-        assertEquals(listOf(RecommendationMode.CURRENT_PRODUCTS), repository.recipeModes)
+        val state = assertIs<RecipeListState.Empty>(viewModel.viewState.value)
+        assertEquals(false, state.generated)
+        assertEquals(emptyList(), repository.recipeModes)
+        assertEquals(0, repository.ingredientOptionsRequests)
     }
 
     @Test
@@ -91,11 +91,17 @@ class RecipeListViewModelTest {
             recipes = listOf(
                 recipe(title = "Fast Salad", time = "15 minutes"),
                 recipe(title = "Slow Soup", time = "45 minutes")
+            ),
+            foundRecipes = listOf(
+                recipe(title = "Fast Salad", time = "15 minutes"),
+                recipe(title = "Slow Soup", time = "45 minutes")
             )
         )
         val viewModel = viewModel(repository)
 
         viewModel.onEvent(RecipeListEvent.OnCreate("household-id"))
+        advanceUntilIdle()
+        viewModel.onEvent(RecipeListEvent.OnRandomRecipeClick)
         advanceUntilIdle()
         viewModel.onEvent(RecipeListEvent.OnQuickFilterChanged(RecipeQuickFilter.UNDER_30_MIN))
         advanceUntilIdle()
@@ -140,9 +146,11 @@ class RecipeListViewModelTest {
                 time = if (index % 3 == 0) "15 minutes" else "45 minutes"
             )
         }
-        val viewModel = viewModel(RecordingRecipeRepository(recipes = recipes))
+        val viewModel = viewModel(RecordingRecipeRepository(foundRecipes = recipes))
 
         viewModel.onEvent(RecipeListEvent.OnCreate("household-id"))
+        advanceUntilIdle()
+        viewModel.onEvent(RecipeListEvent.OnRandomRecipeClick)
         advanceUntilIdle()
         viewModel.onEvent(RecipeListEvent.OnQuickFilterChanged(RecipeQuickFilter.UNDER_30_MIN))
         advanceUntilIdle()
@@ -198,6 +206,8 @@ class RecipeListViewModelTest {
     ) : RecipeRepository {
         val recipeModes = mutableListOf<RecommendationMode>()
         val recipeSearchRequests = mutableListOf<RecipeSearchRequest>()
+        var ingredientOptionsRequests = 0
+            private set
         private var likedRecipes = initialLikedRecipes
 
         override suspend fun getRecipes(householdId: String, mode: RecommendationMode): List<Recipe> {
@@ -208,7 +218,11 @@ class RecipeListViewModelTest {
         override suspend fun getRecipeSuggestions(householdId: String): List<Recipe> = emptyList()
 
         override suspend fun getIngredientOptions(householdId: String): List<RecipeIngredientOption> =
-            listOf(
+            recordIngredientOptionsRequest()
+
+        private fun recordIngredientOptionsRequest(): List<RecipeIngredientOption> {
+            ingredientOptionsRequests += 1
+            return listOf(
                 RecipeIngredientOption(
                     id = "rice-id",
                     name = "Rice",
@@ -226,6 +240,7 @@ class RecipeListViewModelTest {
                     expiring = false
                 )
             )
+        }
 
         override suspend fun findRecipes(householdId: String, request: RecipeSearchRequest): List<Recipe> {
             recipeSearchRequests += request

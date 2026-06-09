@@ -24,7 +24,7 @@ class RecipeListViewModel(
     private val getLikedRecipesUseCase: GetLikedRecipesUseCase,
     private val setRecipeLikedUseCase: SetRecipeLikedUseCase
 ) : SharedViewModel<RecipeListState, RecipeListEvent, RecipeListAction>(
-    initialState = RecipeListState.Loading
+    initialState = RecipeListState.Empty(generated = false)
 ) {
 
     private var householdId: String = ""
@@ -44,8 +44,11 @@ class RecipeListViewModel(
         when (event) {
             is RecipeListEvent.OnCreate -> {
                 householdId = event.householdId
-                loadRecipes(RecommendationMode.CURRENT_PRODUCTS)
-                loadIngredientOptions()
+                lastMode = RecommendationMode.CURRENT_PRODUCTS
+                selectedTab = RecipeListTab.DISCOVER
+                loadedRecipes = emptyList()
+                quickFilters = emptySet()
+                updateState { emptyState(mode = RecommendationMode.CURRENT_PRODUCTS, generated = false) }
             }
             is RecipeListEvent.OnTabSelected -> selectTab(event.tab)
             RecipeListEvent.OnDiscoverTabClick -> selectTab(RecipeListTab.DISCOVER)
@@ -163,7 +166,14 @@ class RecipeListViewModel(
 
     private fun selectTab(tab: RecipeListTab) {
         selectedTab = tab
-        applyRecipeListState(mode = lastMode, generated = true)
+        if (tab == RecipeListTab.LIKED) {
+            viewModelScope.launch {
+                refreshLikedRecipes()
+                applyRecipeListState(mode = lastMode, generated = loadedRecipes.isNotEmpty())
+            }
+        } else {
+            applyRecipeListState(mode = lastMode, generated = loadedRecipes.isNotEmpty())
+        }
     }
 
     private fun toggleRecipeLike(recipe: Recipe) {

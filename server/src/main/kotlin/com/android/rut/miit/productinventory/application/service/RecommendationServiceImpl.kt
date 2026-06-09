@@ -133,16 +133,13 @@ class RecommendationServiceImpl(
                 .orEmpty()
         }.getOrDefault(emptyList())
         var externalIndex = 0
-        return results.map { result ->
+        return results.mapNotNull { result ->
             if (result.source != RecipeSource.EXTERNAL_API || !result.requiresLocalization) {
                 result
             } else {
                 localizedByIndex
                     .getOrNull(externalIndex++)
                     ?.let { localized -> result.copy(recipe = localized) }
-                    ?: result.copy(
-                        warnings = result.warnings + "Не удалось автоматически перевести рецепт из внешнего источника; показан исходный текст."
-                    )
             }
         }
     }
@@ -161,6 +158,7 @@ class RecommendationServiceImpl(
                 allProducts = context.products
             )
         ) ?: return null
+        if (!recipe.isLocalizedForDisplay()) return null
         val safetyResult = safetyFilter.evaluate(
             recipe = recipe,
             requiredIngredients = recipe.ingredients.map { it.name }.toSet(),
@@ -219,6 +217,9 @@ class RecommendationServiceImpl(
                 allProducts = context.products
             )
         ) ?: throw AiRecipeUnavailableException()
+        if (!recipe.isLocalizedForDisplay()) {
+            throw AiRecipeUnavailableException()
+        }
         val safetyResult = safetyFilter.evaluate(
             recipe = recipe,
             requiredIngredients = recipe.ingredients.map { it.name }.toSet(),
@@ -404,6 +405,7 @@ private fun Product.toIngredientOption(): RecipeIngredientOption =
     )
 
 private fun RecipeDiscoveryResult.toRecommendation(context: RecommendationContext): RecipeRecommendation? {
+    if (!recipe.isLocalizedForDisplay()) return null
     val safetyFilter = RecipeSafetyFilter()
     val safetyResult = safetyFilter.evaluate(
         recipe = recipe,
@@ -474,3 +476,12 @@ private fun RecipeSource.defaultScore(): Double =
         RecipeSource.AI_ASSISTED -> 70.0
         RecipeSource.AI_GENERATED -> 0.0
     }
+
+private fun Recipe.isLocalizedForDisplay(): Boolean =
+    (listOf(title, time) + ingredients.flatMap { listOf(it.name, it.amount) } + steps)
+        .none(String::containsUnlocalizedLatinText)
+
+private fun String.containsUnlocalizedLatinText(): Boolean =
+    latinWordPattern.containsMatchIn(this)
+
+private val latinWordPattern = Regex("""\b[A-Za-z]{3,}\b""")

@@ -34,7 +34,7 @@ import kotlin.test.assertTrue
 class RecommendationServiceImplTest {
 
     @Test
-    fun `keeps themealdb recipe when localization fails and includes gigachat result`() {
+    fun `includes localized themealdb recipe and gigachat result`() {
         val userId = UUID.randomUUID()
         val householdId = UUID.randomUUID()
         val service = service(
@@ -42,16 +42,16 @@ class RecommendationServiceImplTest {
             householdId = householdId,
             externalProviders = listOf(
                 randomProvider(
-                    externalRecipe("Povar soup", "https://povar.ru/recipes/soup.html", requiresLocalization = false)
+                    externalRecipe("Овощной суп", "https://povar.ru/recipes/soup.html", requiresLocalization = false)
                 ),
                 randomProvider(
                     externalRecipe("TheMealDB curry", "https://www.themealdb.com/meal/52772", requiresLocalization = true)
                 )
             ),
             aiSearchProvider = StaticAiSearchProvider(
-                aiRecipe("GigaChat rice")
+                aiRecipe("Рис с овощами")
             ),
-            localizer = RejectingRecipeLocalizer
+            localizer = TranslatingRecipeLocalizer(recipe("Куриное карри", "курица"))
         )
 
         val recipes = service.findRecipes(userId, householdId, RecipeSearchRequest())
@@ -60,12 +60,27 @@ class RecommendationServiceImplTest {
         assertContainsSource(recipes, "themealdb.com")
         assertTrue(recipes.any { it.sourceName == "Povar.ru" })
         assertTrue(recipes.any { it.sourceName == "TheMealDB" })
-        assertTrue(recipes.any { it.aiAssisted && it.title == "GigaChat rice" })
-        assertTrue(
-            recipes.single { it.sourceUrl?.contains("themealdb.com") == true }
-                .warnings
-                .any { it.contains("Не удалось автоматически перевести") }
+        assertTrue(recipes.any { it.aiAssisted && it.title == "Рис с овощами" })
+        assertEquals("Куриное карри", recipes.single { it.sourceUrl?.contains("themealdb.com") == true }.title)
+    }
+
+    @Test
+    fun `drops english external recipe when localization fails`() {
+        val userId = UUID.randomUUID()
+        val householdId = UUID.randomUUID()
+        val service = service(
+            userId = userId,
+            householdId = householdId,
+            externalProviders = listOf(
+                randomProvider(
+                    externalRecipe("Chicken curry", "https://www.themealdb.com/meal/52772", requiresLocalization = true)
+                )
+            ),
+            aiSearchProvider = StaticAiSearchProvider(emptyList()),
+            localizer = RejectingRecipeLocalizer
         )
+
+        assertEquals(emptyList(), service.findRecipes(userId, householdId, RecipeSearchRequest()))
     }
 
     @Test
@@ -209,6 +224,12 @@ class RecommendationServiceImplTest {
         override fun localizeAndEnrichFoundRecipe(recipe: Recipe): Recipe? = null
         override fun localizeAndEnrichFoundRecipes(recipes: List<Recipe>): List<Recipe?> =
             recipes.map { null }
+    }
+
+    private class TranslatingRecipeLocalizer(private val translatedRecipe: Recipe) : IAiRecipeLocalizer {
+        override fun localizeAndEnrichFoundRecipe(recipe: Recipe): Recipe = translatedRecipe
+        override fun localizeAndEnrichFoundRecipes(recipes: List<Recipe>): List<Recipe?> =
+            recipes.map { translatedRecipe }
     }
 
     private object EmptyAiRecipeGenerator : IAiRecipeGenerator {

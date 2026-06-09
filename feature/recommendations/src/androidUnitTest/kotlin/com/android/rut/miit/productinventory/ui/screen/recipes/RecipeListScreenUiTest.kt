@@ -5,6 +5,7 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
 import com.android.rut.miit.productinventory.feature.recommendations.api.FindRecipesUseCase
 import com.android.rut.miit.productinventory.feature.recommendations.api.GetLikedRecipesUseCase
 import com.android.rut.miit.productinventory.feature.recommendations.api.GetRecipeIngredientOptionsUseCase
@@ -46,11 +47,11 @@ class RecipeListScreenUiTest {
         }
 
         compose.waitUntil {
-            compose.onAllNodesWithText("Нет подходящих рецептов").fetchSemanticsNodes().isNotEmpty()
+            compose.onAllNodesWithText("Нет рецептов").fetchSemanticsNodes().isNotEmpty()
         }
         compose.onNodeWithText("Рецепты").assertIsDisplayed()
         compose.onAllNodesWithText("Найти рецепт")[0].assertIsDisplayed()
-        compose.onNodeWithText("Нет подходящих рецептов").assertIsDisplayed()
+        compose.onNodeWithText("Нет рецептов").assertIsDisplayed()
     }
 
     @Test
@@ -64,7 +65,7 @@ class RecipeListScreenUiTest {
                         RecordingRecipeRepository(
                             recipes = listOf(
                                 recipe(
-                                    title = "AI Supper",
+                                    title = "ИИ-ужин",
                                     calories = 0,
                                     caloriesKnown = false,
                                     aiAssisted = true,
@@ -77,14 +78,15 @@ class RecipeListScreenUiTest {
             }
         }
 
+        compose.onNodeWithText("Использовать скоро").performClick()
         compose.waitUntil {
-            compose.onAllNodesWithText("AI Supper").fetchSemanticsNodes().isNotEmpty()
+            compose.onAllNodesWithText("ИИ-ужин").fetchSemanticsNodes().isNotEmpty()
         }
-        compose.onNodeWithText("AI Supper").assertIsDisplayed()
+        compose.onNodeWithText("ИИ-ужин").assertIsDisplayed()
         compose.onNodeWithText("ИИ-рецепт").assertIsDisplayed()
         compose.onNodeWithText("GigaChat").assertIsDisplayed()
         assertTrue(
-            compose.onAllNodesWithText("15 minutes • ккал неизвестно")
+            compose.onAllNodesWithText("15 минут • ккал неизвестно")
                 .fetchSemanticsNodes()
                 .isNotEmpty()
         )
@@ -109,10 +111,10 @@ class RecipeListScreenUiTest {
         override suspend fun findRecipes(householdId: String, request: RecipeSearchRequest): List<Recipe> = emptyList()
         override suspend fun generateAiRecipe(householdId: String, request: AiRecipeGenerationRequest): Recipe =
             Recipe(
-                title = "Rice Bowl",
-                ingredients = listOf(RecipeIngredient(name = "Rice", amount = "1 cup")),
-                steps = listOf("Cook rice"),
-                time = "15 minutes",
+                title = "Рисовая миска",
+                ingredients = listOf(RecipeIngredient(name = "рис", amount = "1 стакан")),
+                steps = listOf("Приготовьте рис"),
+                time = "15 минут",
                 calories = 300
             )
         override suspend fun getLikedRecipes(householdId: String): List<Recipe> = emptyList()
@@ -128,9 +130,9 @@ class RecipeListScreenUiTest {
     ): Recipe =
         Recipe(
             title = title,
-            ingredients = listOf(RecipeIngredient(name = "Rice", amount = "1 cup")),
-            steps = listOf("Cook rice"),
-            time = "15 minutes",
+            ingredients = listOf(RecipeIngredient(name = "рис", amount = "1 стакан")),
+            steps = listOf("Приготовьте рис"),
+            time = "15 минут",
             calories = calories,
             caloriesKnown = caloriesKnown,
             aiAssisted = aiAssisted,
