@@ -36,11 +36,13 @@ class RecipeMapperTest {
             time = "15 minutes",
             calories = 300,
             source = "AI_ASSISTED",
+            sourceName = "GigaChat",
             aiAssisted = true,
             aiGenerated = false
         ).toDomain()
 
         assertEquals("AI_ASSISTED", recipe.source)
+        assertEquals("GigaChat", recipe.sourceName)
         assertEquals(true, recipe.aiAssisted)
         assertEquals(false, recipe.aiGenerated)
     }

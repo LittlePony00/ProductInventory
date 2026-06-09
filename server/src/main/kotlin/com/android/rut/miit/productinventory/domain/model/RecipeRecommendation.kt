@@ -23,6 +23,7 @@ data class RecipeRecommendation(
     val calories: Int,
     val caloriesKnown: Boolean = true,
     val source: RecipeSource = RecipeSource.LOCAL_KNOWLEDGE_BASE,
+    val sourceName: String? = null,
     val sourceUrl: String? = null,
     val imageUrl: String? = null,
     val score: Double = 0.0,
@@ -55,6 +56,7 @@ data class RecipeSearchRequest(
 data class RecipeDiscoveryResult(
     val recipe: Recipe,
     val source: RecipeSource,
+    val sourceName: String? = null,
     val sourceUrl: String? = null,
     val imageUrl: String? = null,
     val reasons: List<String> = emptyList(),

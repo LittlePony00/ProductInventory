@@ -74,7 +74,11 @@ class RecipeSafetyFilter {
         }
 
         return SafetyResult(
-            safe = allergyHits.isEmpty() && dietHits.isEmpty() && avoidedProductHits.isEmpty() && avoidedCategoryHits.isEmpty(),
+            safe = allergyHits.isEmpty() &&
+                dislikedHits.isEmpty() &&
+                dietHits.isEmpty() &&
+                avoidedProductHits.isEmpty() &&
+                avoidedCategoryHits.isEmpty(),
             warnings = buildList {
                 allergyHits.forEach { add("Исключено из-за аллергена: $it") }
                 dietHits.forEach { add("Исключено из-за ограничения: ${it.name}") }
@@ -104,7 +108,15 @@ data class SafetyResult(
 
 fun ingredientTerms(value: String): Set<String> {
     val normalized = value.normalizeIngredient()
-    return setOf(normalized) + SAFETY_ALIASES[normalized].orEmpty()
+    val tokens = ingredientTokenRegex.findAll(normalized)
+        .map { it.value }
+        .filter { it.length >= MIN_INGREDIENT_TOKEN_LENGTH }
+        .toSet()
+    val baseTerms = setOf(normalized) + tokens
+    val stemTerms = baseTerms.map(String::ingredientStem).filter { it.length >= MIN_INGREDIENT_TOKEN_LENGTH }
+    return (baseTerms + stemTerms)
+        .flatMap { term -> setOf(term) + SAFETY_ALIASES[term].orEmpty() }
+        .toSet()
 }
 
 fun Set<String>.matchesAnyPreferenceTerm(needles: Set<String>): Boolean =
@@ -114,6 +126,18 @@ fun String.normalizeIngredient(): String =
     trim()
         .lowercase(Locale.ROOT)
         .replace('ё', 'е')
+
+private fun String.ingredientStem(): String {
+    val normalized = normalizeIngredient()
+    if (normalized.length <= MIN_INGREDIENT_TOKEN_LENGTH) return normalized
+    if (normalized.endsWith("ец") && normalized.length > 4) {
+        return normalized.dropLast(2) + "ц"
+    }
+    val ending = russianIngredientEndings.firstOrNull { ending ->
+        normalized.length > ending.length + MIN_INGREDIENT_TOKEN_LENGTH && normalized.endsWith(ending)
+    }
+    return ending?.let { normalized.dropLast(it.length) } ?: normalized
+}
 
 private fun DietaryRestriction.violationTerms(): Set<String> =
     when (this) {
@@ -186,4 +210,43 @@ private val SAFETY_ALIASES = mapOf(
     "tomatoes" to setOf("томат", "помидор"),
     "chicken" to setOf("куриц", "курин", "куриное мясо", "куриная грудка", "куриное филе"),
     "курица" to setOf("куриц", "курин", "куриное мясо", "куриная грудка", "куриное филе")
+)
+
+private const val MIN_INGREDIENT_TOKEN_LENGTH = 3
+private val ingredientTokenRegex = Regex("""[\p{L}\p{N}]+""")
+private val russianIngredientEndings = listOf(
+    "иями",
+    "ями",
+    "ами",
+    "ого",
+    "его",
+    "ыми",
+    "ими",
+    "ая",
+    "яя",
+    "ое",
+    "ее",
+    "ые",
+    "ие",
+    "ый",
+    "ий",
+    "ой",
+    "ую",
+    "юю",
+    "ом",
+    "ем",
+    "ам",
+    "ям",
+    "ах",
+    "ях",
+    "ов",
+    "ев",
+    "ей",
+    "ы",
+    "и",
+    "а",
+    "я",
+    "о",
+    "е",
+    "ь"
 )

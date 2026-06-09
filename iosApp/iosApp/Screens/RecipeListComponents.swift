@@ -176,6 +176,7 @@ struct RecipeRow: View {
                     Text(recipe.title)
                         .font(.headline)
                         .fixedSize(horizontal: false, vertical: true)
+                    RecipeSourceBadgeRow(recipe: recipe)
                     Text("\(recipe.time) • \(recipe.caloriesLabel)")
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
@@ -234,6 +235,53 @@ struct RecipeRow: View {
         )
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(recipe.title), \(recipe.time), \(recipe.caloriesAccessibilityLabel)")
+    }
+}
+
+private struct RecipeSourceBadgeRow: View {
+    let recipe: Recipe
+
+    var body: some View {
+        if !labels.isEmpty {
+            HStack(spacing: 6) {
+                ForEach(labels, id: \.self) { label in
+                    Text(label)
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(Color.accentColor)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(Color.accentColor.opacity(0.12), in: Capsule())
+                }
+            }
+        }
+    }
+
+    private var labels: [String] {
+        var result: [String] = []
+        if let externalSource = externalSourceLabel {
+            result.append(externalSource)
+        }
+        if recipe.aiGenerated {
+            result.append("ИИ-рецепт")
+        }
+        if recipe.aiAssisted {
+            result.append("GigaChat")
+        }
+        return result
+    }
+
+    private var externalSourceLabel: String? {
+        if let sourceName = recipe.sourceName, !sourceName.isEmpty {
+            return sourceName
+        }
+        let normalizedUrl = recipe.sourceUrl?.lowercased() ?? ""
+        if normalizedUrl.contains("themealdb.com") {
+            return "TheMealDB"
+        }
+        if normalizedUrl.contains("povar.ru") {
+            return "Povar.ru"
+        }
+        return recipe.source == "EXTERNAL_API" ? "Внешний источник" : nil
     }
 }
 

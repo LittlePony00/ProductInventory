@@ -82,7 +82,7 @@ class RecipeListScreenUiTest {
         }
         compose.onNodeWithText("AI Supper").assertIsDisplayed()
         compose.onNodeWithText("ИИ-рецепт").assertIsDisplayed()
-        compose.onNodeWithText("AI-Assisted").assertIsDisplayed()
+        compose.onNodeWithText("GigaChat").assertIsDisplayed()
         assertTrue(
             compose.onAllNodesWithText("15 minutes • ккал неизвестно")
                 .fetchSemanticsNodes()

@@ -14,6 +14,7 @@ data class RecipeResponse(
     val calories: Int,
     val caloriesKnown: Boolean = true,
     val source: RecipeSource = RecipeSource.LOCAL_KNOWLEDGE_BASE,
+    val sourceName: String? = null,
     val sourceUrl: String? = null,
     val imageUrl: String? = null,
     val score: Double = 0.0,

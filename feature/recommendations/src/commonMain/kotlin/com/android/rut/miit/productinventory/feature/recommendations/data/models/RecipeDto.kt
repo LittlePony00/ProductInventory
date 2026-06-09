@@ -13,6 +13,7 @@ data class RecipeResponseDto(
     val calories: Int,
     val caloriesKnown: Boolean = true,
     val source: String = "LOCAL_KNOWLEDGE_BASE",
+    val sourceName: String? = null,
     val sourceUrl: String? = null,
     val imageUrl: String? = null,
     val score: Double = 0.0,

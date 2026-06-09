@@ -191,9 +191,10 @@
     <string name="recipes_like_heart">♡ В понравившиеся</string>
     <string name="recipes_unlike_heart">♥ Убрать</string>
     <string name="recipes_no_ingredients">Нет доступных продуктов</string>
-    <string name="recipes_ai_assisted_badge">AI-Assisted</string>
-    <string name="recipes_ai_assisted_title">Что значит AI-Assisted?</string>
-    <string name="recipes_ai_assisted_message">ИИ помог найти идею рецепта с учётом сохранённых ограничений. Проверьте источник, ингредиенты и аллергены перед использованием.</string>
+    <string name="recipes_ai_assisted_badge">GigaChat</string>
+    <string name="recipes_source_external">Внешний источник</string>
+    <string name="recipes_ai_assisted_title">Что значит GigaChat?</string>
+    <string name="recipes_ai_assisted_message">GigaChat помог найти идею рецепта с учётом сохранённых ограничений. Проверьте источник, ингредиенты и аллергены перед использованием.</string>
     <string name="recipes_use_soon">Использовать скоро</string>
     <string name="recipes_ai_recipe">ИИ-рецепт</string>
     <string name="recipes_under_30">До 30 мин</string>

@@ -16,6 +16,7 @@ fun RecipeResponseDto.toDomain() = Recipe(
     calories = calories,
     caloriesKnown = caloriesKnown,
     source = source,
+    sourceName = sourceName,
     sourceUrl = sourceUrl,
     imageUrl = imageUrl,
     score = score,

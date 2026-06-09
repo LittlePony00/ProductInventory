@@ -45,6 +45,7 @@ class PovarRuRecipeSearchProvider(
             .distinct()
             .flatMap(::findRecipeSummariesByTarget)
             .distinctBy(PovarRecipeSummary::url)
+            .shuffledCandidates()
             .take(maxRecipes.coerceAtLeast(1) * LOOKUP_CANDIDATE_MULTIPLIER)
             .mapNotNull(::lookupRecipe)
             .take(maxRecipes.coerceAtLeast(1))
@@ -63,6 +64,7 @@ class PovarRuRecipeSearchProvider(
             .asSequence()
             .flatMap(::findRecipeSummariesByTarget)
             .distinctBy(PovarRecipeSummary::url)
+            .shuffledCandidates()
             .take(maxRecipes.coerceAtLeast(1) * LOOKUP_CANDIDATE_MULTIPLIER)
             .mapNotNull(::lookupRecipe)
             .take(maxRecipes.coerceAtLeast(1))
@@ -181,6 +183,7 @@ private fun PovarRecipeDetails.toDiscoveryResult(reason: String): RecipeDiscover
     RecipeDiscoveryResult(
         recipe = toRecipe(),
         source = RecipeSource.EXTERNAL_API,
+        sourceName = POVAR_SOURCE_NAME,
         sourceUrl = url,
         imageUrl = imageUrl,
         reasons = listOf(reason),
@@ -258,7 +261,11 @@ private fun <T> List<T>.rotatedBy(offset: Int): List<T> {
     return drop(normalizedOffset) + take(normalizedOffset)
 }
 
+private fun Sequence<PovarRecipeSummary>.shuffledCandidates(): Sequence<PovarRecipeSummary> =
+    toList().shuffled().asSequence()
+
 private const val USER_AGENT = "ProductInventory/1.0 (+https://github.com/LittlePony00/ProductInventory)"
+private const val POVAR_SOURCE_NAME = "Povar.ru"
 private const val MIN_STEP_LENGTH = 8
 private const val MIN_QUERY_LENGTH = 2
 private const val LOOKUP_CANDIDATE_MULTIPLIER = 3

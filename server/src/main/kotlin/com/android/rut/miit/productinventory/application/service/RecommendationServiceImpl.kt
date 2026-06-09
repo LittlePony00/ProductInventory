@@ -26,6 +26,7 @@ import com.android.rut.miit.productinventory.domain.port.outbound.IAiRecipeSearc
 import com.android.rut.miit.productinventory.domain.port.outbound.IExternalRecipeSearchProvider
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
+import java.net.URI
 import java.util.UUID
 
 @Service
@@ -132,13 +133,16 @@ class RecommendationServiceImpl(
                 .orEmpty()
         }.getOrDefault(emptyList())
         var externalIndex = 0
-        return results.mapNotNull { result ->
+        return results.map { result ->
             if (result.source != RecipeSource.EXTERNAL_API || !result.requiresLocalization) {
                 result
             } else {
                 localizedByIndex
                     .getOrNull(externalIndex++)
                     ?.let { localized -> result.copy(recipe = localized) }
+                    ?: result.copy(
+                        warnings = result.warnings + "Не удалось автоматически перевести рецепт из внешнего источника; показан исходный текст."
+                    )
             }
         }
     }
@@ -174,6 +178,7 @@ class RecommendationServiceImpl(
             calories = recipe.calories,
             caloriesKnown = recipe.caloriesKnown,
             source = RecipeSource.AI_GENERATED,
+            sourceName = GIGACHAT_SOURCE_NAME,
             usedHouseholdProducts = if (context.searchesAnyProducts) {
                 emptyList()
             } else {
@@ -233,6 +238,7 @@ class RecommendationServiceImpl(
             calories = recipe.calories,
             caloriesKnown = recipe.caloriesKnown,
             source = RecipeSource.AI_GENERATED,
+            sourceName = GIGACHAT_SOURCE_NAME,
             score = 0.0,
             usedHouseholdProducts = context.products.map { it.name },
             usedExpiringProducts = context.expiringProducts.map { it.name },
@@ -246,6 +252,7 @@ class RecommendationServiceImpl(
     private companion object {
         const val RECOMMENDATION_LIMIT = 6
         const val AI_WARNING = "Рецепт создан ИИ. Проверьте ингредиенты, аллергены и шаги приготовления перед использованием."
+        const val GIGACHAT_SOURCE_NAME = "GigaChat"
     }
 }
 
@@ -255,12 +262,13 @@ class AiRecipeUnavailableException :
 private fun List<RecipeRecommendation>.rankFor(context: RecommendationContext): List<RecipeRecommendation> =
     if (context.searchesAnyProducts) {
         listOf(
-            filter { it.source == RecipeSource.EXTERNAL_API }.shuffled(),
+            filter { it.source == RecipeSource.EXTERNAL_API }.roundRobinByProvider(),
             filter { it.aiAssisted }.shuffled(),
             filter { it.source != RecipeSource.EXTERNAL_API && !it.aiAssisted }.shuffled()
         ).roundRobin()
     } else {
         sortedWith(compareByDescending<RecipeRecommendation> { it.score }.thenBy { it.title })
+            .interleaveExternalProviders()
     }
 
 private fun List<List<RecipeRecommendation>>.roundRobin(): List<RecipeRecommendation> {
@@ -283,6 +291,7 @@ private fun List<RecipeRecommendation>.selectDiverseFor(
         .take(limit)
         .ensureSourceIncluded(ranked, limit) { it.source == RecipeSource.EXTERNAL_API }
         .ensureSourceIncluded(ranked, limit) { it.aiAssisted }
+        .ensureExternalProviderIncluded(ranked, limit)
 }
 
 private fun List<RecipeRecommendation>.ensureSourceIncluded(
@@ -301,6 +310,71 @@ private fun List<RecipeRecommendation>.ensureSourceIncluded(
         if (index == indexToReplace) replacement else candidate
     }
 }
+
+private fun List<RecipeRecommendation>.ensureExternalProviderIncluded(
+    ranked: List<RecipeRecommendation>,
+    limit: Int
+): List<RecipeRecommendation> {
+    val rankedProviderKeys = ranked
+        .filter { it.source == RecipeSource.EXTERNAL_API }
+        .map(RecipeRecommendation::externalProviderKey)
+        .distinct()
+    val selectedProviderKeys = filter { it.source == RecipeSource.EXTERNAL_API }
+        .map(RecipeRecommendation::externalProviderKey)
+        .toSet()
+    val missingProviderKey = rankedProviderKeys.firstOrNull { it !in selectedProviderKeys } ?: return this
+    val replacement = ranked.firstOrNull {
+        it.source == RecipeSource.EXTERNAL_API && it.externalProviderKey() == missingProviderKey
+    } ?: return this
+
+    if (size < limit) return this + replacement
+
+    val duplicatedExternalProviderKeys = filter { it.source == RecipeSource.EXTERNAL_API }
+        .groupingBy(RecipeRecommendation::externalProviderKey)
+        .eachCount()
+        .filterValues { it > 1 }
+        .keys
+    val indexToReplace = indexOfLast { candidate ->
+        candidate.source == RecipeSource.EXTERNAL_API && candidate.externalProviderKey() in duplicatedExternalProviderKeys
+    }.takeIf { it >= 0 } ?: indexOfLast { candidate ->
+        candidate.source != RecipeSource.EXTERNAL_API && !candidate.aiAssisted
+    }.takeIf { it >= 0 } ?: return this
+
+    return mapIndexed { index, candidate ->
+        if (index == indexToReplace) replacement else candidate
+    }
+}
+
+private fun List<RecipeRecommendation>.interleaveExternalProviders(): List<RecipeRecommendation> {
+    val interleavedExternal = filter { it.source == RecipeSource.EXTERNAL_API }
+        .roundRobinByProvider()
+        .iterator()
+    return map { candidate ->
+        if (candidate.source == RecipeSource.EXTERNAL_API && interleavedExternal.hasNext()) {
+            interleavedExternal.next()
+        } else {
+            candidate
+        }
+    }
+}
+
+private fun List<RecipeRecommendation>.roundRobinByProvider(): List<RecipeRecommendation> =
+    groupBy(RecipeRecommendation::externalProviderKey)
+        .values
+        .map { providerRecipes -> providerRecipes.shuffled() }
+        .toList()
+        .roundRobin()
+
+private fun RecipeRecommendation.externalProviderKey(): String =
+    sourceName
+        ?.trim()
+        ?.lowercase()
+        ?.takeIf(String::isNotBlank)
+        ?: sourceUrl
+        ?.let { url -> runCatching { URI.create(url).host?.lowercase() }.getOrNull() }
+        ?.removePrefix("www.")
+        ?: sourceUrl
+        ?: source.name
 
 private fun RecommendationContext.generatedFallbackPrompt(): String =
     if (searchesAnyProducts) {
@@ -338,7 +412,8 @@ private fun RecipeDiscoveryResult.toRecommendation(context: RecommendationContex
         preferences = context.preferences
     )
     if (!safetyResult.safe) return null
-    val usedProducts = recipe.usedProducts(context.candidateProducts)
+    val matchableProducts = context.productsForIngredientMatching()
+    val usedProducts = recipe.usedProducts(matchableProducts)
     val missingIngredients = recipe.ingredients
         .filterNot { ingredient ->
             usedProducts.any { product ->
@@ -357,6 +432,7 @@ private fun RecipeDiscoveryResult.toRecommendation(context: RecommendationContex
         calories = recipe.calories,
         caloriesKnown = recipe.caloriesKnown,
         source = source,
+        sourceName = sourceName,
         sourceUrl = sourceUrl,
         imageUrl = imageUrl,
         score = source.defaultScore(),
@@ -371,6 +447,13 @@ private fun RecipeDiscoveryResult.toRecommendation(context: RecommendationContex
         aiGenerated = false
     )
 }
+
+private fun RecommendationContext.productsForIngredientMatching(): List<Product> =
+    if (searchesAnyProducts) {
+        allowedProducts
+    } else {
+        candidateProducts
+    }
 
 private fun Recipe.usedProducts(products: List<Product>): List<Product> {
     val recipeTerms = ingredients.flatMap { ingredientTerms(it.name) }.toSet()

@@ -286,6 +286,7 @@ private fun RecipeCard(
 @Composable
 private fun RecipeSourceBadges(recipe: Recipe) {
     val labels = buildList {
+        recipe.externalSourceLabel(stringResource(R.string.recipes_source_external))?.let(::add)
         if (recipe.aiGenerated) add(stringResource(R.string.recipes_ai_recipe))
         if (recipe.aiAssisted) add(stringResource(R.string.recipes_ai_assisted_badge))
     }
@@ -307,6 +308,17 @@ private fun RecipeSourceBadges(recipe: Recipe) {
         }
     }
     Spacer(Modifier.height(4.dp))
+}
+
+private fun Recipe.externalSourceLabel(fallback: String): String? {
+    val normalizedUrl = sourceUrl?.lowercase().orEmpty()
+    return when {
+        sourceName?.isNotBlank() == true -> sourceName
+        "themealdb.com" in normalizedUrl -> "TheMealDB"
+        "povar.ru" in normalizedUrl -> "Povar.ru"
+        source == "EXTERNAL_API" -> fallback
+        else -> null
+    }
 }
 
 @Composable

@@ -36,12 +36,14 @@ class TheMealDbRecipeSearchProvider(
             .take(maxProducts.coerceAtLeast(1))
             .flatMap(::findMealsByIngredient)
             .distinctBy(MealSummary::id)
+            .shuffledCandidates()
             .take(maxRecipes.coerceAtLeast(1))
             .mapNotNull(::lookupMeal)
             .map { recipe ->
                 RecipeDiscoveryResult(
                     recipe = recipe.toRecipe(),
                     source = RecipeSource.EXTERNAL_API,
+                    sourceName = THE_MEAL_DB_SOURCE_NAME,
                     sourceUrl = "$sourceBaseUrl/lookup.php?i=${recipe.id}",
                     imageUrl = recipe.thumbnailUrl,
                     reasons = listOf("Рецепт найден во внешнем сервисе TheMealDB по текущим продуктам")
@@ -60,6 +62,7 @@ class TheMealDbRecipeSearchProvider(
                 RecipeDiscoveryResult(
                     recipe = recipe.toRecipe(),
                     source = RecipeSource.EXTERNAL_API,
+                    sourceName = THE_MEAL_DB_SOURCE_NAME,
                     sourceUrl = "$sourceBaseUrl/lookup.php?i=${recipe.id}",
                     imageUrl = recipe.thumbnailUrl,
                     reasons = listOf("Случайный рецепт найден во внешнем сервисе TheMealDB")
@@ -112,6 +115,9 @@ private data class MealSummary(
     val id: String,
     val title: String
 )
+
+private fun Sequence<MealSummary>.shuffledCandidates(): Sequence<MealSummary> =
+    toList().shuffled().asSequence()
 
 private data class MealDetails(
     val id: String,
@@ -193,4 +199,5 @@ private val themealdbIngredientAliases = mapOf(
     "макароны" to "pasta"
 )
 
+private const val THE_MEAL_DB_SOURCE_NAME = "TheMealDB"
 private val stepSeparator = Regex("""\r?\n+""")

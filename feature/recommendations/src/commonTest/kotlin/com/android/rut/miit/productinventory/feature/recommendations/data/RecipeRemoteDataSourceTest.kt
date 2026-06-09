@@ -170,6 +170,7 @@ class RecipeRemoteDataSourceTest {
                       "calories": 0,
                       "caloriesKnown": false,
                       "source": "GIGACHAT",
+                      "sourceName": "GigaChat",
                       "warnings": ["Проверьте ингредиенты"],
                       "aiAssisted": true,
                       "aiGenerated": true
@@ -191,6 +192,7 @@ class RecipeRemoteDataSourceTest {
         assertEquals("ai-recipe-id", recipe.id)
         assertEquals(25, recipe.cookingTimeMinutes)
         assertEquals("GIGACHAT", recipe.source)
+        assertEquals("GigaChat", recipe.sourceName)
         assertEquals(listOf("Проверьте ингредиенты"), recipe.warnings)
         assertTrue(recipe.aiGenerated)
         assertTrue(recipe.aiAssisted)

@@ -87,6 +87,7 @@ class GigaChatRecipeProvider(
                     RecipeDiscoveryResult(
                         recipe = recipe,
                         source = RecipeSource.AI_ASSISTED,
+                        sourceName = GIGACHAT_SOURCE_NAME,
                         reasons = listOf("AI-Assisted: ИИ искал подходящие идеи рецептов на кулинарных сайтах с учётом сохранённых предпочтений"),
                         warnings = listOf("AI-Assisted: проверьте источник, ингредиенты и аллергены перед использованием."),
                         aiAssisted = true
@@ -179,6 +180,7 @@ class GigaChatRecipeProvider(
     private companion object {
         const val WEB_RANDOM_RECIPE_COUNT = 6
         const val WEB_SELECTED_RECIPE_COUNT = 3
+        const val GIGACHAT_SOURCE_NAME = "GigaChat"
     }
 }
 
@@ -552,19 +554,28 @@ private fun Recipe.mergeLocalizedFoundRecipe(original: Recipe): Recipe? =
         .takeIf(Recipe::isAcceptablyLocalized)
 
 private fun Recipe.mergeLocalizedFoundRecipeData(original: Recipe): Recipe {
-    val mergedIngredients = ingredients
-        .takeIf { it.size == original.ingredients.size }
-        ?.mapIndexed { index, ingredient ->
+    val mergedIngredients = when {
+        ingredients.size == original.ingredients.size -> ingredients.mapIndexed { index, ingredient ->
             RecipeIngredient(
                 name = ingredient.name.takeIf(String::isNotBlank) ?: original.ingredients[index].name,
                 amount = ingredient.amount.takeIf(String::isNotBlank) ?: original.ingredients[index].amount
             )
         }
-        ?: original.ingredients
-    val mergedSteps = steps
-        .takeIf { it.size == original.steps.size }
-        ?.mapIndexed { index, step -> step.takeIf(String::isNotBlank) ?: original.steps[index] }
-        ?: original.steps
+        ingredients.isNotEmpty() -> ingredients.map { ingredient ->
+            RecipeIngredient(
+                name = ingredient.name,
+                amount = ingredient.amount.takeIf(String::isNotBlank) ?: "по вкусу"
+            )
+        }
+        else -> original.ingredients
+    }
+    val mergedSteps = when {
+        steps.size == original.steps.size -> steps.mapIndexed { index, step ->
+            step.takeIf(String::isNotBlank) ?: original.steps[index]
+        }
+        steps.isNotEmpty() -> steps
+        else -> original.steps
+    }
     val mergedCalories = if (original.caloriesKnown && original.calories > 0) {
         original.calories
     } else {
