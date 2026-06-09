@@ -39,18 +39,6 @@ GIGACHAT_API_KEY=<secret> ./scripts/start_local_diploma_server.sh
 GIGACHAT_API=<secret> ./scripts/start_local_diploma_server.sh
 ```
 
-To validate GigaChat without starting the full backend, run the live check:
-
-```bash
-GIGACHAT_API_KEY=<secret> server/scripts/check-gigachat-live.sh
-# or
-GIGACHAT_API=<secret> server/scripts/check-gigachat-live.sh
-```
-
-The live check runs only the opt-in GigaChat integration test and does not
-commit or print the key. You can override the truststore path/password with
-`GIGACHAT_TRUSTSTORE_PATH` and `GIGACHAT_TRUSTSTORE_PASSWORD`.
-
 Install Android app pointed at that backend:
 
 ```bash

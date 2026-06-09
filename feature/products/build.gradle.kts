@@ -16,7 +16,6 @@ kotlin {
     }
     iosArm64()
     iosSimulatorArm64()
-    jvm()
 
     sourceSets {
         commonMain.dependencies {
@@ -55,8 +54,8 @@ kotlin {
         }
         androidUnitTest.dependencies {
             implementation(libs.junit)
-            implementation("androidx.test:core:1.6.1")
-            implementation("org.robolectric:robolectric:4.13")
+            implementation(libs.androidx.test.core)
+            implementation(libs.robolectric)
             implementation(libs.kotlinx.coroutines.test)
             implementation(libs.koin.core)
         }

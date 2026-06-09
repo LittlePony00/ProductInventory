@@ -30,9 +30,6 @@ kotlin {
             export(projects.feature.recommendations)
         }
     }
-
-    jvm()
-
     sourceSets {
         commonMain.dependencies {
             api(projects.core)
@@ -44,9 +41,6 @@ kotlin {
             api(projects.feature.profile)
             api(projects.feature.recommendations)
             implementation(libs.koin.core)
-        }
-        commonTest.dependencies {
-            implementation(libs.kotlin.test)
         }
     }
 }

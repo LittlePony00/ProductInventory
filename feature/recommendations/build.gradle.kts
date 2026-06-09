@@ -12,7 +12,6 @@ kotlin {
     androidTarget { compilerOptions { jvmTarget.set(JvmTarget.JVM_11) } }
     iosArm64()
     iosSimulatorArm64()
-    jvm()
 
     sourceSets {
         commonMain.dependencies {
@@ -41,6 +40,13 @@ kotlin {
             implementation(libs.ktor.serialization.json)
             implementation(libs.kotlinx.serialization.json)
         }
+        androidUnitTest.dependencies {
+            implementation(libs.junit)
+            implementation(libs.kotlinx.coroutines.test)
+            implementation(libs.androidx.compose.ui.test.junit4)
+            implementation(libs.androidx.test.core)
+            implementation(libs.robolectric)
+        }
     }
 }
 
@@ -54,4 +60,13 @@ android {
     defaultConfig {
         minSdk = libs.versions.android.minSdk.get().toInt()
     }
+    testOptions {
+        unitTests {
+            isIncludeAndroidResources = true
+        }
+    }
+}
+
+dependencies {
+    debugImplementation(libs.androidx.compose.ui.test.manifest)
 }

@@ -28,6 +28,18 @@ class JwtTokenProviderTest {
         assertFalse(provider.validateToken(expiredToken))
     }
 
+    @Test
+    fun `token signed with different secret is rejected`() {
+        val token = JwtTokenProvider(secret = SECRET, accessTokenExpirationMs = 60_000)
+            .generateAccessToken(UUID.randomUUID(), "user@example.com")
+        val providerWithDifferentSecret = JwtTokenProvider(
+            secret = "abcdefghijklmnopqrstuvwxyz123456",
+            accessTokenExpirationMs = 60_000
+        )
+
+        assertFalse(providerWithDifferentSecret.validateToken(token))
+    }
+
     private companion object {
         const val SECRET = "01234567890123456789012345678901"
     }

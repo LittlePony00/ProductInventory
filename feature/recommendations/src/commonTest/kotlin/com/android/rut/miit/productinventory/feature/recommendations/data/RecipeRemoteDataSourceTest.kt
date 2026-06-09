@@ -1,5 +1,6 @@
 package com.android.rut.miit.productinventory.feature.recommendations.data
 
+import com.android.rut.miit.productinventory.feature.recommendations.api.models.RecommendationMode
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.MockRequestHandleScope
@@ -16,6 +17,7 @@ import io.ktor.http.headersOf
 import io.ktor.serialization.kotlinx.json.json
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.Json
 
@@ -51,6 +53,37 @@ class RecipeRemoteDataSourceTest {
     }
 
     @Test
+    fun `get recipes sends current products mode by default`() = runTest {
+        val engine = MockEngine { request ->
+            assertEquals("/api/v1/households/household-id/recipes", request.url.encodedPath)
+            assertEquals(RecommendationMode.CURRENT_PRODUCTS.name, request.url.parameters["mode"])
+            respond(
+                content = "[]",
+                status = HttpStatusCode.OK,
+                headers = headersOf(HttpHeaders.ContentType, ContentType.Application.Json.toString())
+            )
+        }
+
+        val recipes = RecipeRemoteDataSource(httpClient(engine)).getRecipes("household-id")
+
+        assertTrue(recipes.isEmpty())
+    }
+
+    @Test
+    fun `get recipes sends use soon mode when requested`() = runTest {
+        val engine = MockEngine { request ->
+            assertEquals("/api/v1/households/household-id/recipes", request.url.encodedPath)
+            assertEquals(RecommendationMode.USE_SOON.name, request.url.parameters["mode"])
+            respondStrictRecipeJson()
+        }
+
+        val recipes = RecipeRemoteDataSource(httpClient(engine))
+            .getRecipes("household-id", RecommendationMode.USE_SOON)
+
+        assertEquals("Rice Bowl", recipes.single().title)
+    }
+
+    @Test
     fun `get ingredient options decodes current products`() = runTest {
         val engine = MockEngine { request ->
             assertEquals("/api/v1/households/household-id/recipes/ingredients", request.url.encodedPath)
@@ -78,6 +111,37 @@ class RecipeRemoteDataSourceTest {
     }
 
     @Test
+    fun `get ingredient options decodes product availability metadata`() = runTest {
+        val engine = MockEngine { request ->
+            assertEquals("/api/v1/households/household-id/recipes/ingredients", request.url.encodedPath)
+            respond(
+                content = """
+                    [
+                      {
+                        "id": "product-id",
+                        "name": "Йогурт",
+                        "categoryName": "Молочные продукты",
+                        "remainingAmount": 0.5,
+                        "unit": "LITERS",
+                        "expiring": true
+                      }
+                    ]
+                """.trimIndent(),
+                status = HttpStatusCode.OK,
+                headers = headersOf(HttpHeaders.ContentType, ContentType.Application.Json.toString())
+            )
+        }
+
+        val option = RecipeRemoteDataSource(httpClient(engine)).getIngredientOptions("household-id").single()
+
+        assertEquals("product-id", option.id)
+        assertEquals("Молочные продукты", option.categoryName)
+        assertEquals(0.5, option.remainingAmount)
+        assertEquals("LITERS", option.unit)
+        assertTrue(option.expiring)
+    }
+
+    @Test
     fun `find recipes posts selected product ids`() = runTest {
         val engine = MockEngine { request ->
             assertEquals("/api/v1/households/household-id/recipes/search", request.url.encodedPath)
@@ -88,6 +152,49 @@ class RecipeRemoteDataSourceTest {
             .findRecipes("household-id", com.android.rut.miit.productinventory.feature.recommendations.data.models.FindRecipeRequestDto(setOf("product-id")))
 
         assertEquals("Rice Bowl", recipes.single().title)
+    }
+
+    @Test
+    fun `generate ai recipe decodes ai metadata from object response`() = runTest {
+        val engine = MockEngine { request ->
+            assertEquals("/api/v1/households/household-id/recipes/ai-generated", request.url.encodedPath)
+            respond(
+                content = """
+                    {
+                      "id": "ai-recipe-id",
+                      "title": "AI Supper",
+                      "ingredients": [{"name": "potato", "amount": "2 pcs"}],
+                      "steps": ["Bake potatoes"],
+                      "time": "25 minutes",
+                      "cookingTimeMinutes": 25,
+                      "calories": 0,
+                      "caloriesKnown": false,
+                      "source": "GIGACHAT",
+                      "warnings": ["Проверьте ингредиенты"],
+                      "aiAssisted": true,
+                      "aiGenerated": true
+                    }
+                """.trimIndent(),
+                status = HttpStatusCode.OK,
+                headers = headersOf(HttpHeaders.ContentType, ContentType.Application.Json.toString())
+            )
+        }
+
+        val recipe = RecipeRemoteDataSource(httpClient(engine)).generateAiRecipe(
+            "household-id",
+            com.android.rut.miit.productinventory.feature.recommendations.data.models.GenerateAiRecipeRequestDto(
+                maxCookingTimeMinutes = 30,
+                servings = 2
+            )
+        )
+
+        assertEquals("ai-recipe-id", recipe.id)
+        assertEquals(25, recipe.cookingTimeMinutes)
+        assertEquals("GIGACHAT", recipe.source)
+        assertEquals(listOf("Проверьте ингредиенты"), recipe.warnings)
+        assertTrue(recipe.aiGenerated)
+        assertTrue(recipe.aiAssisted)
+        assertTrue(!recipe.caloriesKnown)
     }
 
     @Test

@@ -9,23 +9,10 @@
 /* Begin PBXBuildFile section */
 		2A3D1E0F8B9C4D5E6F701234 /* FirebaseCore in Frameworks */ = {isa = PBXBuildFile; productRef = 5B6C7D8E9F00112233445566 /* FirebaseCore */; };
 		3B4E2F1A9C0D5E6F70812345 /* FirebaseMessaging in Frameworks */ = {isa = PBXBuildFile; productRef = 6C7D8E9F0011223344556677 /* FirebaseMessaging */; };
-		A10000000000000000000001 /* ProductInventoryUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000002 /* ProductInventoryUITests.swift */; };
 /* End PBXBuildFile section */
-
-/* Begin PBXContainerItemProxy section */
-		A1000000000000000000000C /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 309501A35B45F2F6E46F346D /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = A7E150A4F0068564BFA40BC8;
-			remoteInfo = iosApp;
-		};
-/* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
 		89D958F5DC6FB68B0A758421 /* ProductInventory.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ProductInventory.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		A10000000000000000000002 /* ProductInventoryUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProductInventoryUITests.swift; sourceTree = "<group>"; };
-		A10000000000000000000003 /* iosAppUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = iosAppUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -64,13 +51,6 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		A10000000000000000000006 /* Frameworks */ = {
-			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -79,24 +59,14 @@
 			children = (
 				A84FCC3ADDEC2CAFBE60AEA7 /* Configuration */,
 				09E6AFC1605768AF58517889 /* iosApp */,
-				A10000000000000000000004 /* iosAppUITests */,
 				D7CFE132198F17BCD9DCA0F1 /* Products */,
 			);
-			sourceTree = "<group>";
-		};
-		A10000000000000000000004 /* iosAppUITests */ = {
-			isa = PBXGroup;
-			children = (
-				A10000000000000000000002 /* ProductInventoryUITests.swift */,
-			);
-			path = iosAppUITests;
 			sourceTree = "<group>";
 		};
 		D7CFE132198F17BCD9DCA0F1 /* Products */ = {
 			isa = PBXGroup;
 			children = (
 				89D958F5DC6FB68B0A758421 /* ProductInventory.app */,
-				A10000000000000000000003 /* iosAppUITests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -104,24 +74,6 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		A10000000000000000000008 /* iosAppUITests */ = {
-			isa = PBXNativeTarget;
-			buildConfigurationList = A10000000000000000000009 /* Build configuration list for PBXNativeTarget "iosAppUITests" */;
-			buildPhases = (
-				A10000000000000000000005 /* Sources */,
-				A10000000000000000000006 /* Frameworks */,
-				A10000000000000000000007 /* Resources */,
-			);
-			buildRules = (
-			);
-			dependencies = (
-				A1000000000000000000000D /* PBXTargetDependency */,
-			);
-			name = iosAppUITests;
-			productName = iosAppUITests;
-			productReference = A10000000000000000000003 /* iosAppUITests.xctest */;
-			productType = "com.apple.product-type.bundle.ui-testing";
-		};
 		A7E150A4F0068564BFA40BC8 /* iosApp */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = B055F4C7B678E96306880836 /* Build configuration list for PBXNativeTarget "iosApp" */;
@@ -158,10 +110,6 @@
 				LastSwiftUpdateCheck = 1620;
 				LastUpgradeCheck = 1620;
 				TargetAttributes = {
-					A10000000000000000000008 = {
-						CreatedOnToolsVersion = 16.2;
-						TestTargetID = A7E150A4F0068564BFA40BC8;
-					};
 					A7E150A4F0068564BFA40BC8 = {
 						CreatedOnToolsVersion = 16.2;
 					};
@@ -185,19 +133,11 @@
 			projectRoot = "";
 			targets = (
 				A7E150A4F0068564BFA40BC8 /* iosApp */,
-				A10000000000000000000008 /* iosAppUITests */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
-		A10000000000000000000007 /* Resources */ = {
-			isa = PBXResourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 		FA5DAE735FA2EFA2B5054C09 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -244,7 +184,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "if [ \"YES\" = \"$OVERRIDE_KOTLIN_BUILD_IDE_SUPPORTED\" ]; then\n  echo \"Skipping Gradle build task invocation due to OVERRIDE_KOTLIN_BUILD_IDE_SUPPORTED environment variable set to \\\"YES\\\"\"\n  exit 0\nfi\ncd \"$SRCROOT/..\"\n./gradlew :shared:embedAndSignAppleFrameworkForXcode\n";
+			shellScript = "if [ \"YES\" = \"$OVERRIDE_KOTLIN_BUILD_IDE_SUPPORTED\" ]; then\n  echo \"Skipping Gradle build task invocation due to OVERRIDE_KOTLIN_BUILD_IDE_SUPPORTED environment variable set to \\\"YES\\\"\"\n  exit 0\nfi\n\nif [ -f \"$SRCROOT/.xcode.env\" ]; then\n  . \"$SRCROOT/.xcode.env\"\nfi\n\nJAVA_HOME=\"${JAVA_HOME%\\\"}\"\nJAVA_HOME=\"${JAVA_HOME#\\\"}\"\nANDROID_STUDIO_JAVA_HOME=\"/Applications/Android Studio.app/Contents/jbr/Contents/Home\"\nif [ -z \"$JAVA_HOME\" ] || [ ! -x \"$JAVA_HOME/bin/java\" ]; then\n  if [ -x \"$ANDROID_STUDIO_JAVA_HOME/bin/java\" ]; then\n    export JAVA_HOME=\"$ANDROID_STUDIO_JAVA_HOME\"\n  fi\nelse\n  export JAVA_HOME\nfi\n\nif [ -n \"$JAVA_HOME\" ]; then\n  export PATH=\"$JAVA_HOME/bin:$PATH\"\nfi\n\ncd \"$SRCROOT/..\"\n./gradlew :shared:embedAndSignAppleFrameworkForXcode\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -256,23 +196,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		A10000000000000000000005 /* Sources */ = {
-			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				A10000000000000000000001 /* ProductInventoryUITests.swift in Sources */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 /* End PBXSourcesBuildPhase section */
-
-/* Begin PBXTargetDependency section */
-		A1000000000000000000000D /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = A7E150A4F0068564BFA40BC8 /* iosApp */;
-			targetProxy = A1000000000000000000000C /* PBXContainerItemProxy */;
-		};
-/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		392C422D891B2C6B11C7C2C9 /* Debug */ = {
@@ -303,42 +227,6 @@
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = Debug;
-		};
-		A1000000000000000000000A /* Debug */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = NO;
-				CODE_SIGN_STYLE = Automatic;
-				DEVELOPMENT_TEAM = "${TEAM_ID}";
-				GENERATE_INFOPLIST_FILE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 18.2;
-				PRODUCT_BUNDLE_IDENTIFIER = "com.android.rut.miit.productinventory.ProductInventoryUITests$(TEAM_ID)";
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = iphoneos;
-				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
-				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
-				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2";
-				TEST_TARGET_NAME = iosApp;
-			};
-			name = Debug;
-		};
-		A1000000000000000000000B /* Release */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = NO;
-				CODE_SIGN_STYLE = Automatic;
-				DEVELOPMENT_TEAM = "${TEAM_ID}";
-				GENERATE_INFOPLIST_FILE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 18.2;
-				PRODUCT_BUNDLE_IDENTIFIER = "com.android.rut.miit.productinventory.ProductInventoryUITests$(TEAM_ID)";
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = iphoneos;
-				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2";
-				TEST_TARGET_NAME = iosApp;
-			};
-			name = Release;
 		};
 		A99BAC5AFAC03EC0BF82BB30 /* Release */ = {
 			isa = XCBuildConfiguration;
@@ -500,15 +388,6 @@
 			buildConfigurations = (
 				AF1613AD541322686E7E6CA9 /* Debug */,
 				A99BAC5AFAC03EC0BF82BB30 /* Release */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
-		};
-		A10000000000000000000009 /* Build configuration list for PBXNativeTarget "iosAppUITests" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				A1000000000000000000000A /* Debug */,
-				A1000000000000000000000B /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

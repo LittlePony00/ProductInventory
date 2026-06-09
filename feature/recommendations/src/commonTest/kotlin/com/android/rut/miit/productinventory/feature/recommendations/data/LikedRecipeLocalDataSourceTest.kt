@@ -1,6 +1,6 @@
 package com.android.rut.miit.productinventory.feature.recommendations.data
 
-import com.android.rut.miit.productinventory.core.local.InMemoryPersistentKeyValueStore
+import com.android.rut.miit.productinventory.core.local.PersistentKeyValueStore
 import com.android.rut.miit.productinventory.feature.recommendations.api.models.Recipe
 import com.android.rut.miit.productinventory.feature.recommendations.api.models.RecipeIngredient
 import kotlin.test.Test
@@ -11,7 +11,7 @@ class LikedRecipeLocalDataSourceTest {
 
     @Test
     fun `persists liked recipes by household in shared store`() = runTest {
-        val store = InMemoryPersistentKeyValueStore()
+        val store = RecordingPersistentKeyValueStore()
         val dataSource = LikedRecipeLocalDataSource(store)
         val firstHouseholdRecipe = recipe("Рис с овощами")
         val secondHouseholdRecipe = recipe("Паста")
@@ -26,7 +26,7 @@ class LikedRecipeLocalDataSourceTest {
 
     @Test
     fun `unlikes recipe by stable local identity`() = runTest {
-        val dataSource = LikedRecipeLocalDataSource(InMemoryPersistentKeyValueStore())
+        val dataSource = LikedRecipeLocalDataSource(RecordingPersistentKeyValueStore())
         val recipe = recipe("Рис с овощами")
 
         dataSource.setLikedRecipe("household-1", recipe, liked = true)
@@ -43,4 +43,18 @@ class LikedRecipeLocalDataSourceTest {
             time = "20 минут",
             calories = 300
         )
+
+    private class RecordingPersistentKeyValueStore : PersistentKeyValueStore {
+        private val values = mutableMapOf<String, String>()
+
+        override suspend fun read(key: String): String? = values[key]
+
+        override suspend fun write(key: String, value: String) {
+            values[key] = value
+        }
+
+        override suspend fun remove(key: String) {
+            values.remove(key)
+        }
+    }
 }

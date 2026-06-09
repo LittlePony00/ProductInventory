@@ -1,6 +1,3 @@
-rootProject.name = "ProductInventory"
-enableFeaturePreview("TYPESAFE_PROJECT_ACCESSORS")
-
 pluginManagement {
     repositories {
         google {
@@ -15,6 +12,10 @@ pluginManagement {
     }
 }
 
+plugins {
+    id("org.gradle.toolchains.foojay-resolver-convention") version "1.0.0"
+}
+
 dependencyResolutionManagement {
     repositories {
         google {
@@ -27,6 +28,9 @@ dependencyResolutionManagement {
         mavenCentral()
     }
 }
+
+rootProject.name = "ProductInventory"
+enableFeaturePreview("TYPESAFE_PROJECT_ACCESSORS")
 
 include(":composeApp")
 include(":core")

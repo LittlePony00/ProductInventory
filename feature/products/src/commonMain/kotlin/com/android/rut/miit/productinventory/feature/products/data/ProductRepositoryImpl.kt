@@ -36,8 +36,8 @@ class ProductRepositoryImpl(
     private val localDataSource: ProductLocalDataSource,
     private val syncQueue: SyncQueue,
     private val barcodeLocalDataSource: BarcodeLocalDataSource? = null,
-    private val imageFileReader: ProductImageFileReader = NoopProductImageFileReader,
-    private val imageLocalCache: ProductImageLocalCache = NoopProductImageLocalCache,
+    private val imageFileReader: ProductImageFileReader,
+    private val imageLocalCache: ProductImageLocalCache,
     private val json: Json = Json { ignoreUnknownKeys = true }
 ) : ProductRepository {
     private var lastActionCreatedAt = 0L

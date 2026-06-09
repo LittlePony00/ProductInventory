@@ -31,8 +31,8 @@ class ProductServiceImpl(
     private val householdEventPublisher: IHouseholdEventPublisher,
     private val categoryRepository: ICategoryRepository,
     private val barcodeProductCacheRepository: IBarcodeProductCacheRepository,
-    private val barcodeProductService: IBarcodeProductService = NoopBarcodeProductService,
-    private val productImageStorage: IProductImageStorage = NoopProductImageStorage
+    private val barcodeProductService: IBarcodeProductService,
+    private val productImageStorage: IProductImageStorage
 ) : IProductService {
 
     @Transactional
@@ -449,38 +449,6 @@ class ProductServiceImpl(
 }
 
 private fun String.trimToNull(): String? = trim().takeIf { it.isNotEmpty() }
-
-private object NoopBarcodeProductService : IBarcodeProductService {
-    override fun getProductDraft(userId: UUID, householdId: UUID, barcode: String): BarcodeProductDraft =
-        BarcodeProductDraft(
-            barcode = barcode,
-            name = null,
-            brand = null,
-            packageQuantity = null,
-            ingredients = null,
-            imageUrl = null,
-            nutrition = null,
-            category = null,
-            source = BarcodeProductSource.LOCAL_DATABASE,
-            confidence = 0.0
-        )
-}
-
-private object NoopProductImageStorage : IProductImageStorage {
-    override fun uploadProductImage(
-        householdId: UUID,
-        productId: UUID,
-        originalFilename: String?,
-        contentType: String?,
-        size: Long,
-        inputStream: InputStream
-    ): com.android.rut.miit.productinventory.domain.port.outbound.StoredProductImage =
-        throw IllegalStateException("Product image storage is not configured")
-
-    override fun findBarcodeImageUrl(barcode: String): String? = null
-
-    override fun deleteObject(objectKey: String) = Unit
-}
 
 private data class ResolvedCategory(
     val id: UUID,

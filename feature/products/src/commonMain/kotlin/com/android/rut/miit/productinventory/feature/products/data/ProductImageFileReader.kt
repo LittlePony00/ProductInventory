@@ -10,20 +10,10 @@ interface ProductImageFileReader {
     suspend fun read(path: String): ProductImageFileContent?
 }
 
-object NoopProductImageFileReader : ProductImageFileReader {
-    override suspend fun read(path: String): ProductImageFileContent? = null
-}
-
 interface ProductImageLocalCache {
     fun localPathForRemoteImage(productId: String, imageUrl: String): String?
     suspend fun exists(path: String): Boolean
     suspend fun write(path: String, bytes: ByteArray): Boolean
-}
-
-object NoopProductImageLocalCache : ProductImageLocalCache {
-    override fun localPathForRemoteImage(productId: String, imageUrl: String): String? = null
-    override suspend fun exists(path: String): Boolean = false
-    override suspend fun write(path: String, bytes: ByteArray): Boolean = false
 }
 
 internal fun remoteProductImageFileName(productId: String, imageUrl: String): String =

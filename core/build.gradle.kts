@@ -18,7 +18,6 @@ kotlin {
 
     iosArm64()
     iosSimulatorArm64()
-    jvm()
 
     sourceSets {
         commonMain.dependencies {
@@ -50,19 +49,12 @@ kotlin {
         iosMain.dependencies {
             implementation(libs.ktor.client.darwin)
         }
-        jvmMain.dependencies {
-            implementation(libs.ktor.client.java)
-        }
-        commonTest.dependencies {
-            implementation(libs.kotlin.test)
-            implementation(libs.kotlinx.coroutines.test)
-            implementation(libs.ktor.client.mock)
-        }
         androidUnitTest.dependencies {
+            implementation(libs.kotlin.test)
             implementation(libs.junit)
-            implementation("androidx.room:room-testing:2.7.1")
-            implementation("androidx.test:core:1.6.1")
-            implementation("org.robolectric:robolectric:4.13")
+            implementation(libs.androidx.room.testing)
+            implementation(libs.androidx.test.core)
+            implementation(libs.robolectric)
         }
     }
 }

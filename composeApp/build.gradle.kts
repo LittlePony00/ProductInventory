@@ -1,4 +1,3 @@
-import org.jetbrains.compose.desktop.application.dsl.TargetFormat
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
@@ -48,16 +47,6 @@ kotlin {
             implementation(libs.kotlinx.datetime)
             implementation(libs.kotlinx.serialization.json)
         }
-        commonTest.dependencies {
-            implementation(libs.kotlin.test)
-        }
-        androidUnitTest.dependencies {
-            implementation(libs.junit)
-            implementation("androidx.compose.ui:ui-test-junit4:1.10.5")
-            implementation("androidx.room:room-testing:2.7.1")
-            implementation("androidx.test:core:1.6.1")
-            implementation("org.robolectric:robolectric:4.13")
-        }
     }
 }
 
@@ -95,5 +84,4 @@ android {
 
 dependencies {
     debugImplementation(libs.compose.uiTooling)
-    debugImplementation("androidx.compose.ui:ui-test-manifest:1.10.5")
 }
