@@ -419,7 +419,7 @@ private fun RecipeDiscoveryResult.toRecommendation(context: RecommendationContex
     val missingIngredients = recipe.ingredients
         .filterNot { ingredient ->
             usedProducts.any { product ->
-                ingredientTerms(ingredient.name).matchesAnyPreferenceTerm(product.recipeTerms())
+                ingredientTerms(ingredient.name).matchesAnyPreferenceTerm(product.stockUsageTerms())
             }
         }
         .map { it.name }
@@ -460,12 +460,12 @@ private fun RecommendationContext.productsForIngredientMatching(): List<Product>
 private fun Recipe.usedProducts(products: List<Product>): List<Product> {
     val recipeTerms = ingredients.flatMap { ingredientTerms(it.name) }.toSet()
     return products
-        .filter { product -> product.recipeTerms().matchesAnyPreferenceTerm(recipeTerms) }
+        .filter { product -> product.stockUsageTerms().matchesAnyPreferenceTerm(recipeTerms) }
         .distinctBy(Product::id)
 }
 
-private fun Product.recipeTerms(): Set<String> =
-    (listOf(name, category.name) + listOfNotNull(categoryName, ingredientsText))
+private fun Product.stockUsageTerms(): Set<String> =
+    (listOf(name) + listOfNotNull(ingredientsText))
         .flatMap(::ingredientTerms)
         .toSet()
 

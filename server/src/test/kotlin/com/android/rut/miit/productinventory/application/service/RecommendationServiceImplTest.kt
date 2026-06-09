@@ -127,6 +127,27 @@ class RecommendationServiceImplTest {
         assertTrue("свежий огурец" !in recipe.missingIngredients)
     }
 
+    @Test
+    fun `random recipe does not mark product as used by category only`() {
+        val userId = UUID.randomUUID()
+        val householdId = UUID.randomUUID()
+        val service = service(
+            userId = userId,
+            householdId = householdId,
+            products = listOf(product("Яблоки", userId, householdId)),
+            externalProviders = emptyList(),
+            aiSearchProvider = StaticAiSearchProvider(
+                listOf(aiRecipe("Томатный салат", ingredient = "помидор"))
+            ),
+            localizer = RejectingRecipeLocalizer
+        )
+
+        val recipe = service.findRecipes(userId, householdId, RecipeSearchRequest()).single()
+
+        assertEquals(emptyList(), recipe.usedHouseholdProducts)
+        assertEquals(listOf("помидор"), recipe.missingIngredients)
+    }
+
     private fun service(
         userId: UUID,
         householdId: UUID,
